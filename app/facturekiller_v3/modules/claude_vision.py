@@ -23,15 +23,22 @@ class ClaudeVision:
     """Analyseur de factures avec Claude Vision"""
     
     def __init__(self):
-        # Compatible avec anthropic 0.25.0+
-        self.client = anthropic.Anthropic(
-            api_key=os.getenv('ANTHROPIC_API_KEY')
-        )
-        self.model = "claude-3-opus-20240229"  # Claude 3 Opus avec vision
-        
-        # Prompts spécialisés par fournisseur
-        self.supplier_prompts = {
-            'METRO': """Tu es un expert en analyse de factures METRO/MAKRO. 
+        try:
+            # Compatible avec anthropic 0.34.0+
+            api_key = os.getenv('ANTHROPIC_API_KEY')
+            if not api_key:
+                raise ValueError("ANTHROPIC_API_KEY non trouvée dans les variables d'environnement")
+            
+            self.client = anthropic.Anthropic(
+                api_key=api_key
+            )
+            self.model = "claude-3-haiku-20240307"  # Modèle plus stable et moins cher
+            
+            print(f"✅ Claude Vision initialisé avec succès")
+            
+            # Prompts spécialisés par fournisseur
+            self.supplier_prompts = {
+                'METRO': """Tu es un expert en analyse de factures METRO/MAKRO. 
 Analyse cette facture et extrait UNIQUEMENT les produits alimentaires réels (viandes, poissons, légumes, épicerie).
 
 RÈGLES STRICTES METRO:
@@ -62,7 +69,7 @@ STRUCTURE JSON ATTENDUE:
 
 Réponds UNIQUEMENT avec le JSON, pas d'autre texte.""",
 
-            'TRANSGOURMET': """Tu es un expert en analyse de factures TRANSGOURMET.
+                'TRANSGOURMET': """Tu es un expert en analyse de factures TRANSGOURMET.
 Analyse cette facture et extrait UNIQUEMENT les produits alimentaires réels.
 
 RÈGLES STRICTES TRANSGOURMET:
@@ -73,7 +80,7 @@ RÈGLES STRICTES TRANSGOURMET:
 
 Réponds UNIQUEMENT avec le JSON de structure identique.""",
 
-            'GENERIC': """Tu es un expert en analyse de factures alimentaires.
+                'GENERIC': """Tu es un expert en analyse de factures alimentaires.
 Analyse cette facture et extrait UNIQUEMENT les produits alimentaires réels.
 
 RÈGLES STRICTES:
@@ -83,7 +90,12 @@ RÈGLES STRICTES:
 - IGNORE: TVA, totaux, frais, codes client, mentions techniques
 
 Réponds UNIQUEMENT avec le JSON."""
-        }
+            }
+        
+        except Exception as e:
+            print(f"❌ Erreur initialisation Claude Vision: {e}")
+            self.client = None
+            self.model = None
     
     def analyze_invoice_image(self, image_path: str) -> Dict[str, Any]:
         """
