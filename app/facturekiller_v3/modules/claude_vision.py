@@ -90,6 +90,13 @@ Réponds UNIQUEMENT avec le JSON."""
         Analyser une image de facture avec Claude Vision
         """
         try:
+            # Test de connexion d'abord
+            if not self.test_api_connection():
+                return {
+                    'success': False,
+                    'error': 'Impossible de se connecter à l\'API Anthropic'
+                }
+            
             # Vérifier que le fichier existe
             if not os.path.exists(image_path):
                 return {
