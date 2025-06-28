@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des Anomalies - FactureKiller V3</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body class="modern-bg">
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('main.index') }}">
+                <i class="fas fa-receipt me-2"></i>FactureKiller V3
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('main.index') }}">
+                            <i class="fas fa-home me-1"></i>Accueil
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('factures.scanner') }}">
+                            <i class="fas fa-camera me-1"></i>Scanner
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('fournisseurs.fournisseurs') }}">
+                            <i class="fas fa-truck me-1"></i>Fournisseurs
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{{ url_for('anomalies.anomalies_page') }}">
+                            <i class="fas fa-exclamation-triangle me-1"></i>Anomalies
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- En-tête -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="glass-card">
+                    <div class="card-body">
+                        <h1 class="mb-4">
+                            <i class="fas fa-exclamation-triangle text-warning me-3"></i>
+                            Gestion des Anomalies
+                        </h1>
+                        
+                        <!-- Statistiques -->
+                        <div class="row" id="statsContainer">
+                            <div class="col-md-2">
+                                <div class="stat-card bg-primary">
+                                    <div class="stat-number" id="totalAnomalies">0</div>
+                                    <div class="stat-label">Total</div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="stat-card bg-warning">
+                                    <div class="stat-number" id="detecteesAnomalies">0</div>
+                                    <div class="stat-label">Détectées</div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="stat-card bg-info">
+                                    <div class="stat-number" id="mailEnvoyesAnomalies">0</div>
+                                    <div class="stat-label">Mail Envoyé</div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="stat-card bg-success">
+                                    <div class="stat-number" id="avoirAcceptesAnomalies">0</div>
+                                    <div class="stat-label">Avoir Accepté</div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="stat-card bg-danger">
+                                    <div class="stat-number" id="avoirRefusesAnomalies">0</div>
+                                    <div class="stat-label">Avoir Refusé</div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="stat-card bg-secondary">
+                                    <div class="stat-number" id="montantEcarts">0€</div>
+                                    <div class="stat-label">Écarts Total</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filtres -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="glass-card">
+                    <div class="card-body">
+                        <h5><i class="fas fa-filter me-2"></i>Filtres</h5>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <label class="form-label">Statut</label>
+                                <select class="form-select" id="filterStatut">
+                                    <option value="">Tous les statuts</option>
+                                    <option value="detectee">🔍 Détectée</option>
+                                    <option value="mail_envoye">📧 Mail Envoyé</option>
+                                    <option value="avoir_accepte">✅ Avoir Accepté</option>
+                                    <option value="avoir_refuse">❌ Avoir Refusé</option>
+                                    <option value="resolu">✔️ Résolu</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Fournisseur</label>
+                                <select class="form-select" id="filterFournisseur">
+                                    <option value="">Tous les fournisseurs</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <button class="btn btn-primary me-2" onclick="loadAnomalies()">
+                                    <i class="fas fa-search me-1"></i>Filtrer
+                                </button>
+                                <button class="btn btn-secondary" onclick="resetFilters()">
+                                    <i class="fas fa-times me-1"></i>Reset
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Liste des anomalies -->
+        <div class="row">
+            <div class="col-12">
+                <div class="glass-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5><i class="fas fa-list me-2"></i>Anomalies Détectées</h5>
+                            <button class="btn btn-success" onclick="refreshData()">
+                                <i class="fas fa-sync-alt me-1"></i>Actualiser
+                            </button>
+                        </div>
+                        
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Produit</th>
+                                        <th>Fournisseur</th>
+                                        <th>Restaurant</th>
+                                        <th>Prix Facturé</th>
+                                        <th>Prix Catalogue</th>
+                                        <th>Écart</th>
+                                        <th>Statut</th>
+                                        <th>Date Détection</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="anomaliesTableBody">
+                                    <!-- Données chargées dynamiquement -->
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div id="noAnomalies" class="text-center py-4" style="display: none;">
+                            <i class="fas fa-check-circle text-success fa-3x mb-3"></i>
+                            <h5>Aucune anomalie détectée</h5>
+                            <p class="text-muted">Toutes les factures sont conformes au catalogue !</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Détails Anomalie -->
+    <div class="modal fade" id="anomalieModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Détails de l'Anomalie
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="anomalieModalBody">
+                    <!-- Contenu chargé dynamiquement -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Email Content -->
+    <div class="modal fade" id="emailModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-envelope me-2"></i>
+                        Contenu de l'Email au Fournisseur
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Email marqué comme envoyé !</strong> Voici le contenu qui devrait être envoyé au fournisseur :
+                    </div>
+                    <div class="border p-3 bg-light">
+                        <pre id="emailContent" style="white-space: pre-wrap; font-family: inherit;"></pre>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Compris</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/anomalies.js') }}"></script>
+</body>
+</html> 

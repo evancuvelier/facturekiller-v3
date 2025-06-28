@@ -1,0 +1,898 @@
+{
+  "orders": [
+    {
+      "id": "18ecd3c6-8314-45ce-839f-cb3ff5e95776",
+      "order_number": "CMD-0030-0001",
+      "supplier": "MVA Test",
+      "supplier_email": "",
+      "status": "delivered",
+      "items": [
+        {
+          "product_name": "Produit Test A",
+          "quantity": 5,
+          "unit": "kg",
+          "unit_price": 10.5
+        },
+        {
+          "product_name": "Produit Test B",
+          "quantity": 3,
+          "unit": "pièce",
+          "unit_price": 25.0
+        }
+      ],
+      "total_amount": 127.5,
+      "notes": "Commande de test pour vérification manuelle -> facture",
+      "delivery_date": "2025-06-24",
+      "created_at": "2025-06-24T23:20:25.568497",
+      "updated_at": "2025-06-24T23:20:25.579533",
+      "status_history": [
+        {
+          "status": "draft",
+          "timestamp": "2025-06-24T23:20:25.568500",
+          "comment": "Commande créée"
+        },
+        {
+          "status": "confirmed",
+          "timestamp": "2025-06-24T23:20:25.570394",
+          "comment": "Confirmée pour test vérification"
+        },
+        {
+          "status": "delivered",
+          "timestamp": "2025-06-24T23:20:25.579534",
+          "comment": "Vérification manuelle effectuée - Facture créée"
+        }
+      ],
+      "restaurant_id": "254519f3-2cca-464f-8fb6-69d7ac195713",
+      "restaurant_name": "Restaurant Produit Test"
+    },
+    {
+      "id": "f884e83e-f253-4218-ae59-cf463bcaf348",
+      "order_number": "CMD-0031-0002",
+      "supplier": "MVA Test",
+      "supplier_email": "",
+      "status": "delivered",
+      "items": [
+        {
+          "product_name": "Produit Test A",
+          "quantity": 5,
+          "unit": "kg",
+          "unit_price": 10.5
+        },
+        {
+          "product_name": "Produit Test B",
+          "quantity": 3,
+          "unit": "pièce",
+          "unit_price": 25.0
+        }
+      ],
+      "total_amount": 127.5,
+      "notes": "Commande de test pour vérification manuelle -> facture",
+      "delivery_date": "2025-06-24",
+      "created_at": "2025-06-24T23:19:30.462733",
+      "updated_at": "2025-06-24T23:19:30.475508",
+      "status_history": [
+        {
+          "status": "draft",
+          "timestamp": "2025-06-24T23:19:30.462737",
+          "comment": "Commande créée"
+        },
+        {
+          "status": "confirmed",
+          "timestamp": "2025-06-24T23:19:30.464828",
+          "comment": "Confirmée pour test vérification"
+        },
+        {
+          "status": "delivered",
+          "timestamp": "2025-06-24T23:19:30.475510",
+          "comment": "Vérification manuelle effectuée - Facture créée"
+        }
+      ],
+      "restaurant_id": "254519f3-2cca-464f-8fb6-69d7ac195713",
+      "restaurant_name": "Restaurant Produit Test"
+    },
+    {
+      "id": "40939187-27a0-4ecb-b07e-8d8420a68738",
+      "order_number": "CMD-0032-0003",
+      "supplier": "MVA Test",
+      "supplier_email": "",
+      "status": "delivered",
+      "items": [
+        {
+          "product_name": "Produit Test A",
+          "quantity": 5,
+          "unit": "kg",
+          "unit_price": 10.5
+        },
+        {
+          "product_name": "Produit Test B",
+          "quantity": 3,
+          "unit": "pièce",
+          "unit_price": 25.0
+        }
+      ],
+      "total_amount": 127.5,
+      "notes": "Commande de test pour vérification manuelle -> facture",
+      "delivery_date": "2025-06-24",
+      "created_at": "2025-06-24T23:18:50.532711",
+      "updated_at": "2025-06-24T23:20:52.810916",
+      "status_history": [
+        {
+          "status": "draft",
+          "timestamp": "2025-06-24T23:18:50.532715",
+          "comment": "Commande créée"
+        },
+        {
+          "status": "confirmed",
+          "timestamp": "2025-06-24T23:18:50.535271",
+          "comment": "Confirmée pour test vérification"
+        },
+        {
+          "status": "delivered",
+          "timestamp": "2025-06-24T23:20:52.810917",
+          "comment": "Vérification manuelle effectuée - Facture créée"
+        }
+      ],
+      "restaurant_id": "254519f3-2cca-464f-8fb6-69d7ac195713",
+      "restaurant_name": "Restaurant Produit Test"
+    },
+    {
+      "id": "faa76c78-59b9-4309-acb4-5998e681d6ca",
+      "order_number": "CMD-0033-0004",
+      "supplier": "MVA Test",
+      "supplier_email": "",
+      "status": "draft",
+      "items": [
+        {
+          "product_name": "Produit Test A",
+          "quantity": 5,
+          "unit": "kg",
+          "unit_price": 10.5
+        },
+        {
+          "product_name": "Produit Test B",
+          "quantity": 3,
+          "unit": "pièce",
+          "unit_price": 25.0
+        }
+      ],
+      "total_amount": 127.5,
+      "notes": "Commande de test pour vérification manuelle -> facture",
+      "delivery_date": "2025-06-24",
+      "created_at": "2025-06-24T23:17:43.771950",
+      "updated_at": "2025-06-24T23:17:43.771954",
+      "status_history": [
+        {
+          "status": "draft",
+          "timestamp": "2025-06-24T23:17:43.771955",
+          "comment": "Commande créée"
+        }
+      ],
+      "restaurant_id": "254519f3-2cca-464f-8fb6-69d7ac195713",
+      "restaurant_name": "Restaurant Produit Test"
+    },
+    {
+      "id": "3ada5835-02ba-4598-be49-213286c3cc37",
+      "order_number": "CMD-0034-0008",
+      "supplier": "test1",
+      "supplier_email": "",
+      "status": "confirmed",
+      "items": [
+        {
+          "product_id": "7",
+          "product_name": "test",
+          "unit_price": 12,
+          "quantity": 5,
+          "total": 60
+        }
+      ],
+      "total_amount": 60,
+      "notes": "",
+      "delivery_date": "2025-06-27",
+      "created_at": "2025-06-24T22:49:55.697248",
+      "updated_at": "2025-06-27T12:17:06.412481",
+      "status_history": [
+        {
+          "status": "draft",
+          "timestamp": "2025-06-24T22:49:55.697263",
+          "comment": "Commande créée"
+        },
+        {
+          "status": "confirmed",
+          "timestamp": "2025-06-27T12:17:06.412478",
+          "comment": "Confirmée pour test scanner"
+        }
+      ],
+      "restaurant_id": "d6ab723e-6597-4cf2-a089-b27db2cb6502",
+      "restaurant_name": "Au Bureau St Amand "
+    },
+    {
+      "id": "82ed8514-a0b6-4392-b324-9d6f107cc498",
+      "order_number": "CMD-0035-0005",
+      "supplier": "MVA Test",
+      "supplier_email": "test@mva.com",
+      "status": "delivered",
+      "items": [
+        {
+          "product_id": "TEST001",
+          "product_name": "Steak de Bœuf Test",
+          "quantity": 5,
+          "unit": "kg",
+          "unit_price": 25.5,
+          "category": "Viandes"
+        },
+        {
+          "product_id": "TEST002",
+          "product_name": "Pommes de Terre Test",
+          "quantity": 10,
+          "unit": "kg",
+          "unit_price": 2.8,
+          "category": "Légumes"
+        }
+      ],
+      "total_amount": 155.5,
+      "notes": "Commande de test pour vérification de livraison",
+      "delivery_date": "2025-06-24",
+      "created_at": "2025-06-24T22:37:04.716186",
+      "updated_at": "2025-06-24T23:38:17.552399",
+      "status_history": [
+        {
+          "status": "draft",
+          "timestamp": "2025-06-24T22:37:04.716192",
+          "comment": "Commande créée"
+        },
+        {
+          "status": "confirmed",
+          "timestamp": "2025-06-24T22:37:04.718890",
+          "comment": "Passage de \"Brouillon\" à \"Confirmée\""
+        },
+        {
+          "status": "delivered",
+          "timestamp": "2025-06-24T23:38:17.552403",
+          "comment": "Vérification manuelle - 1 anomalie(s) détectée(s)"
+        }
+      ],
+      "restaurant_id": "254519f3-2cca-464f-8fb6-69d7ac195713",
+      "restaurant_name": "Restaurant Produit Test"
+    },
+    {
+      "id": "c034dcb1-8535-4acc-96c2-ad7774697ee9",
+      "order_number": "CMD-0036-0006",
+      "supplier": "MVA Test",
+      "supplier_email": "test@mva.com",
+      "status": "confirmed",
+      "items": [
+        {
+          "product_id": "TEST001",
+          "product_name": "Steak de Bœuf Test",
+          "quantity": 5,
+          "unit": "kg",
+          "unit_price": 25.5,
+          "category": "Viandes"
+        },
+        {
+          "product_id": "TEST002",
+          "product_name": "Pommes de Terre Test",
+          "quantity": 10,
+          "unit": "kg",
+          "unit_price": 2.8,
+          "category": "Légumes"
+        }
+      ],
+      "total_amount": 155.5,
+      "notes": "Commande de test pour vérification de livraison",
+      "delivery_date": "2025-06-24",
+      "created_at": "2025-06-24T22:35:55.256514",
+      "updated_at": "2025-06-24T22:35:55.259593",
+      "status_history": [
+        {
+          "status": "draft",
+          "timestamp": "2025-06-24T22:35:55.256518",
+          "comment": "Commande créée"
+        },
+        {
+          "status": "confirmed",
+          "timestamp": "2025-06-24T22:35:55.259596",
+          "comment": "Passage de \"Brouillon\" à \"Confirmée\""
+        }
+      ],
+      "restaurant_id": "254519f3-2cca-464f-8fb6-69d7ac195713",
+      "restaurant_name": "Restaurant Produit Test"
+    },
+    {
+      "id": "505e3e3b-e9f5-4de3-9d18-83bcf18f823b",
+      "order_number": "CMD-0037-0009",
+      "supplier": "test1",
+      "supplier_email": "",
+      "status": "confirmed",
+      "items": [
+        {
+          "product_id": "7",
+          "product_name": "test",
+          "unit_price": 12,
+          "quantity": 1,
+          "total": 12
+        }
+      ],
+      "total_amount": 12,
+      "notes": "",
+      "delivery_date": "2025-06-26",
+      "created_at": "2025-06-24T22:26:16.734339",
+      "updated_at": "2025-06-27T12:17:06.412515",
+      "status_history": [
+        {
+          "status": "draft",
+          "timestamp": "2025-06-24T22:26:16.734347",
+          "comment": "Commande créée"
+        },
+        {
+          "status": "confirmed",
+          "timestamp": "2025-06-27T12:17:06.412512",
+          "comment": "Confirmée pour test scanner"
+        }
+      ],
+      "restaurant_id": "d6ab723e-6597-4cf2-a089-b27db2cb6502",
+      "restaurant_name": "Au Bureau St Amand "
+    },
+    {
+      "id": "59ac406c-81dd-4cdf-b852-34d6ea7d8864",
+      "order_number": "CMD-0038-0007",
+      "supplier": "MVA Test",
+      "supplier_email": "test@example.com",
+      "status": "draft",
+      "items": [
+        {
+          "product_id": "TEST001",
+          "product_name": "Produit Test Restaurant",
+          "unit_price": 15.5,
+          "quantity": 2,
+          "total": 31.0
+        },
+        {
+          "product_id": "TEST002",
+          "product_name": "Autre Produit Test",
+          "unit_price": 8.75,
+          "quantity": 3,
+          "total": 26.25
+        }
+      ],
+      "total_amount": 57.25,
+      "notes": "Commande test pour Restaurant Produit Test",
+      "delivery_date": "2025-06-30",
+      "created_at": "2025-06-24T22:22:59.390438",
+      "updated_at": "2025-06-24T22:22:59.390441",
+      "status_history": [
+        {
+          "status": "draft",
+          "timestamp": "2025-06-24T22:22:59.390442",
+          "comment": "Commande créée"
+        }
+      ],
+      "restaurant_id": "254519f3-2cca-464f-8fb6-69d7ac195713",
+      "restaurant_name": "Restaurant Produit Test"
+    },
+    {
+      "id": "19caad88-6d4f-47e9-961b-a24d0d4d350d",
+      "order_number": "CMD-0039-0001",
+      "supplier": "test1",
+      "supplier_email": "",
+      "status": "draft",
+      "items": [
+        {
+          "product_id": "7",
+          "product_name": "test",
+          "unit_price": 12,
+          "quantity": 1,
+          "total": 12
+        }
+      ],
+      "total_amount": 12,
+      "notes": "",
+      "delivery_date": "2025-06-28",
+      "created_at": "2025-06-24T22:17:53.383279",
+      "updated_at": "2025-06-24T22:17:53.383288",
+      "status_history": [
+        {
+          "status": "draft",
+          "timestamp": "2025-06-24T22:17:53.383288",
+          "comment": "Commande créée"
+        }
+      ]
+    },
+    {
+      "id": "88944367-c341-498c-b9ac-51e8f91c7235",
+      "order_number": "CMD-0040-0002",
+      "supplier": "Fournisseur Test Email",
+      "supplier_email": "fournisseur-test@example.com",
+      "status": "sent",
+      "items": [
+        {
+          "name": "Pommes de terre Bio",
+          "quantity": 15,
+          "unit": "kg",
+          "unit_price": 2.8
+        },
+        {
+          "name": "Carottes Bio",
+          "quantity": 8,
+          "unit": "kg",
+          "unit_price": 3.5
+        },
+        {
+          "name": "Oignons Jaunes",
+          "quantity": 5,
+          "unit": "kg",
+          "unit_price": 2.2
+        }
+      ],
+      "total_amount": 81.0,
+      "notes": "Commande de test pour vérification email automatique",
+      "delivery_date": "2024-12-25",
+      "created_at": "2025-06-24T20:30:33.293181",
+      "updated_at": "2025-06-24T20:30:33.293346",
+      "status_history": [
+        {
+          "status": "draft",
+          "timestamp": "2025-06-24T20:30:33.293183",
+          "comment": "Commande créée"
+        },
+        {
+          "status": "sent",
+          "timestamp": "2025-06-24T20:30:33.293347",
+          "comment": "Commande envoyée automatiquement pour test email"
+        }
+      ]
+    },
+    {
+      "id": "da8bd133-d242-4cf0-b1aa-59a89f78d0c2",
+      "order_number": "CMD-0041-0003",
+      "supplier": "TRANSGOURMET",
+      "supplier_email": "",
+      "status": "confirmed",
+      "items": [
+        {
+          "product_id": "test_product_002",
+          "product_name": "Produit Confirmé",
+          "unit_price": 25.0,
+          "quantity": 3,
+          "total": 75.0
+        }
+      ],
+      "total_amount": 75.0,
+      "notes": "Commande confirmée - Pas de bouton supprimer",
+      "delivery_date": "2025-07-01",
+      "created_at": "2025-06-20T21:13:22.840146",
+      "updated_at": "2025-06-20T21:13:22.842771",
+      "status_history": [
+        {
+          "status": "draft",
+          "timestamp": "2025-06-20T21:13:22.840160",
+          "comment": "Commande créée"
+        },
+        {
+          "status": "confirmed",
+          "timestamp": "2025-06-20T21:13:22.842773",
+          "comment": "Commande confirmée par le fournisseur"
+        }
+      ]
+    },
+    {
+      "id": "753cfd53-0f9e-44f6-b728-b886431d027f",
+      "order_number": "CMD-0042-0004",
+      "supplier": "METRO",
+      "status": "sent",
+      "created_at": "2025-06-18T22:08:21.700230",
+      "updated_at": "2025-06-20T22:08:21.700230",
+      "delivery_date": "2025-06-20",
+      "notes": "Commande de test pour vérification manuelle",
+      "products": [
+        {
+          "name": "Tomates cerises bio",
+          "quantity": 2.5,
+          "unit": "kg",
+          "unit_price": 4.2,
+          "total_price": 10.5
+        },
+        {
+          "name": "Salade verte",
+          "quantity": 6,
+          "unit": "pièce",
+          "unit_price": 1.5,
+          "total_price": 9.0
+        },
+        {
+          "name": "Courgettes",
+          "quantity": 3.0,
+          "unit": "kg",
+          "unit_price": 2.8,
+          "total_price": 8.4
+        },
+        {
+          "name": "Fromage de chèvre",
+          "quantity": 2,
+          "unit": "pièce",
+          "unit_price": 5.9,
+          "total_price": 11.8
+        }
+      ],
+      "total_amount": 39.7,
+      "items_count": 4
+    },
+    {
+      "id": "ff247ca1-f06b-4d59-ae9c-19915635796e",
+      "order_number": "CMD-0043-0010",
+      "supplier": "test1",
+      "supplier_email": "",
+      "status": "confirmed",
+      "items": [
+        {
+          "product_id": "7",
+          "product_name": "test",
+          "unit_price": 12,
+          "quantity": 10,
+          "total": 120
+        }
+      ],
+      "total_amount": 120,
+      "notes": "",
+      "delivery_date": "2025-06-26",
+      "created_at": "2025-06-25T19:49:16.570170",
+      "updated_at": "2025-06-27T12:17:06.412523",
+      "status_history": [
+        {
+          "status": "draft",
+          "timestamp": "2025-06-25T19:49:16.570188",
+          "comment": "Commande créée"
+        },
+        {
+          "status": "confirmed",
+          "timestamp": "2025-06-27T12:17:06.412522",
+          "comment": "Confirmée pour test scanner"
+        }
+      ],
+      "restaurant_id": "d6ab723e-6597-4cf2-a089-b27db2cb6502",
+      "restaurant_name": "Au Bureau St Amand "
+    },
+    {
+      "id": "494240a1-17e6-486f-8406-9739c8283573",
+      "order_number": "CMD-0023-0001",
+      "supplier": "test1",
+      "supplier_email": "",
+      "status": "draft",
+      "items": [
+        {
+          "product_id": "7",
+          "product_name": "test",
+          "unit_price": 12,
+          "quantity": 15,
+          "total": 180
+        }
+      ],
+      "total_amount": 180,
+      "notes": "",
+      "delivery_date": "2025-06-26",
+      "created_at": "2025-06-25T20:22:59.514768",
+      "updated_at": "2025-06-25T20:22:59.514782",
+      "restaurant_id": "d6ab723e-6597-4cf2-a089-b27db2cb6502",
+      "restaurant_name": "Au Bureau St Amand ",
+      "status_history": [
+        {
+          "status": "draft",
+          "timestamp": "2025-06-25T20:22:59.514784",
+          "comment": "Commande créée"
+        }
+      ]
+    },
+    {
+      "id": "5fa78be9-9390-4676-ad61-5a72e620ded4",
+      "order_number": "CMD-0024-0002",
+      "supplier": "test1",
+      "supplier_email": "",
+      "status": "delivered",
+      "items": [
+        {
+          "product_id": "7",
+          "product_name": "test",
+          "unit_price": 12,
+          "quantity": 1,
+          "total": 12
+        }
+      ],
+      "total_amount": 12,
+      "notes": "",
+      "delivery_date": "2025-06-30",
+      "created_at": "2025-06-25T20:25:57.446082",
+      "updated_at": "2025-06-26T20:12:50.996238",
+      "restaurant_id": "d6ab723e-6597-4cf2-a089-b27db2cb6502",
+      "restaurant_name": "Au Bureau St Amand ",
+      "status_history": [
+        {
+          "status": "draft",
+          "timestamp": "2025-06-25T20:25:57.446095",
+          "comment": "Commande créée"
+        },
+        {
+          "status": "confirmed",
+          "timestamp": "2025-06-25T20:25:59.716312",
+          "comment": "Email envoyé avec succès"
+        },
+        {
+          "status": "confirmed",
+          "timestamp": "2025-06-25T20:25:59.719686",
+          "comment": "Passage de \"Confirmée\" à \"Confirmée\""
+        },
+        {
+          "status": "delivered",
+          "timestamp": "2025-06-26T20:12:50.996240",
+          "comment": "Vérification manuelle - Aucune anomalie"
+        }
+      ],
+      "restaurant_address": "lieu dit le thumelart, rocade nord à St amand les eaux \n59230"
+    },
+    {
+      "id": "eabb476c-9281-40f2-a3ab-d8346a9f9cb8",
+      "order_number": "CMD-0025-0003",
+      "supplier": "test1",
+      "supplier_email": "",
+      "status": "delivered",
+      "items": [
+        {
+          "product_id": "7",
+          "product_name": "test",
+          "unit_price": 12,
+          "quantity": 8,
+          "total": 96
+        }
+      ],
+      "total_amount": 96,
+      "notes": "",
+      "delivery_date": "2025-06-25",
+      "created_at": "2025-06-25T20:34:44.455888",
+      "updated_at": "2025-06-26T00:05:03.383276",
+      "restaurant_id": "d6ab723e-6597-4cf2-a089-b27db2cb6502",
+      "restaurant_name": "Au Bureau St Amand ",
+      "status_history": [
+        {
+          "status": "draft",
+          "timestamp": "2025-06-25T20:34:44.455907",
+          "comment": "Commande créée"
+        },
+        {
+          "status": "confirmed",
+          "timestamp": "2025-06-25T20:34:47.651551",
+          "comment": "Email envoyé avec succès"
+        },
+        {
+          "status": "confirmed",
+          "timestamp": "2025-06-25T20:34:47.658750",
+          "comment": "Passage de \"Confirmée\" à \"Confirmée\""
+        },
+        {
+          "status": "delivered",
+          "timestamp": "2025-06-26T00:05:03.383316",
+          "comment": "Vérification manuelle - 1 anomalie(s) détectée(s)"
+        }
+      ],
+      "restaurant_address": "lieu dit le thumelart, rocade nord à St amand les eaux \n59230"
+    },
+    {
+      "id": "95509d7d-0712-4e82-9c90-3832914f3e84",
+      "order_number": "CMD-0026-0004",
+      "supplier": "test1",
+      "supplier_email": "",
+      "status": "delivered",
+      "items": [
+        {
+          "product_id": "7",
+          "product_name": "test",
+          "unit_price": 12,
+          "quantity": 1,
+          "total": 12
+        }
+      ],
+      "total_amount": 12,
+      "notes": "",
+      "delivery_date": "2025-06-26",
+      "created_at": "2025-06-26T00:20:58.257497",
+      "updated_at": "2025-06-26T19:49:33.652814",
+      "restaurant_id": "d6ab723e-6597-4cf2-a089-b27db2cb6502",
+      "restaurant_name": "Au Bureau St Amand ",
+      "status_history": [
+        {
+          "status": "draft",
+          "timestamp": "2025-06-26T00:20:58.257508",
+          "comment": "Commande créée"
+        },
+        {
+          "status": "confirmed",
+          "timestamp": "2025-06-26T00:21:01.873474",
+          "comment": "Email envoyé avec succès"
+        },
+        {
+          "status": "confirmed",
+          "timestamp": "2025-06-26T00:21:01.878508",
+          "comment": "Passage de \"Confirmée\" à \"Confirmée\""
+        },
+        {
+          "status": "delivered",
+          "timestamp": "2025-06-26T19:49:33.652835",
+          "comment": "Vérification manuelle - Aucune anomalie"
+        }
+      ],
+      "restaurant_address": "lieu dit le thumelart, rocade nord à St amand les eaux \n59230"
+    },
+    {
+      "id": "5373cc75-b8c4-4fd4-8a7b-090a3bbf2b8e",
+      "order_number": "CMD-0027-0005",
+      "supplier": "test1",
+      "supplier_email": "",
+      "status": "delivered",
+      "items": [
+        {
+          "product_id": "7",
+          "product_name": "test",
+          "unit_price": 12,
+          "quantity": 1,
+          "total": 12
+        }
+      ],
+      "total_amount": 12,
+      "notes": "",
+      "delivery_date": "2025-06-26",
+      "created_at": "2025-06-26T00:38:59.526514",
+      "updated_at": "2025-06-26T00:41:52.576385",
+      "restaurant_id": "d6ab723e-6597-4cf2-a089-b27db2cb6502",
+      "restaurant_name": "Au Bureau St Amand ",
+      "status_history": [
+        {
+          "status": "draft",
+          "timestamp": "2025-06-26T00:38:59.526528",
+          "comment": "Commande créée"
+        },
+        {
+          "status": "confirmed",
+          "timestamp": "2025-06-26T00:39:02.055146",
+          "comment": "Email envoyé avec succès"
+        },
+        {
+          "status": "confirmed",
+          "timestamp": "2025-06-26T00:39:02.062475",
+          "comment": "Passage de \"Confirmée\" à \"Confirmée\""
+        },
+        {
+          "status": "delivered",
+          "timestamp": "2025-06-26T00:41:52.576401",
+          "comment": "Vérification manuelle - 1 anomalie(s) détectée(s)"
+        }
+      ],
+      "restaurant_address": "lieu dit le thumelart, rocade nord à St amand les eaux \n59230"
+    },
+    {
+      "id": "6ee39682-9725-434a-8cab-b55755ef3218",
+      "order_number": "CMD-0028-0006",
+      "supplier": "test1",
+      "supplier_email": "",
+      "status": "confirmed",
+      "items": [
+        {
+          "product_id": "7",
+          "product_name": "test",
+          "unit_price": 12,
+          "quantity": 5,
+          "total": 60
+        }
+      ],
+      "total_amount": 60,
+      "notes": "",
+      "delivery_date": "2025-06-26",
+      "created_at": "2025-06-26T20:36:53.441650",
+      "updated_at": "2025-06-26T20:36:56.817364",
+      "restaurant_id": "d6ab723e-6597-4cf2-a089-b27db2cb6502",
+      "restaurant_name": "Au Bureau St Amand ",
+      "restaurant_address": "lieu dit le thumelart, rocade nord à St amand les eaux \n59230",
+      "status_history": [
+        {
+          "status": "draft",
+          "timestamp": "2025-06-26T20:36:53.441655",
+          "comment": "Commande créée"
+        },
+        {
+          "status": "confirmed",
+          "timestamp": "2025-06-26T20:36:56.811605",
+          "comment": "Email envoyé avec succès"
+        },
+        {
+          "status": "confirmed",
+          "timestamp": "2025-06-26T20:36:56.817366",
+          "comment": "Passage de \"Confirmée\" à \"Confirmée\""
+        }
+      ]
+    },
+    {
+      "id": "df6e9783-727a-42f8-b869-dd004f713d54",
+      "order_number": "CMD-0029-0007",
+      "supplier": "test1",
+      "supplier_email": "",
+      "status": "delivered",
+      "items": [
+        {
+          "product_id": "7",
+          "product_name": "test",
+          "unit_price": 12,
+          "quantity": 4,
+          "total": 48
+        }
+      ],
+      "total_amount": 48,
+      "notes": "",
+      "delivery_date": "2025-06-26",
+      "created_at": "2025-06-26T20:44:08.493861",
+      "updated_at": "2025-06-26T20:55:43.892490",
+      "restaurant_id": "d6ab723e-6597-4cf2-a089-b27db2cb6502",
+      "restaurant_name": "Au Bureau St Amand ",
+      "restaurant_address": "lieu dit le thumelart, rocade nord à St amand les eaux \n59230",
+      "status_history": [
+        {
+          "status": "draft",
+          "timestamp": "2025-06-26T20:44:08.493874",
+          "comment": "Commande créée"
+        },
+        {
+          "status": "confirmed",
+          "timestamp": "2025-06-26T20:44:11.112564",
+          "comment": "Email envoyé avec succès"
+        },
+        {
+          "status": "confirmed",
+          "timestamp": "2025-06-26T20:44:11.118086",
+          "comment": "Passage de \"Confirmée\" à \"Confirmée\""
+        },
+        {
+          "status": "delivered",
+          "timestamp": "2025-06-26T20:55:43.892492",
+          "comment": "Vérification manuelle - Aucune anomalie"
+        }
+      ]
+    },
+    {
+      "id": "test-verifiable-001",
+      "order_number": "CMD-9999-TEST",
+      "supplier": "test1",
+      "supplier_email": "",
+      "status": "confirmed",
+      "items": [
+        {
+          "product_name": "Produit Test Vérifiable",
+          "quantity": 2,
+          "unit": "kg",
+          "unit_price": 15.0
+        }
+      ],
+      "total_amount": 30.0,
+      "notes": "Commande de test pour vérification scanner",
+      "delivery_date": "2025-06-27",
+      "created_at": "2025-06-27T12:16:46.435317",
+      "updated_at": "2025-06-27T12:16:46.435319",
+      "status_history": [
+        {
+          "status": "draft",
+          "timestamp": "2025-06-27T12:16:46.435320",
+          "comment": "Commande créée"
+        },
+        {
+          "status": "confirmed",
+          "timestamp": "2025-06-27T12:16:46.435321",
+          "comment": "Confirmée pour test scanner"
+        }
+      ],
+      "restaurant_id": "d6ab723e-6597-4cf2-a089-b27db2cb6502",
+      "restaurant_name": "Au Bureau St Amand"
+    }
+  ],
+  "last_updated": "2025-06-27T12:17:06.412528",
+  "next_order_number": 44,
+  "restaurant_counters": {
+    "d6ab723e-6597-4cf2-a089-b27db2cb6502": 11,
+    "254519f3-2cca-464f-8fb6-69d7ac195713": 8,
+    "default": 5
+  }
+}

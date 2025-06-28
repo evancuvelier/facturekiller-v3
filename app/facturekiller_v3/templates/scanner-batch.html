@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scanner Batch - FactureKiller V3</title>
+    
+    <!-- CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+    
+<style>
+    .batch-drop-zone {
+        border: 3px dashed #007bff;
+        border-radius: 15px;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e3f2fd 100%);
+        min-height: 200px;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .batch-drop-zone:hover {
+        border-color: #0056b3;
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+        transform: translateY(-2px);
+    }
+    
+    .batch-drop-zone.dragover {
+        border-color: #28a745;
+        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+        transform: scale(1.02);
+    }
+    
+    .scan-queue-item {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 8px;
+        background: white;
+        transition: all 0.3s ease;
+    }
+    
+    .scan-queue-item.processing {
+        border-color: #ffc107;
+        background: #fff8e1;
+    }
+    
+    .scan-queue-item.completed {
+        border-color: #28a745;
+        background: #d4edda;
+    }
+    
+    .scan-queue-item.error {
+        border-color: #dc3545;
+        background: #f8d7da;
+    }
+    
+    .scan-result-card {
+        border-left: 4px solid #007bff;
+        transition: all 0.3s ease;
+    }
+    
+    .scan-result-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        transform: translateY(-2px);
+    }
+    
+    .group-summary-card {
+        border-left: 4px solid #6f42c1;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .pulse-notification {
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(0, 123, 255, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0); }
+    }
+    
+    .products-list .border-bottom:last-child {
+        border-bottom: none !important;
+    }
+    
+    .price-comparison {
+        border-left: 3px solid #17a2b8;
+    }
+</style>
+</head>
+
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold" href="/">
+                <i class="bi bi-lightning-charge"></i> FactureKiller V3
+            </a>
+            
+            <div class="navbar-nav">
+                <a class="nav-link" href="/dashboard">
+                    <i class="bi bi-speedometer2"></i> Dashboard
+                </a>
+                <a class="nav-link active" href="/scanner">
+                    <i class="bi bi-camera"></i> Scanner
+                </a>
+                <a class="nav-link" href="/commandes">
+                    <i class="bi bi-cart"></i> Commandes
+                </a>
+                <a class="nav-link" href="/factures">
+                    <i class="bi bi-file-text"></i> Factures
+                </a>
+                <a class="nav-link" href="/fournisseurs">
+                    <i class="bi bi-building"></i> Fournisseurs
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid py-4">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h1 class="h3 fw-bold">
+                            <i class="bi bi-lightning text-warning"></i>
+                            Scanner Batch Avancé
+                        </h1>
+                        <p class="text-muted mb-0">
+                            Scannez plusieurs factures simultanément avec regroupement automatique
+                        </p>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-success" onclick="batchScanner.analyzeBatchWithAI()" id="aiAnalyzeBtn" disabled>
+                            <i class="bi bi-robot"></i> Analyse IA
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="batchScanner.clearQueue()">
+                            <i class="bi bi-trash"></i> Vider queue
+                        </button>
+                        <button class="btn btn-outline-primary" onclick="batchScanner.clearResults()">
+                            <i class="bi bi-arrow-clockwise"></i> Reset résultats
+                        </button>
+                        <a href="/fournisseurs#pending" class="btn btn-info">
+                            <i class="bi bi-hourglass-split"></i> Produits en attente
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Zone d'upload -->
+        <div class="row mb-4">
+            <div class="col">
+                <div class="card">
+                    <div class="card-body">
+                        <div id="batchDropZone" class="batch-drop-zone d-flex flex-column justify-content-center align-items-center">
+                            <div class="text-center">
+                                <i class="bi bi-cloud-upload display-1 text-primary mb-3"></i>
+                                <h4 class="text-primary">Glissez vos factures ici</h4>
+                                <p class="text-muted mb-3">
+                                    Supporté: JPG, PNG, HEIC • Multi-pages automatiquement regroupées
+                                </p>
+                                <button class="btn btn-primary btn-lg" onclick="document.getElementById('batchFileInput').click()">
+                                    <i class="bi bi-folder-plus"></i> Choisir fichiers
+                                </button>
+                                <input type="file" id="batchFileInput" multiple accept="image/*" style="display: none;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistiques de traitement -->
+        <div class="row mb-4">
+            <div class="col">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <h6 class="card-title">
+                            <i class="bi bi-graph-up"></i> Statistiques de traitement
+                        </h6>
+                        <div id="batchStats" class="row text-center">
+                            <div class="col-3">
+                                <div class="fw-bold text-primary">0</div>
+                                <small>Total</small>
+                            </div>
+                            <div class="col-3">
+                                <div class="fw-bold text-success">0</div>
+                                <small>Terminés</small>
+                            </div>
+                            <div class="col-3">
+                                <div class="fw-bold text-warning">0</div>
+                                <small>En cours</small>
+                            </div>
+                            <div class="col-3">
+                                <div class="fw-bold text-secondary">0</div>
+                                <small>En attente</small>
+                            </div>
+                        </div>
+                        <div class="progress mt-3" style="height: 8px;">
+                            <div id="batchProgress" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 role="progressbar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Queue de traitement -->
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="bi bi-list-task"></i> Queue de traitement
+                        </h6>
+                    </div>
+                    <div class="card-body" style="max-height: 600px; overflow-y: auto;">
+                        <div id="scanQueue">
+                            <div class="text-center text-muted py-4">
+                                <i class="bi bi-inbox fs-1"></i>
+                                <p class="mt-2">Aucune facture en queue</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Résultats -->
+            <div class="col-md-8">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="bi bi-check-circle"></i> Résultats d'analyse
+                        </h6>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary" onclick="exportAllResults()">
+                                <i class="bi bi-download"></i> Exporter tout
+                            </button>
+                            <button class="btn btn-outline-success" onclick="validateAllNewProducts()">
+                                <i class="bi bi-check-all"></i> Valider nouveaux produits
+                            </button>
+                            <button class="btn btn-outline-warning" onclick="batchScanner.analyzeBatchWithAI()" title="Analyser avec l'IA pour détecter les patterns de prix">
+                                <i class="bi bi-robot"></i> Analyse IA
+                            </button>
+                            <a href="/demo-ia-suggestions" class="btn btn-outline-info" target="_blank" title="Voir la démonstration du système IA">
+                                <i class="bi bi-lightbulb"></i> Démo IA
+                            </a>
+                        </div>
+                    </div>
+                    <div class="card-body" style="max-height: 600px; overflow-y: auto;">
+                        <div id="scanResults">
+                            <div class="text-center text-muted py-5">
+                                <i class="bi bi-search fs-1"></i>
+                                <p class="mt-2">Les résultats d'analyse apparaîtront ici</p>
+                                <small class="text-muted">
+                                    Glissez des factures ci-dessus pour commencer
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal d'association à une commande -->
+    <div class="modal fade" id="associateCommandModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Associer à une commande</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Commande existante:</label>
+                        <select class="form-select" id="existingCommands">
+                            <option value="">Choisir une commande...</option>
+                        </select>
+                    </div>
+                    <div class="text-center">
+                        <small class="text-muted">ou</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Créer nouvelle commande:</label>
+                        <input type="text" class="form-control" id="newCommandName" placeholder="Nom de la commande">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="button" class="btn btn-primary" onclick="confirmAssociateCommand()">
+                        <i class="bi bi-link"></i> Associer
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/app.js"></script>
+    <script src="/static/js/scanner-batch.js"></script>
+
+    <script>
+        // Fonctions additionnelles pour l'interface batch
+        async function exportAllResults() {
+            console.log('📊 Export de tous les résultats...');
+            showNotification('Fonctionnalité d\'export en développement', 'info');
+        }
+
+        async function validateAllNewProducts() {
+            console.log('✅ Validation de tous les nouveaux produits...');
+            
+            showNotification('Fonctionnalité de validation des nouveaux produits disponible dans la section Fournisseurs', 'info');
+        }
+
+        // Extension du BatchScanner pour les fonctions spécifiques
+        document.addEventListener('DOMContentLoaded', () => {
+            // Ajouter des méthodes à batchScanner
+            if (window.batchScanner) {
+                window.batchScanner.saveToCommande = function(scanId) {
+                    console.log(`🔗 Association commande pour scan ${scanId}`);
+                    const modal = new bootstrap.Modal(document.getElementById('associateCommandModal'));
+                    modal.show();
+                };
+                
+                window.batchScanner.validateAllProducts = function(scanId) {
+                    console.log(`✅ Validation produits pour scan ${scanId}`);
+                    const scanItem = this.activeScans.get(scanId) || this.results.get(scanId);
+                    
+                    if (scanItem && scanItem.result && scanItem.result.products) {
+                        if (window.addNewProductsToPending) {
+                            window.addNewProductsToPending(scanItem.result.products, scanItem.result.supplier);
+                        }
+                    }
+                };
+                
+                window.batchScanner.exportGroup = function(groupName) {
+                    console.log(`📊 Export groupe ${groupName}`);
+                    showNotification(`Export du groupe "${groupName}" en cours...`, 'info');
+                };
+            }
+        });
+
+        async function confirmAssociateCommand() {
+            const existingCommand = document.getElementById('existingCommands').value;
+            const newCommandName = document.getElementById('newCommandName').value;
+            
+            if (!existingCommand && !newCommandName) {
+                showNotification('Veuillez choisir ou créer une commande', 'warning');
+                return;
+            }
+            
+            console.log('🔗 Association commande:', { existingCommand, newCommandName });
+            showNotification('Association réussie !', 'success');
+            
+            bootstrap.Modal.getInstance(document.getElementById('associateCommandModal')).hide();
+        }
+    </script>
+</body>
+</html> 

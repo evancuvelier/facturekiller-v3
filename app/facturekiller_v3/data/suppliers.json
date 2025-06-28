@@ -1,0 +1,97 @@
+[
+  {
+    "name": "Fournisseur Test 2",
+    "email": "test2@example.com",
+    "delivery_days": [
+      "mardi",
+      "jeudi"
+    ],
+    "notes": "Deuxième fournisseur de test",
+    "updated_at": "2025-06-20T22:46:16.296319",
+    "created_at": "2025-06-20T22:46:16.296322"
+  },
+  {
+    "name": "Fournisseur Test 3",
+    "email": "",
+    "delivery_days": [],
+    "notes": "Fournisseur sans email pour test",
+    "updated_at": "2025-06-20T22:46:16.296562",
+    "created_at": "2025-06-20T22:46:16.296563"
+  },
+  {
+    "name": "Fournisseur Test Email",
+    "email": "fournisseur-test@example.com",
+    "delivery_days": [
+      "lundi",
+      "mercredi",
+      "vendredi"
+    ],
+    "notes": "Fournisseur créé pour test email",
+    "updated_at": "2025-06-24T20:30:33.292859",
+    "created_at": "2025-06-24T20:30:00.687324"
+  },
+  {
+    "name": "test1",
+    "email": "evancuvelier@yahoo.com",
+    "delivery_days": [
+      "mardi"
+    ],
+    "notes": "",
+    "updated_at": "2025-06-25T19:49:34.820218",
+    "created_at": "2025-06-24T21:26:24.970375"
+  },
+  {
+    "name": "Fournisseur Test",
+    "email": "test@fournisseur.com",
+    "delivery_days": [
+      "lundi",
+      "mercredi",
+      "vendredi"
+    ],
+    "notes": "Test automatique",
+    "updated_at": "2025-06-24T22:00:05.794025",
+    "created_at": "2025-06-24T22:00:05.794030"
+  },
+  {
+    "name": "Nouveau Fournisseur",
+    "email": "nouveau@test.com",
+    "delivery_days": [
+      "mardi",
+      "jeudi"
+    ],
+    "notes": "Test création",
+    "updated_at": "2025-06-24T22:07:09.077621",
+    "created_at": "2025-06-24T22:07:09.077626"
+  },
+  {
+    "name": "Test Final Supplier",
+    "email": "final@test.com",
+    "delivery_days": [
+      "lundi",
+      "vendredi"
+    ],
+    "notes": "Créé par test final",
+    "updated_at": "2025-06-24T22:07:55.686266",
+    "created_at": "2025-06-24T22:07:55.686268"
+  },
+  {
+    "name": "MVA Test",
+    "email": "mva@test.com",
+    "delivery_days": [
+      "lundi",
+      "mercredi",
+      "vendredi"
+    ],
+    "notes": "Fournisseur test pour produits",
+    "updated_at": "2025-06-24T22:15:54.234403",
+    "created_at": "2025-06-24T22:15:54.234408"
+  },
+  {
+    "name": "MVA",
+    "email": "",
+    "delivery_days": [],
+    "notes": "Créé automatiquement lors du scan de facture - Restaurant: Au Bureau St Amand ",
+    "updated_at": "2025-06-27T17:45:46.512490",
+    "created_at": "2025-06-27T17:45:46.512492"
+  }
+]

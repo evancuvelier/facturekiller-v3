@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>{% block title %}FactureKiller V3{% endblock %}</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Scanner intelligent de factures avec IA Claude Vision">
+    <meta name="theme-color" content="#007bff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="FK Scanner">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="msapplication-TileColor" content="#007bff">
+    <meta name="msapplication-tap-highlight" content="no">
+    
+    <!-- PWA Icons -->
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='images/icon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='images/icon-16x16.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='images/icon-180x180.png') }}">
+    <link rel="apple-touch-icon" sizes="152x152" href="{{ url_for('static', filename='images/icon-152x152.png') }}">
+    <link rel="apple-touch-icon" sizes="144x144" href="{{ url_for('static', filename='images/icon-144x144.png') }}">
+    <link rel="apple-touch-icon" sizes="120x120" href="{{ url_for('static', filename='images/icon-120x120.png') }}">
+    <link rel="apple-touch-icon" sizes="114x114" href="{{ url_for('static', filename='images/icon-114x114.png') }}">
+    <link rel="apple-touch-icon" sizes="76x76" href="{{ url_for('static', filename='images/icon-76x76.png') }}">
+    <link rel="apple-touch-icon" sizes="72x72" href="{{ url_for('static', filename='images/icon-72x72.png') }}">
+    <link rel="apple-touch-icon" sizes="60x60" href="{{ url_for('static', filename='images/icon-60x60.png') }}">
+    <link rel="apple-touch-icon" sizes="57x57" href="{{ url_for('static', filename='images/icon-57x57.png') }}">
+    
+    <!-- Restaurant Metadata -->
+    {% if session.get('current_restaurant_id') %}
+    <meta name="user-restaurant" content="{{ session.get('current_restaurant_id') }}">
+    <meta name="restaurant-name" content="{{ session.get('current_restaurant_name', 'Restaurant') }}">
+    {% else %}
+    <meta name="user-restaurant" content="default">
+    <meta name="restaurant-name" content="Restaurant par défaut">
+    {% endif %}
+    
+    <!-- CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    {% block extra_css %}{% endblock %}
+    <style>
+        .navbar-brand {
+            font-weight: bold;
+            font-size: 1.5rem;
+        }
+        
+        .dropdown-submenu .dropdown-header {
+            color: #ffc107 !important;
+            font-weight: bold;
+            border-bottom: 1px solid #dee2e6;
+            margin-bottom: 0.5rem;
+        }
+        
+        .dropdown-submenu .dropdown-item {
+            padding-left: 2rem !important;
+            font-size: 0.9rem;
+        }
+        
+        .dropdown-submenu .dropdown-item:hover {
+            background-color: #f8f9fa;
+            padding-left: 2.2rem !important;
+            transition: padding-left 0.2s ease;
+        }
+    </style>
+    
+    <!-- PWA Installation Prompt -->
+    <script>
+        let deferredPrompt;
+        
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            showInstallBanner();
+        });
+        
+        function showInstallBanner() {
+            const banner = document.createElement('div');
+            banner.id = 'installBanner';
+            banner.className = 'alert alert-primary alert-dismissible fade show position-fixed';
+            banner.style.cssText = 'top: 80px; left: 20px; right: 20px; z-index: 1050;';
+            banner.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-download me-2"></i>
+                    <div class="flex-grow-1">
+                        <strong>Installer FactureKiller</strong>
+                        <div class="small">Accès rapide depuis votre écran d'accueil</div>
+                    </div>
+                    <button class="btn btn-primary btn-sm me-2" onclick="installPWA()">
+                        <i class="bi bi-plus-circle me-1"></i>Installer
+                    </button>
+                    <button type="button" class="btn-close" onclick="dismissInstallBanner()"></button>
+                </div>
+            `;
+            document.body.appendChild(banner);
+            
+            setTimeout(() => {
+                banner.classList.add('show');
+            }, 1000);
+        }
+        
+        async function installPWA() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log(`PWA install outcome: ${outcome}`);
+                deferredPrompt = null;
+                dismissInstallBanner();
+            }
+        }
+        
+        function dismissInstallBanner() {
+            const banner = document.getElementById('installBanner');
+            if (banner) {
+                banner.remove();
+            }
+        }
+        
+        // Détecter si l'app est installée
+        window.addEventListener('appinstalled', () => {
+            console.log('PWA was installed');
+            dismissInstallBanner();
+        });
+    </script>
+</head>
+<body>
+    <!-- PWA Install Banner -->
+    <div id="pwaInstallBanner" class="pwa-install-banner d-none">
+        <div class="container-fluid">
+            <div class="d-flex align-items-center justify-content-between p-2 bg-primary text-white">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-phone me-2"></i>
+                    <small class="fw-bold">Installer FactureKiller sur votre mobile</small>
+                </div>
+                <div>
+                    <button id="pwaInstallBtn" class="btn btn-light btn-sm me-2">
+                        <i class="bi bi-download"></i> Installer
+                    </button>
+                    <button id="pwaCloseBtn" class="btn btn-outline-light btn-sm">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation principale -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold" href="/">
+                <i class="bi bi-receipt-cutoff"></i> FactureKiller V3
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <!-- Menus restaurant - visibles seulement si restaurant sélectionné -->
+                    <div id="restaurantMenus" style="display: none;">
+                        <!-- Menu déroulant pour mobile/tablette (caché sur desktop) -->
+                        <li class="nav-item dropdown d-lg-none">
+                            <a class="nav-link dropdown-toggle" href="#" id="mobileRestaurantMenu" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-grid-3x3-gap"></i> Gestion Restaurant
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item {% if request.endpoint == 'scanner' %}active{% endif %}" href="/scanner">
+                                    <i class="bi bi-upc-scan me-2"></i>Scanner Factures</a></li>
+                                <li><a class="dropdown-item {% if request.endpoint == 'commandes' %}active{% endif %}" href="/commandes">
+                                    <i class="bi bi-cart3 me-2"></i>Commandes</a></li>
+                                <li><a class="dropdown-item {% if request.endpoint == 'factures' %}active{% endif %}" href="/factures">
+                                    <i class="bi bi-receipt me-2"></i>Factures</a></li>
+                                <li><a class="dropdown-item {% if request.endpoint == 'fournisseurs' %}active{% endif %}" href="/fournisseurs">
+                                    <i class="bi bi-truck me-2"></i>Fournisseurs</a></li>
+                            </ul>
+                        </li>
+                        
+                        <!-- Menus individuels pour desktop (cachés sur mobile) -->
+                        <li class="nav-item d-none d-lg-block">
+                            <a class="nav-link {% if request.endpoint == 'scanner' %}active{% endif %}" href="/scanner">
+                                <i class="bi bi-upc-scan"></i> Scanner
+                            </a>
+                        </li>
+                        
+                        <li class="nav-item d-none d-lg-block">
+                            <a class="nav-link {% if request.endpoint == 'commandes' %}active{% endif %}" href="/commandes">
+                                <i class="bi bi-cart3"></i> Commandes
+                            </a>
+                        </li>
+                        
+                        <li class="nav-item d-none d-lg-block">
+                            <a class="nav-link {% if request.endpoint == 'factures' %}active{% endif %}" href="/factures">
+                                <i class="bi bi-receipt"></i> Factures
+                            </a>
+                        </li>
+                        
+                        <li class="nav-item d-none d-lg-block">
+                            <a class="nav-link {% if request.endpoint == 'fournisseurs' %}active{% endif %}" href="/fournisseurs">
+                                <i class="bi bi-truck"></i> Fournisseurs
+                            </a>
+                        </li>
+                        
+                        <!-- Synchronisation - Master Admin uniquement -->
+                        <li class="nav-item" id="syncNavItem" style="display: none;">
+                            <a class="nav-link" href="/synchronisation">
+                                <i class="bi bi-arrow-repeat"></i> Synchronisation
+                            </a>
+                        </li>
+                    </div>
+                    
+                    <!-- Lien Dashboard Client (Client seulement) -->
+                    <li class="nav-item" id="clientNavItem" style="display: none;">
+                        <a class="nav-link {% if request.endpoint == 'client_dashboard' %}active{% endif %} text-info" 
+                           href="/client">
+                            <i class="bi bi-building"></i> Mes Restaurants
+                        </a>
+                    </li>
+                </ul>
+                
+                <!-- Informations utilisateur -->
+                <ul class="navbar-nav">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle me-2"></i>
+                            <span id="currentUserName">Utilisateur</span>
+                            <span id="currentUserRole" class="badge bg-light text-dark ms-2"></span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <h6 class="dropdown-header">
+                                    <i class="bi bi-person-badge me-2"></i>
+                                    <span id="dropdownUserName">Master Administrator</span>
+                                </h6>
+                            </li>
+                            
+                            <!-- Informations utilisateur et restaurant -->
+                            <li>
+                                <div class="dropdown-item-text">
+                                    <div id="userFullInfo">
+                                        <small class="text-muted">Nom complet:</small><br>
+                                        <strong id="userFullName">Master Administrator</strong>
+                                    </div>
+                                    <div id="currentRestaurantInfo" class="mt-2">
+                                        <small class="text-muted">Restaurant actuel:</small><br>
+                                        <strong id="currentRestaurantName" class="text-primary">Aucun restaurant sélectionné</strong>
+                                    </div>
+                                </div>
+                            </li>
+                            
+                            <li><hr class="dropdown-divider"></li>
+                            
+                            <!-- Administration pour Master Admin -->
+                            <li id="adminDropdownItem">
+                                <h6 class="dropdown-header text-warning">
+                                    <i class="bi bi-shield-check me-2"></i>Administration
+                                </h6>
+                                <a class="dropdown-item ps-4" href="/admin">
+                                    <i class="bi bi-speedometer2 me-2"></i>Dashboard & Statistiques
+                                </a>
+                                <a class="dropdown-item ps-4" href="/admin#clients">
+                                    <i class="bi bi-people me-2"></i>Gestion Clients
+                                </a>
+                                <a class="dropdown-item ps-4" href="/synchronisation">
+                                    <i class="bi bi-arrow-repeat me-2"></i>Synchronisation Multi-Restaurants
+                                </a>
+                                <a class="dropdown-item ps-4" href="/admin#email-config">
+                                    <i class="bi bi-envelope-gear me-2"></i>Configuration Email
+                                </a>
+                            </li>
+                            
+                            <li><hr class="dropdown-divider"></li>
+                            
+                            <!-- Sélecteur de restaurants pour Master Admin -->
+                            <li id="masterAdminRestaurantSelector" style="display: none;">
+                                <h6 class="dropdown-header">
+                                    <i class="bi bi-building me-2"></i>Choisir Restaurant
+                                </h6>
+                                <div id="allRestaurantsList">
+                                    <!-- Les restaurants seront chargés dynamiquement ici -->
+                                </div>
+                                <hr class="dropdown-divider">
+                            </li>
+                            
+                            <li>
+                                <button class="dropdown-item text-danger" data-action="logout">
+                                    <i class="bi bi-box-arrow-right me-2"></i>Déconnexion
+                                </button>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Contenu principal -->
+    <main class="container-fluid mt-5 pt-4">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Toast pour les notifications -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="notificationToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <i class="bi bi-info-circle-fill text-primary me-2"></i>
+                <strong class="me-auto">Notification</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body"></div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    
+    <script>
+        // Variables globales pour l'utilisateur
+        let currentUser = null;
+        
+        // Fonction globale pour afficher les notifications
+        function showNotification(message, type = 'info') {
+            console.log(`📢 Notification: ${message} (${type})`);
+            const toast = document.getElementById('notificationToast');
+            const toastBody = toast.querySelector('.toast-body');
+            const toastIcon = toast.querySelector('.toast-header i');
+            
+            toastBody.textContent = message;
+            
+            // Changer l'icône selon le type
+            toastIcon.className = 'bi me-2';
+            switch(type) {
+                case 'success':
+                    toastIcon.classList.add('bi-check-circle-fill', 'text-success');
+                    break;
+                case 'error':
+                    toastIcon.classList.add('bi-x-circle-fill', 'text-danger');
+                    break;
+                case 'warning':
+                    toastIcon.classList.add('bi-exclamation-triangle-fill', 'text-warning');
+                    break;
+                default:
+                    toastIcon.classList.add('bi-info-circle-fill', 'text-primary');
+            }
+            
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+        }
+        
+        // Charger les informations utilisateur
+        async function loadUserInfo() {
+            try {
+                console.log('🔄 Chargement des informations utilisateur...');
+                
+                const response = await fetch('/api/auth/user', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    cache: 'no-cache' // Forcer le rechargement
+                });
+                
+                const result = await response.json();
+                console.log('👤 Données utilisateur reçues:', result);
+                
+                if (result.success) {
+                    currentUser = result.data;
+                    console.log('✅ Utilisateur connecté:', currentUser.user);
+                    updateUserInterface();
+                } else {
+                    console.log('❌ Utilisateur non authentifié, redirection...');
+                    // Rediriger vers la page de connexion si non authentifié
+                    window.location.href = '/login';
+                }
+            } catch (error) {
+                console.error('💥 Erreur chargement utilisateur:', error);
+                window.location.href = '/login';
+            }
+        }
+        
+        // Mettre à jour l'interface avec les informations utilisateur
+        function updateUserInterface() {
+            if (!currentUser || !currentUser.user) return;
+            
+            const user = currentUser.user;
+            
+            // Mettre à jour le nom d'utilisateur
+            document.getElementById('currentUserName').textContent = user.name || user.username;
+            document.getElementById('dropdownUserName').textContent = user.name || user.username;
+            
+            // Mettre à jour le nom complet
+            const fullNameElement = document.getElementById('userFullName');
+            if (fullNameElement) {
+                fullNameElement.textContent = user.name || user.username;
+            }
+            
+            // Mettre à jour les informations du restaurant actuel
+            const restaurantInfoElement = document.getElementById('currentRestaurantInfo');
+            const restaurantNameElement = document.getElementById('currentRestaurantName');
+            const restaurantMenus = document.getElementById('restaurantMenus');
+            
+            if (currentUser.restaurant) {
+                // Restaurant sélectionné - afficher les menus
+                restaurantInfoElement.style.display = 'block';
+                restaurantNameElement.textContent = currentUser.restaurant.name;
+                restaurantNameElement.className = 'text-primary';
+                restaurantMenus.style.display = 'flex'; // Afficher les menus restaurant
+            } else {
+                // Aucun restaurant sélectionné - masquer les menus
+                restaurantInfoElement.style.display = 'block';
+                restaurantNameElement.textContent = 'Aucun restaurant sélectionné';
+                restaurantNameElement.className = 'text-muted';
+                restaurantMenus.style.display = 'none'; // Masquer les menus restaurant
+            }
+            
+            // Mettre à jour le rôle
+            const roleElement = document.getElementById('currentUserRole');
+            const roleNames = {
+                'master_admin': 'Master Admin',
+                'client': 'Client',
+                'admin_restaurant': 'Gérant',
+                'user': 'Utilisateur'
+            };
+            roleElement.textContent = roleNames[user.role] || user.role;
+            
+            // Afficher le lien Administration si Master Admin
+            const adminNavItem = document.getElementById('adminDropdownItem');
+            if (user.role === 'master_admin') {
+                console.log('🔧 Utilisateur Master Admin détecté');
+                adminNavItem.style.display = 'block';
+                // Pour Master Admin, charger tous les restaurants
+                console.log('🏢 Chargement des restaurants pour Master Admin...');
+                loadAllRestaurantsForMasterAdmin();
+            } else {
+                console.log('👤 Utilisateur non-admin:', user.role);
+                adminNavItem.style.display = 'none';
+            }
+            
+            // Afficher le lien Mes Restaurants si Client
+            const clientNavItem = document.getElementById('clientNavItem');
+            if (user.role === 'client') {
+                clientNavItem.style.display = 'block';
+            } else {
+                clientNavItem.style.display = 'none';
+            }
+            
+            // Gérer le switch de restaurants pour les clients
+            const restaurantSwitcher = document.getElementById('restaurantSwitcher');
+            const restaurantList = document.getElementById('restaurantList');
+            
+            if (user.role === 'client' && currentUser.restaurants && currentUser.restaurants.length > 1) {
+                // Afficher le switcher si plusieurs restaurants
+                if (restaurantSwitcher) {
+                    restaurantSwitcher.style.display = 'block';
+                    
+                    let restaurantHtml = '';
+                    currentUser.restaurants.forEach(restaurant => {
+                        const isActive = currentUser.restaurant && currentUser.restaurant.id === restaurant.id;
+                        restaurantHtml += `
+                            <button class="dropdown-item ${isActive ? 'active' : ''}" 
+                                    onclick="switchRestaurant('${restaurant.id}')">
+                                <i class="bi bi-building me-2"></i>
+                                ${restaurant.name}
+                                ${isActive ? '<i class="bi bi-check-circle-fill text-success ms-2"></i>' : ''}
+                            </button>
+                        `;
+                    });
+                    
+                    if (restaurantList) {
+                        restaurantList.innerHTML = restaurantHtml;
+                    }
+                }
+            } else if (restaurantSwitcher) {
+                restaurantSwitcher.style.display = 'none';
+            }
+        }
+        
+        // Fonction pour changer de restaurant
+        async function switchRestaurant(restaurantId) {
+            try {
+                const response = await fetch('/api/client/switch-restaurant', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ restaurant_id: restaurantId })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showNotification('Restaurant changé avec succès', 'success');
+                    // Recharger les informations utilisateur
+                    await loadUserInfo();
+                    // Recharger la page si nécessaire
+                    if (window.location.pathname === '/client') {
+                        window.location.reload();
+                    }
+                } else {
+                    showNotification(result.message || 'Erreur lors du changement de restaurant', 'error');
+                }
+            } catch (error) {
+                console.error('Erreur switch restaurant:', error);
+                showNotification('Erreur de connexion au serveur', 'error');
+            }
+        }
+
+        // Charger tous les restaurants pour Master Admin
+        async function loadAllRestaurantsForMasterAdmin() {
+            try {
+                console.log('🏢 Chargement des restaurants pour Master Admin...');
+                
+                const response = await fetch('/api/admin/restaurants', {
+                    credentials: 'include',
+                    cache: 'no-cache'
+                });
+                const result = await response.json();
+                
+                console.log('🏢 Restaurants récupérés:', result);
+                
+                if (result.success) {
+                    const masterAdminSelector = document.getElementById('masterAdminRestaurantSelector');
+                    const allRestaurantsList = document.getElementById('allRestaurantsList');
+                    
+                    if (result.data && result.data.length > 0) {
+                        console.log(`✅ ${result.data.length} restaurants trouvés`);
+                        masterAdminSelector.style.display = 'block';
+                        
+                        let restaurantHtml = '';
+                        result.data.forEach(restaurant => {
+                            const isActive = currentUser.restaurant && currentUser.restaurant.id === restaurant.id;
+                            restaurantHtml += `
+                                <button class="dropdown-item ${isActive ? 'active' : ''}" 
+                                        onclick="switchToRestaurant('${restaurant.id}')">
+                                    <i class="bi bi-building me-2"></i>
+                                    ${restaurant.name}
+                                    ${isActive ? '<i class="bi bi-check-circle-fill text-success ms-2"></i>' : ''}
+                                    <br><small class="text-muted ps-4">${restaurant.address || 'Adresse non définie'}</small>
+                                </button>
+                            `;
+                        });
+                        
+                        // Ajouter un bouton pour désélectionner
+                        restaurantHtml += `
+                            <hr class="dropdown-divider">
+                            <button class="dropdown-item text-muted" onclick="switchToRestaurant(null)">
+                                <i class="bi bi-x-circle me-2"></i>
+                                Désélectionner le restaurant
+                            </button>
+                        `;
+                        
+                        allRestaurantsList.innerHTML = restaurantHtml;
+                        console.log('✅ HTML restaurants généré et injecté');
+                    } else {
+                        console.log('❌ Aucun restaurant dans les données');
+                        masterAdminSelector.style.display = 'none';
+                    }
+                } else {
+                    console.error('❌ Erreur API restaurants:', result.error);
+                    masterAdminSelector.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('💥 Erreur chargement restaurants:', error);
+                const masterAdminSelector = document.getElementById('masterAdminRestaurantSelector');
+                if (masterAdminSelector) {
+                    masterAdminSelector.style.display = 'none';
+                }
+            }
+        }
+
+        // Fonction pour Master Admin pour changer de restaurant
+        async function switchToRestaurant(restaurantId) {
+            try {
+                console.log('🔄 Switch vers restaurant:', restaurantId);
+                
+                const response = await fetch('/api/admin/switch-restaurant', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ restaurant_id: restaurantId })
+                });
+                
+                const result = await response.json();
+                console.log('✅ Résultat switch restaurant:', result);
+                
+                if (result.success) {
+                    if (restaurantId) {
+                        showNotification('Restaurant sélectionné avec succès', 'success');
+                    } else {
+                        showNotification('Restaurant désélectionné', 'info');
+                    }
+                    // Recharger les informations utilisateur
+                    await loadUserInfo();
+                    // Recharger la page si nécessaire
+                    window.location.reload();
+                } else {
+                    showNotification(result.message || 'Erreur lors de la sélection du restaurant', 'error');
+                }
+            } catch (error) {
+                console.error('❌ Erreur switch restaurant:', error);
+                showNotification('Erreur de connexion au serveur', 'error');
+            }
+        }
+
+        // Vérifier la santé de l'API au chargement
+        fetch('/api/health')
+            .then(response => response.json())
+            .then(data => {
+                if (!data.services.ocr) {
+                    showNotification('⚠️ Service OCR non disponible', 'warning');
+                }
+            })
+            .catch(error => {
+                showNotification('❌ Erreur de connexion au serveur', 'error');
+            });
+        
+        // Charger les informations utilisateur au chargement de la page
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🎯 DOM chargé, initialisation...');
+            loadUserInfo();
+            
+            // CONFIGURATION DES BOUTONS DE DÉCONNEXION
+            setupLogoutButtons();
+        });
+        
+        // Configuration robuste des boutons de déconnexion
+        function setupLogoutButtons() {
+            console.log('🔧 Configuration des boutons de déconnexion...');
+            
+            // Fonction de déconnexion universelle
+            function performLogout(type) {
+                console.log(`🚪 Déconnexion ${type} déclenchée`);
+                
+                fetch('/api/auth/force-logout', { 
+                    method: 'POST',
+                    credentials: 'include'
+                })
+                .then(response => response.json())
+                .then(result => {
+                    console.log('✅ Déconnexion API réussie:', result);
+                    showNotification(`Déconnexion ${type} réussie`, 'success');
+                    
+                    // Nettoyage local
+                    localStorage.clear();
+                    sessionStorage.clear();
+                    
+                    // Redirection
+                    setTimeout(() => {
+                        window.location.href = '/login';
+                    }, 500);
+                })
+                .catch(error => {
+                    console.error('❌ Erreur API déconnexion:', error);
+                    showNotification(`Déconnexion ${type} forcée`, 'warning');
+                    
+                    // Nettoyage et redirection même en cas d'erreur
+                    localStorage.clear();
+                    sessionStorage.clear();
+                    setTimeout(() => {
+                        window.location.href = '/login';
+                    }, 500);
+                });
+            }
+            
+            // Attacher les événements aux boutons
+            document.addEventListener('click', function(event) {
+                const action = event.target.closest('[data-action]')?.getAttribute('data-action');
+                
+                if (action) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    
+                    console.log(`🎯 Action déclenchée: ${action}`);
+                    
+                    switch(action) {
+                        case 'logout':
+                            performLogout('normale');
+                            break;
+                        default:
+                            console.log('❓ Action inconnue:', action);
+                    }
+                }
+            });
+            
+            console.log('✅ Boutons de déconnexion configurés');
+        }
+        
+        // Fonction de test pour debug (accessible dans la console)
+        window.testRestaurants = async function() {
+            console.log('🧪 TEST - Chargement des restaurants...');
+            try {
+                const response = await fetch('/api/admin/restaurants', {
+                    credentials: 'include'
+                });
+                const result = await response.json();
+                console.log('🏢 Restaurants API result:', result);
+                return result;
+            } catch (error) {
+                console.error('💥 Erreur test restaurants:', error);
+                return null;
+            }
+        };
+        
+        // Fonction de test pour les infos utilisateur
+        window.testUser = async function() {
+            console.log('🧪 TEST - Infos utilisateur...');
+            try {
+                const response = await fetch('/api/auth/user', {
+                    credentials: 'include'
+                });
+                const result = await response.json();
+                console.log('👤 User API result:', result);
+                return result;
+            } catch (error) {
+                console.error('💥 Erreur test user:', error);
+                return null;
+            }
+        };
+        
+        // Fonction pour forcer le rechargement des restaurants
+        window.reloadRestaurants = function() {
+            console.log('🔄 Rechargement forcé des restaurants...');
+            if (currentUser && currentUser.user && currentUser.user.role === 'master_admin') {
+                loadAllRestaurantsForMasterAdmin();
+            } else {
+                console.log('❌ Utilisateur non master admin');
+            }
+        };
+        
+        // FONCTION DE DEBUG COMPLÈTE POUR LES RESTAURANTS
+        window.debugRestaurants = async function() {
+            console.log('🔧 === DEBUG RESTAURANTS COMPLET ===');
+            
+            // 1. Vérifier l'utilisateur actuel
+            console.log('1️⃣ Utilisateur actuel:', currentUser);
+            
+            // 2. Tester l'API utilisateur
+            try {
+                const userResponse = await fetch('/api/auth/user', { credentials: 'include' });
+                const userData = await userResponse.json();
+                console.log('2️⃣ API User:', userData);
+            } catch (error) {
+                console.error('2️⃣ Erreur API User:', error);
+            }
+            
+            // 3. Tester l'API restaurants
+            try {
+                const restResponse = await fetch('/api/admin/restaurants', { credentials: 'include' });
+                const restData = await restResponse.json();
+                console.log('3️⃣ API Restaurants:', restData);
+            } catch (error) {
+                console.error('3️⃣ Erreur API Restaurants:', error);
+            }
+            
+            // 4. Vérifier les éléments DOM
+            const masterAdminSelector = document.getElementById('masterAdminRestaurantSelector');
+            const allRestaurantsList = document.getElementById('allRestaurantsList');
+            
+            console.log('4️⃣ Éléments DOM:');
+            console.log('  - masterAdminRestaurantSelector:', masterAdminSelector ? 'TROUVÉ' : 'MANQUANT');
+            console.log('  - allRestaurantsList:', allRestaurantsList ? 'TROUVÉ' : 'MANQUANT');
+            
+            if (masterAdminSelector) {
+                console.log('  - Style display:', masterAdminSelector.style.display);
+                console.log('  - Contenu HTML:', allRestaurantsList?.innerHTML?.substring(0, 200) + '...');
+            }
+            
+            // 5. Forcer le rechargement
+            console.log('5️⃣ Forçage du rechargement...');
+            if (currentUser && currentUser.user && currentUser.user.role === 'master_admin') {
+                await loadAllRestaurantsForMasterAdmin();
+            }
+            
+            console.log('🔧 === FIN DEBUG RESTAURANTS ===');
+        };
+        
+        // FONCTION D'URGENCE GLOBALE - accessible depuis la console
+        window.emergencyLogout = function() {
+            console.log('🚨 DÉCONNEXION D\'URGENCE GLOBALE');
+            fetch('/api/auth/force-logout', { method: 'POST' })
+                .then(() => {
+                    console.log('✅ Déconnexion d\'urgence réussie');
+                    localStorage.clear();
+                    sessionStorage.clear();
+                    window.location.href = '/login';
+                })
+                .catch(() => {
+                    console.log('❌ Erreur API, redirection forcée');
+                    localStorage.clear();
+                    sessionStorage.clear();
+                    window.location.href = '/login';
+                });
+        };
+        
+        // Fonction pour tester la connexion utilisateur
+        window.testConnection = function() {
+            console.log('🧪 Test de connexion...');
+            fetch('/api/auth/user', { credentials: 'include' })
+                .then(r => r.json())
+                .then(data => {
+                    console.log('👤 Statut utilisateur:', data);
+                    if (!data.success) {
+                        console.log('❌ Non connecté, redirection...');
+                        window.location.href = '/login';
+                    }
+                })
+                .catch(e => {
+                    console.error('💥 Erreur test connexion:', e);
+                    window.location.href = '/login';
+                });
+        };
+        
+        console.log('🔧 Fonctions d\'urgence disponibles:');
+        console.log('- emergencyLogout() : Déconnexion d\'urgence');
+        console.log('- testConnection() : Tester la connexion');
+        console.log('- reloadRestaurants() : Recharger les restaurants');
+        console.log('- debugRestaurants() : Debug complet du système restaurants');
+        console.log('- testRestaurants() : Test simple API restaurants');
+        console.log('- testUser() : Test API utilisateur');
+        
+        // EXPOSER TOUTES LES FONCTIONS GLOBALEMENT
+        window.logout = function() {
+            console.log('🚪 Déconnexion en cours...');
+            fetch('/api/auth/force-logout', { method: 'POST', credentials: 'include' })
+                .then(() => {
+                    localStorage.clear();
+                    sessionStorage.clear();
+                    window.location.href = '/login';
+                })
+                .catch(() => {
+                    localStorage.clear();
+                    sessionStorage.clear();
+                    window.location.href = '/login';
+                });
+        };
+        
+        // Exposer les fonctions de restaurant globalement
+        window.forceLogout = window.logout;
+        window.switchToRestaurant = switchToRestaurant;
+        window.loadAllRestaurantsForMasterAdmin = loadAllRestaurantsForMasterAdmin;
+        window.loadUserInfo = loadUserInfo;
+        window.updateUserInterface = updateUserInterface;
+        
+        // FONCTION POUR CHARGER LES RESTAURANTS AUTOMATIQUEMENT
+        window.autoLoadRestaurants = function() {
+            console.log('🔄 Chargement automatique des restaurants...');
+            if (currentUser && currentUser.user && currentUser.user.role === 'master_admin') {
+                console.log('✅ Master Admin détecté, chargement des restaurants...');
+                loadAllRestaurantsForMasterAdmin();
+            } else {
+                console.log('❌ Pas Master Admin, pas de chargement restaurants');
+            }
+        };
+        
+        // Forcer le chargement des restaurants après un délai
+        setTimeout(() => {
+            console.log('⏰ Timeout: Tentative de chargement des restaurants...');
+            window.autoLoadRestaurants();
+        }, 2000);
+        
+        console.log('✅ Système de restaurants et déconnexion configuré');
+    </script>
+    
+    <!-- PWA Install Script -->
+    <script>
+        // PWA Installation - Global scope
+        if (!window.pwaInstallManager) {
+            window.pwaInstallManager = {
+                deferredPrompt: null,
+                init: function() {
+                    const pwaInstallBanner = document.getElementById('pwaInstallBanner');
+                    const pwaInstallBtn = document.getElementById('pwaInstallBtn');
+                    const pwaCloseBtn = document.getElementById('pwaCloseBtn');
+
+                    if (!pwaInstallBanner) return;
+
+                    // Écouter l'événement beforeinstallprompt
+                    window.addEventListener('beforeinstallprompt', (e) => {
+                        // Empêcher le mini-infobar par défaut de Chrome
+                        e.preventDefault();
+                        // Stocker l'événement pour l'utiliser plus tard
+                        this.deferredPrompt = e;
+                        // Afficher la bannière personnalisée
+                        if (!localStorage.getItem('pwaInstallDismissed')) {
+                            pwaInstallBanner.classList.remove('d-none');
+                        }
+                    });
+
+                    // Gérer le clic sur le bouton d'installation
+                    pwaInstallBtn.addEventListener('click', async () => {
+                        if (this.deferredPrompt) {
+                            // Afficher le prompt d'installation
+                            this.deferredPrompt.prompt();
+                            // Attendre la réponse de l'utilisateur
+                            const { outcome } = await this.deferredPrompt.userChoice;
+                            console.log(`User response to the install prompt: ${outcome}`);
+                            // Réinitialiser la variable
+                            this.deferredPrompt = null;
+                            // Masquer la bannière
+                            pwaInstallBanner.classList.add('d-none');
+                        }
+                    });
+
+                    // Gérer le clic sur fermer
+                    pwaCloseBtn.addEventListener('click', () => {
+                        pwaInstallBanner.classList.add('d-none');
+                        localStorage.setItem('pwaInstallDismissed', 'true');
+                    });
+
+                    // Masquer la bannière si l'app est déjà installée
+                    window.addEventListener('appinstalled', () => {
+                        pwaInstallBanner.classList.add('d-none');
+                        console.log('PWA was installed');
+                    });
+
+                    // Vérifier si l'app est déjà en mode standalone
+                    if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
+                        pwaInstallBanner.classList.add('d-none');
+                    }
+                }
+            };
+            
+            // Initialiser quand le DOM est prêt
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => window.pwaInstallManager.init());
+            } else {
+                window.pwaInstallManager.init();
+            }
+        }
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html> 

@@ -1,0 +1,9 @@
+{
+  "email": "cuvelierevan59@gmail.com",
+  "password": "msor jzou ccdu zuib",
+  "smtp_server": "smtp.gmail.com",
+  "smtp_port": 587,
+  "sender_name": "FactureKiller V3",
+  "enabled": true,
+  "auto_send": true
+}

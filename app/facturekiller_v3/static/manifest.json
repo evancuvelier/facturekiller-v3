@@ -1,0 +1,151 @@
+{
+    "name": "FactureKiller Pro Scanner",
+    "short_name": "FK Scanner",
+    "description": "Scanner intelligent de factures avec IA Claude Vision",
+    "start_url": "/scanner",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#007bff",
+    "orientation": "portrait-primary",
+    "scope": "/",
+    "lang": "fr-FR",
+    "categories": ["business", "productivity", "utilities"],
+    "icons": [
+        {
+            "src": "/static/images/icon-72x72.png",
+            "sizes": "72x72",
+            "type": "image/png",
+            "purpose": "maskable any"
+        },
+        {
+            "src": "/static/images/icon-96x96.png",
+            "sizes": "96x96",
+            "type": "image/png",
+            "purpose": "maskable any"
+        },
+        {
+            "src": "/static/images/icon-128x128.png",
+            "sizes": "128x128",
+            "type": "image/png",
+            "purpose": "maskable any"
+        },
+        {
+            "src": "/static/images/icon-144x144.png",
+            "sizes": "144x144",
+            "type": "image/png",
+            "purpose": "maskable any"
+        },
+        {
+            "src": "/static/images/icon-152x152.png",
+            "sizes": "152x152",
+            "type": "image/png",
+            "purpose": "maskable any"
+        },
+        {
+            "src": "/static/images/icon-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable any"
+        },
+        {
+            "src": "/static/images/icon-384x384.png",
+            "sizes": "384x384",
+            "type": "image/png",
+            "purpose": "maskable any"
+        },
+        {
+            "src": "/static/images/icon-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable any"
+        }
+    ],
+    "screenshots": [
+        {
+            "src": "/static/images/screenshot-mobile.png",
+            "sizes": "360x640",
+            "type": "image/png",
+            "form_factor": "narrow"
+        },
+        {
+            "src": "/static/images/screenshot-desktop.png",
+            "sizes": "1280x720",
+            "type": "image/png",
+            "form_factor": "wide"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "Scan Rapide",
+            "short_name": "Scan",
+            "description": "Scanner une facture rapidement",
+            "url": "/scanner?mode=quick",
+            "icons": [
+                {
+                    "src": "/static/images/shortcut-scan.png",
+                    "sizes": "96x96"
+                }
+            ]
+        },
+        {
+            "name": "Vérifier Commande",
+            "short_name": "Vérif",
+            "description": "Vérifier une commande existante",
+            "url": "/scanner?mode=order",
+            "icons": [
+                {
+                    "src": "/static/images/shortcut-verify.png",
+                    "sizes": "96x96"
+                }
+            ]
+        },
+        {
+            "name": "Historique",
+            "short_name": "Historique",
+            "description": "Voir l'historique des scans",
+            "url": "/scanner#history",
+            "icons": [
+                {
+                    "src": "/static/images/shortcut-history.png",
+                    "sizes": "96x96"
+                }
+            ]
+        }
+    ],
+    "share_target": {
+        "action": "/scanner/share",
+        "method": "POST",
+        "enctype": "multipart/form-data",
+        "params": {
+            "files": [
+                {
+                    "name": "file",
+                    "accept": ["image/*", "application/pdf"]
+                }
+            ]
+        }
+    },
+    "file_handlers": [
+        {
+            "action": "/scanner",
+            "accept": {
+                "image/*": [".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".heif"],
+                "application/pdf": [".pdf"]
+            }
+        }
+    ],
+    "protocol_handlers": [
+        {
+            "protocol": "web+facturekiller",
+            "url": "/scanner?data=%s"
+        }
+    ],
+    "edge_side_panel": {
+        "preferred_width": 400
+    },
+    "launch_handler": {
+        "client_mode": "focus-existing"
+    },
+    "handle_links": "preferred",
+    "prefer_related_applications": false
+} 

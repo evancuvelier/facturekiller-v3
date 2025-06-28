@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion - FactureKiller V3</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .login-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 3rem;
+            width: 100%;
+            max-width: 450px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .logo {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .logo h1 {
+            color: #667eea;
+            font-weight: 700;
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .logo p {
+            color: #6c757d;
+            font-size: 1.1rem;
+            margin: 0;
+        }
+        
+        .form-floating {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-control {
+            border-radius: 12px;
+            border: 2px solid #e9ecef;
+            padding: 1rem;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        
+        .btn-login {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 12px;
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: white;
+            width: 100%;
+            transition: all 0.3s ease;
+            margin-top: 1rem;
+        }
+        
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+            color: white;
+        }
+        
+        .alert {
+            border-radius: 12px;
+            border: none;
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-check {
+            margin: 1.5rem 0;
+        }
+        
+        .form-check-input:checked {
+            background-color: #667eea;
+            border-color: #667eea;
+        }
+        
+        .loading {
+            display: none;
+        }
+        
+        .role-badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            margin-top: 1rem;
+            display: inline-block;
+        }
+        
+        .demo-accounts {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-top: 2rem;
+            border-left: 4px solid #667eea;
+        }
+        
+        .demo-accounts h6 {
+            color: #667eea;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+        
+        .demo-account {
+            background: white;
+            border-radius: 8px;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid #e9ecef;
+        }
+        
+        .demo-account:hover {
+            border-color: #667eea;
+            transform: translateX(5px);
+        }
+        
+        .demo-account strong {
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="logo">
+            <h1><i class="bi bi-receipt"></i> FactureKiller</h1>
+            <p>Système de Gestion Multi-Restaurants</p>
+        </div>
+        
+        <div id="alertContainer"></div>
+        
+        <form id="loginForm">
+            <div class="form-floating">
+                <input type="text" class="form-control" id="username" placeholder="Nom d'utilisateur" required>
+                <label for="username"><i class="bi bi-person me-2"></i>Nom d'utilisateur ou Email</label>
+            </div>
+            
+            <div class="form-floating">
+                <input type="password" class="form-control" id="password" placeholder="Mot de passe" required>
+                <label for="password"><i class="bi bi-lock me-2"></i>Mot de passe</label>
+            </div>
+            
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="rememberMe">
+                <label class="form-check-label" for="rememberMe">
+                    Se souvenir de moi
+                </label>
+            </div>
+            
+            <button type="submit" class="btn btn-login">
+                <span class="login-text">
+                    <i class="bi bi-box-arrow-in-right me-2"></i>Se connecter
+                </span>
+                <span class="loading">
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                    Connexion...
+                </span>
+            </button>
+        </form>
+        
+        <!-- Comptes de démonstration -->
+        <div class="demo-accounts">
+            <h6><i class="bi bi-info-circle me-2"></i>Comptes de test - Mot de passe : admin123</h6>
+            
+            <div class="demo-account" onclick="fillLogin('master', 'admin123')">
+                <strong>Master Admin</strong><br>
+                <small>master / admin123</small>
+                <span class="role-badge">Contrôle total du système</span>
+            </div>
+            
+            <div class="demo-account" onclick="fillLogin('client1', 'admin123')">
+                <strong>Propriétaire Groupe Paris</strong><br>
+                <small>client1 / admin123</small>
+                <span class="role-badge">Gestion de ses restaurants</span>
+            </div>
+            
+            <div class="demo-account" onclick="fillLogin('gerant1', 'admin123')">
+                <strong>Gérant Le Gourmet Parisien</strong><br>
+                <small>gerant1 / admin123</small>
+                <span class="role-badge">Gestion complète restaurant</span>
+            </div>
+            
+            <div class="demo-account" onclick="fillLogin('gerant2', 'admin123')">
+                <strong>Gérant Bouchon Lyonnais</strong><br>
+                <small>gerant2 / admin123</small>
+                <span class="role-badge">Gestion complète restaurant</span>
+            </div>
+            
+                        <div class="demo-account" onclick="fillLogin('user1', 'admin123')">
+                <strong>Serveur Restaurant</strong><br>
+                <small>user1 / admin123</small>
+                <span class="role-badge">Commandes et factures uniquement</span>
+            </div>
+        </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Gestion du formulaire de connexion
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            // Afficher le loading
+            showLoading(true);
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('Connexion réussie ! Redirection...', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 1000);
+                } else {
+                    showAlert(result.error || 'Erreur de connexion', 'danger');
+                }
+            } catch (error) {
+                showAlert('Erreur de connexion au serveur', 'danger');
+                console.error('Erreur:', error);
+            } finally {
+                showLoading(false);
+            }
+        });
+        
+        // Fonction pour remplir les champs de connexion (comptes de test)
+        function fillLogin(username, password) {
+            document.getElementById('username').value = username;
+            document.getElementById('password').value = password;
+            
+            // Animation de focus
+            document.getElementById('username').focus();
+            setTimeout(() => {
+                document.getElementById('password').focus();
+            }, 100);
+        }
+        
+        // Fonction pour afficher les alertes
+        function showAlert(message, type) {
+            const alertContainer = document.getElementById('alertContainer');
+            const alertHtml = `
+                <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                    <i class="bi bi-${type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            alertContainer.innerHTML = alertHtml;
+            
+            // Auto-dismiss après 5 secondes
+            setTimeout(() => {
+                const alert = alertContainer.querySelector('.alert');
+                if (alert) {
+                    const bsAlert = new bootstrap.Alert(alert);
+                    bsAlert.close();
+                }
+            }, 5000);
+        }
+        
+        // Fonction pour gérer l'état de chargement
+        function showLoading(show) {
+            const loginText = document.querySelector('.login-text');
+            const loading = document.querySelector('.loading');
+            const submitBtn = document.querySelector('.btn-login');
+            
+            if (show) {
+                loginText.style.display = 'none';
+                loading.style.display = 'inline-block';
+                submitBtn.disabled = true;
+            } else {
+                loginText.style.display = 'inline-block';
+                loading.style.display = 'none';
+                submitBtn.disabled = false;
+            }
+        }
+        
+        // Animation d'entrée
+        window.addEventListener('load', function() {
+            document.querySelector('.login-container').style.opacity = '0';
+            document.querySelector('.login-container').style.transform = 'translateY(20px)';
+            
+            setTimeout(() => {
+                document.querySelector('.login-container').style.transition = 'all 0.5s ease';
+                document.querySelector('.login-container').style.opacity = '1';
+                document.querySelector('.login-container').style.transform = 'translateY(0)';
+            }, 100);
+        });
+        
+        // Focus automatique sur le premier champ
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('username').focus();
+        });
+    </script>
+</body>
+</html> 

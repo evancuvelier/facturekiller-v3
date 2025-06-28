@@ -1,0 +1,682 @@
+{% extends "base.html" %}
+
+{% block title %}Synchronisation Multi-Restaurants - FactureKiller V3{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0 fw-bold">
+                        <i class="bi bi-arrow-repeat text-primary"></i> Synchronisation Multi-Restaurants
+                    </h1>
+                    <p class="text-muted mb-0">Gérer la synchronisation des fournisseurs et prix entre restaurants</p>
+                </div>
+                <div>
+                    <button class="btn btn-primary" onclick="createSyncGroup()">
+                        <i class="bi bi-plus-circle me-2"></i>Nouveau Groupe
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            <i class="bi bi-diagram-3 fs-1"></i>
+                        </div>
+                        <div>
+                            <div class="fs-4 fw-bold" id="totalGroups">0</div>
+                            <small>Groupes Actifs</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            <i class="bi bi-building fs-1"></i>
+                        </div>
+                        <div>
+                            <div class="fs-4 fw-bold" id="syncedRestaurants">0</div>
+                            <small>Restaurants Synchronisés</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            <i class="bi bi-truck fs-1"></i>
+                        </div>
+                        <div>
+                            <div class="fs-4 fw-bold" id="syncedSuppliers">0</div>
+                            <small>Fournisseurs Partagés</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            <i class="bi bi-clock-history fs-1"></i>
+                        </div>
+                        <div>
+                            <div class="fs-4 fw-bold" id="lastSync">-</div>
+                            <small>Dernière Sync</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Groupes de Synchronisation -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0 fw-bold">
+                        <i class="bi bi-diagram-3 me-2"></i>Groupes de Synchronisation
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="syncGroupsList">
+                        <!-- Groupes chargés dynamiquement -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Restaurants Disponibles -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0 fw-bold">
+                        <i class="bi bi-building me-2"></i>Restaurants Disponibles
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="restaurantsTable">
+                            <thead>
+                                <tr>
+                                    <th>Restaurant</th>
+                                    <th>Statut Sync</th>
+                                    <th>Groupe</th>
+                                    <th>Fournisseurs</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="restaurantsTableBody">
+                                <!-- Restaurants chargés dynamiquement -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Création Groupe -->
+<div class="modal fade" id="createGroupModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-plus-circle me-2"></i>Créer un Groupe de Synchronisation
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createGroupForm">
+                    <div class="mb-3">
+                        <label for="groupName" class="form-label fw-bold">Nom du Groupe</label>
+                        <input type="text" class="form-control" id="groupName" placeholder="Ex: Groupe Paris, Chaîne Lyon..." required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Restaurants à Synchroniser</label>
+                        <div id="restaurantCheckboxes" class="border rounded p-3">
+                            <!-- Checkboxes chargées dynamiquement -->
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="masterRestaurant" class="form-label fw-bold">Restaurant Maître</label>
+                        <select class="form-select" id="masterRestaurant" required>
+                            <option value="">Sélectionner le restaurant maître...</option>
+                        </select>
+                        <div class="form-text">Le restaurant maître sera la source de référence pour les synchronisations</div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="syncSuppliers" checked>
+                                <label class="form-check-label" for="syncSuppliers">
+                                    <i class="bi bi-truck me-1"></i>Synchroniser les Fournisseurs
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="syncPrices" checked>
+                                <label class="form-check-label" for="syncPrices">
+                                    <i class="bi bi-currency-euro me-1"></i>Synchroniser les Prix
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="submitCreateGroup()">
+                    <i class="bi bi-check-circle me-2"></i>Créer le Groupe
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Configuration Restaurant -->
+<div class="modal fade" id="configRestaurantModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-gear me-2"></i>Configuration Synchronisation
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="configRestaurantContent">
+                    <!-- Contenu chargé dynamiquement -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                <button type="button" class="btn btn-primary" onclick="saveRestaurantConfig()">
+                    <i class="bi bi-check-circle me-2"></i>Sauvegarder
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+class SyncManager {
+    constructor() {
+        this.currentRestaurantId = null;
+        this.restaurants = [];
+        this.syncGroups = {};
+        this.init();
+    }
+
+    async init() {
+        await this.loadData();
+        this.updateStats();
+    }
+
+    async loadData() {
+        try {
+            // Charger les groupes de synchronisation
+            const groupsResponse = await fetch('/api/sync/groups', {
+                credentials: 'include'
+            });
+            const groupsData = await groupsResponse.json();
+            if (groupsData.success) {
+                this.syncGroups = groupsData.data;
+            }
+
+            // Charger les restaurants disponibles
+            const restaurantsResponse = await fetch('/api/admin/restaurants', {
+                credentials: 'include'
+            });
+            const restaurantsData = await restaurantsResponse.json();
+            if (restaurantsData.success) {
+                this.restaurants = restaurantsData.data;
+            }
+
+            this.renderSyncGroups();
+            this.renderRestaurantsTable();
+            
+        } catch (error) {
+            console.error('Erreur chargement données:', error);
+            this.showNotification('Erreur de chargement des données', 'error');
+        }
+    }
+
+    renderSyncGroups() {
+        const container = document.getElementById('syncGroupsList');
+        
+        if (Object.keys(this.syncGroups).length === 0) {
+            container.innerHTML = `
+                <div class="text-center text-muted p-4">
+                    <i class="bi bi-diagram-3 fs-1 mb-3"></i>
+                    <h5>Aucun groupe de synchronisation</h5>
+                    <p>Créez votre premier groupe pour synchroniser vos restaurants</p>
+                </div>
+            `;
+            return;
+        }
+
+        let html = '';
+        for (const [groupName, restaurants] of Object.entries(this.syncGroups)) {
+            const masterRestaurant = restaurants.find(r => r.sync_settings?.sync_master);
+            
+            html += `
+                <div class="sync-group-card mb-3">
+                    <div class="card border-primary">
+                        <div class="card-header bg-primary text-white">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0 fw-bold">
+                                    <i class="bi bi-diagram-3 me-2"></i>${groupName}
+                                </h6>
+                                <div>
+                                    <span class="badge bg-light text-primary me-2">
+                                        ${restaurants.length} restaurant(s)
+                                    </span>
+                                    <button class="btn btn-sm btn-outline-light" onclick="syncManager.testGroupSync('${groupName}')">
+                                        <i class="bi bi-arrow-repeat"></i> Test
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                ${restaurants.map(restaurant => `
+                                    <div class="col-md-4 mb-2">
+                                        <div class="d-flex align-items-center">
+                                            <i class="bi bi-building text-primary me-2"></i>
+                                            <span class="fw-bold">${restaurant.name}</span>
+                                            ${restaurant.sync_settings?.sync_master ? 
+                                                '<span class="badge bg-warning ms-2">Maître</span>' : 
+                                                '<span class="badge bg-secondary ms-2">Esclave</span>'
+                                            }
+                                        </div>
+                                        <small class="text-muted">
+                                            ${restaurant.suppliers?.length || 0} fournisseur(s)
+                                        </small>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        container.innerHTML = html;
+    }
+
+    renderRestaurantsTable() {
+        const tbody = document.getElementById('restaurantsTableBody');
+        
+        let html = '';
+        for (const restaurant of this.restaurants) {
+            const syncSettings = restaurant.sync_settings || {};
+            const syncEnabled = syncSettings.sync_enabled || false;
+            const syncGroup = syncSettings.sync_group || '-';
+            const suppliersCount = restaurant.suppliers?.length || 0;
+            
+            html += `
+                <tr>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-building text-primary me-2"></i>
+                            <span class="fw-bold">${restaurant.name}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge ${syncEnabled ? 'bg-success' : 'bg-secondary'}">
+                            ${syncEnabled ? 'Activé' : 'Désactivé'}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="text-muted">${syncGroup}</span>
+                    </td>
+                    <td>
+                        <span class="badge bg-info">${suppliersCount}</span>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary me-2" onclick="syncManager.configureRestaurant('${restaurant.id}')">
+                            <i class="bi bi-gear"></i> Config
+                        </button>
+                        ${syncEnabled ? 
+                            `<button class="btn btn-sm btn-outline-warning" onclick="syncManager.disableSync('${restaurant.id}')">
+                                <i class="bi bi-pause"></i> Désactiver
+                            </button>` :
+                            ''
+                        }
+                    </td>
+                </tr>
+            `;
+        }
+        
+        tbody.innerHTML = html;
+    }
+
+    updateStats() {
+        const totalGroups = Object.keys(this.syncGroups).length;
+        const syncedRestaurants = this.restaurants.filter(r => r.sync_settings?.sync_enabled).length;
+        
+        // Calculer les fournisseurs partagés
+        let sharedSuppliers = new Set();
+        for (const restaurants of Object.values(this.syncGroups)) {
+            for (const restaurant of restaurants) {
+                if (restaurant.suppliers) {
+                    restaurant.suppliers.forEach(s => sharedSuppliers.add(s));
+                }
+            }
+        }
+        
+        document.getElementById('totalGroups').textContent = totalGroups;
+        document.getElementById('syncedRestaurants').textContent = syncedRestaurants;
+        document.getElementById('syncedSuppliers').textContent = sharedSuppliers.size;
+        
+        // Dernière synchronisation
+        let lastSync = null;
+        for (const restaurant of this.restaurants) {
+            const sync = restaurant.sync_settings?.last_sync;
+            if (sync && (!lastSync || sync > lastSync)) {
+                lastSync = sync;
+            }
+        }
+        
+        document.getElementById('lastSync').textContent = lastSync ? 
+            new Date(lastSync).toLocaleDateString('fr-FR') : '-';
+    }
+
+    async configureRestaurant(restaurantId) {
+        try {
+            const response = await fetch(`/api/sync/status/${restaurantId}`, {
+                credentials: 'include'
+            });
+            const data = await response.json();
+            
+            if (data.success) {
+                this.currentRestaurantId = restaurantId;
+                this.showRestaurantConfig(data);
+            } else {
+                this.showNotification('Erreur chargement configuration', 'error');
+            }
+        } catch (error) {
+            console.error('Erreur configuration restaurant:', error);
+            this.showNotification('Erreur de configuration', 'error');
+        }
+    }
+
+    showRestaurantConfig(data) {
+        const content = document.getElementById('configRestaurantContent');
+        
+        content.innerHTML = `
+            <div class="mb-3">
+                <h6 class="fw-bold">${data.restaurant}</h6>
+                <p class="text-muted">Configuration de la synchronisation</p>
+            </div>
+            
+            <div class="mb-3">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="configSyncEnabled" ${data.sync_enabled ? 'checked' : ''}>
+                    <label class="form-check-label" for="configSyncEnabled">
+                        Activer la synchronisation
+                    </label>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <label for="configSyncGroup" class="form-label">Groupe de synchronisation</label>
+                <input type="text" class="form-control" id="configSyncGroup" value="${data.sync_group || ''}" placeholder="Nom du groupe">
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="configSyncSuppliers" ${data.sync_suppliers ? 'checked' : ''}>
+                        <label class="form-check-label" for="configSyncSuppliers">
+                            Synchroniser les fournisseurs
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="configSyncPrices" ${data.sync_prices ? 'checked' : ''}>
+                        <label class="form-check-label" for="configSyncPrices">
+                            Synchroniser les prix
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            ${data.group_restaurants.length > 0 ? `
+                <div class="mt-3">
+                    <h6>Restaurants du groupe</h6>
+                    <ul class="list-group">
+                        ${data.group_restaurants.map(r => `
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                ${r.name}
+                                ${r.is_master ? '<span class="badge bg-warning">Maître</span>' : '<span class="badge bg-secondary">Esclave</span>'}
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
+            ` : ''}
+        `;
+        
+        const modal = new bootstrap.Modal(document.getElementById('configRestaurantModal'));
+        modal.show();
+    }
+
+    async saveRestaurantConfig() {
+        if (!this.currentRestaurantId) return;
+        
+        const syncSettings = {
+            sync_enabled: document.getElementById('configSyncEnabled').checked,
+            sync_group: document.getElementById('configSyncGroup').value.trim(),
+            sync_suppliers: document.getElementById('configSyncSuppliers').checked,
+            sync_prices: document.getElementById('configSyncPrices').checked
+        };
+        
+        try {
+            const response = await fetch(`/api/sync/settings/${this.currentRestaurantId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include',
+                body: JSON.stringify(syncSettings)
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.showNotification('Configuration sauvegardée', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('configRestaurantModal')).hide();
+                await this.loadData();
+                this.updateStats();
+            } else {
+                this.showNotification('Erreur de sauvegarde', 'error');
+            }
+        } catch (error) {
+            console.error('Erreur sauvegarde config:', error);
+            this.showNotification('Erreur de sauvegarde', 'error');
+        }
+    }
+
+    async disableSync(restaurantId) {
+        if (!confirm('Êtes-vous sûr de vouloir désactiver la synchronisation pour ce restaurant ?')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/sync/disable/${restaurantId}`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.showNotification('Synchronisation désactivée', 'success');
+                await this.loadData();
+                this.updateStats();
+            } else {
+                this.showNotification('Erreur de désactivation', 'error');
+            }
+        } catch (error) {
+            console.error('Erreur désactivation sync:', error);
+            this.showNotification('Erreur de désactivation', 'error');
+        }
+    }
+
+    showNotification(message, type = 'info') {
+        // Utiliser le système de notifications existant
+        const alertClass = type === 'error' ? 'alert-danger' : 
+                          type === 'success' ? 'alert-success' : 'alert-info';
+        
+        const notification = document.createElement('div');
+        notification.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
+        notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        notification.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 5000);
+    }
+}
+
+// Fonctions globales
+let syncManager;
+
+document.addEventListener('DOMContentLoaded', function() {
+    syncManager = new SyncManager();
+});
+
+function createSyncGroup() {
+    // Charger les restaurants disponibles dans le modal
+    loadRestaurantsForGroup();
+    const modal = new bootstrap.Modal(document.getElementById('createGroupModal'));
+    modal.show();
+}
+
+async function loadRestaurantsForGroup() {
+    try {
+        const response = await fetch('/api/admin/restaurants', {
+            credentials: 'include'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            const container = document.getElementById('restaurantCheckboxes');
+            const select = document.getElementById('masterRestaurant');
+            
+            let checkboxesHtml = '';
+            let optionsHtml = '<option value="">Sélectionner le restaurant maître...</option>';
+            
+            for (const restaurant of data.data) {
+                checkboxesHtml += `
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="${restaurant.id}" id="rest_${restaurant.id}">
+                        <label class="form-check-label" for="rest_${restaurant.id}">
+                            ${restaurant.name}
+                            <small class="text-muted">(${restaurant.suppliers?.length || 0} fournisseurs)</small>
+                        </label>
+                    </div>
+                `;
+                
+                optionsHtml += `<option value="${restaurant.id}">${restaurant.name}</option>`;
+            }
+            
+            container.innerHTML = checkboxesHtml;
+            select.innerHTML = optionsHtml;
+        }
+    } catch (error) {
+        console.error('Erreur chargement restaurants:', error);
+    }
+}
+
+async function submitCreateGroup() {
+    const groupName = document.getElementById('groupName').value.trim();
+    const masterRestaurantId = document.getElementById('masterRestaurant').value;
+    
+    // Récupérer les restaurants sélectionnés
+    const selectedRestaurants = [];
+    document.querySelectorAll('#restaurantCheckboxes input[type="checkbox"]:checked').forEach(checkbox => {
+        selectedRestaurants.push(checkbox.value);
+    });
+    
+    if (!groupName || !masterRestaurantId || selectedRestaurants.length < 2) {
+        alert('Veuillez remplir tous les champs et sélectionner au moins 2 restaurants');
+        return;
+    }
+    
+    if (!selectedRestaurants.includes(masterRestaurantId)) {
+        alert('Le restaurant maître doit être inclus dans la sélection');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/sync/create-group', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+                group_name: groupName,
+                restaurant_ids: selectedRestaurants,
+                master_restaurant_id: masterRestaurantId
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            syncManager.showNotification('Groupe créé avec succès', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('createGroupModal')).hide();
+            await syncManager.loadData();
+            syncManager.updateStats();
+            
+            // Réinitialiser le formulaire
+            document.getElementById('createGroupForm').reset();
+        } else {
+            syncManager.showNotification('Erreur de création du groupe', 'error');
+        }
+    } catch (error) {
+        console.error('Erreur création groupe:', error);
+        syncManager.showNotification('Erreur de création du groupe', 'error');
+    }
+}
+</script>
+{% endblock %} 

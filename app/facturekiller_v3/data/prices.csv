@@ -1,0 +1,6 @@
+id,code,produit,fournisseur,prix_unitaire,unite,categorie,date_ajout
+DESP_33,DESP_33,Bière Desperados 33cl,MVA,2.8,unité,Boisson,2024-01-01
+COCA_33,COCA_33,Coca Cola 33cl,MVA,2.2,unité,Boisson,2024-01-01
+PAIN_B,PAIN_B,Pain Burger,Au Bureau St Amand,1.5,unité,Boulangerie,2024-01-01
+1,PMVAENT0627,Entrecôtes de bœuf,MVA,18.9,pièce,Non classé,2025-06-27 19:31:41
+2,099087,test,test1,12.0,kg,Non classé,2025-06-27 20:24:59

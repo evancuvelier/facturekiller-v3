@@ -1,0 +1,75 @@
+id,code,produit,fournisseur,prix,unite,categorie,date_ajout,source,restaurant
+2,PUNKGOT0624,Got Poldsbrit,UNKNOWN,57.6,pièce,Non classé,2025-06-24 19:36:42,scanner_auto,Le Gourmet Parisien
+3,PUNKMOI0624,Mois K,UNKNOWN,23.94,pièce,Non classé,2025-06-24 19:46:18,scanner_auto,Le Gourmet Parisien
+4,PUNKTAX0624,Taxes,UNKNOWN,4.71,pièce,Non classé,2025-06-24 19:46:18,scanner_auto,Le Gourmet Parisien
+5,PUNKTY0624,Ty Frais Nt Soest Myn,UNKNOWN,83.76,pièce,Non classé,2025-06-24 19:46:18,scanner_auto,Le Gourmet Parisien
+6,STEAK001,Steak de Bœuf Restaurant Test,MVA Test,25.5,kg,Viandes,2025-06-24 22:17:04,restaurant_manual,Restaurant Produit Test
+7,099087,test,test1,12.0,kg,Non classé,2025-06-24 22:17:18,restaurant_manual,Au Bureau St Amand 
+8,R1ONLY,Produit Restaurant 1 UNIQUEMENT,MVA Test,10.5,unité,Test,2025-06-24 22:17:43,restaurant_manual,Restaurant Produit Test
+9,PUNKPRO0624,Produit Test A,UNKNOWN,10.6,kg,Non classé,2025-06-24 23:20:52,scanner_auto,Général
+10,PUNKPRO0624,Produit Test B,UNKNOWN,25.0,pièce,Non classé,2025-06-24 23:20:52,scanner_auto,Général
+11,PUNKSTE0624,Steak de Bœuf Test,UNKNOWN,29.0,kg,Non classé,2025-06-24 23:38:17,scanner_auto,Général
+12,PUNKPOM0624,Pommes de Terre Test,UNKNOWN,2.8,kg,Non classé,2025-06-24 23:38:17,scanner_auto,Général
+17,PNOUFIL0626,Filet de bœuf,NOUVEAU_FOURNISSEUR,45.5,kg,Non classé,2025-06-26 18:07:45,scanner_auto,Général
+18,PNOUSAU0626,Saumon fumé,NOUVEAU_FOURNISSEUR,28.9,kg,Non classé,2025-06-26 18:07:45,scanner_auto,Général
+121,PPROST0627,St Marcellin IGP 22% nu 80gx16,PRO A PRO,20.463,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+122,PPROVER0627,Vermicelles multicolores 1K,PRO A PRO,10.702,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+123,PPROBOB0627,Bobine dévidoir centr.450Fx6(8405),PRO A PRO,10.5,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+124,PPROSUC0627,Sucre cassonade 75g,PRO A PRO,2.3,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+125,PPROCHE0627,Cheddar rouge râpé 11% 1K,PRO A PRO,7.56,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+126,PPROCOR0627,Cornichons mi-fins (40/59),PRO A PRO,6.9,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+127,PPROFRO0627,Fromage à la crème natu 24% 1K,PRO A PRO,8.67,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+128,PPROEMM0627,Emmental rapé 29% 1K,PRO A PRO,7.2,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+129,PPROFAR0627,Farine de blé ménagère T55 1K,PRO A PRO,0.609,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+130,PPROŒUF0627,Œuf jeteb.latex poudr.T9 x100 40pc,PRO A PRO,4.0,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+131,PPROHUI0627,Huile Meravella 20%OLI/tour.1L,PRO A PRO,4.1,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+132,PPROMAS0627,Mascarpone 41% 500g,PRO A PRO,3.99,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+133,PPROMOZ0627,"Mozzarella cossettes 21% 2,5K",PRO A PRO,14.0,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+134,PPROOLI0627,Olives noires dénoyaut. 30/33,PRO A PRO,2.183,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+135,PPROPAP0627,Papier cuisson 400/600 x50,PRO A PRO,25.0,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+136,PPROSAC0627,Sac congélation 22/35cm 3Lx75,PRO A PRO,5.64,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+137,PPROSAU0627,Sauce tomate aromatisée 10/12%,PRO A PRO,6.15,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+138,PPROSEL0627,Sel adoucisseur pastilles 25K,PRO A PRO,9.238,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+139,PPROSUC0627,Sucre poudre 500g,PRO A PRO,1.35,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+140,PPROTOR0627,Tortellini CS 5K,PRO A PRO,7.8,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+141,PPROPOT0627,"Potato toast 100g 2,5K",PRO A PRO,7.99,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+142,PPROST0627,St Marcellin IGP 22% nu 80gx16,PRO A PRO,20.463,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Au Bureau St Amand 
+143,PPROVER0627,Vermicelles multicolores 1K,PRO A PRO,10.702,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Au Bureau St Amand 
+144,PPROBOB0627,Bobine dévidoir centr.450Fx6(8405),PRO A PRO,10.5,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Au Bureau St Amand 
+145,PPROSUC0627,Sucre cassonade 75g,PRO A PRO,2.3,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Au Bureau St Amand 
+146,PPROCHE0627,Cheddar rouge râpé 11% 1K,PRO A PRO,7.56,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Au Bureau St Amand 
+147,PPROCOR0627,Cornichons mi-fins (40/59),PRO A PRO,6.9,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Au Bureau St Amand 
+148,PPROFRO0627,Fromage à la crème natu 24% 1K,PRO A PRO,8.67,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Au Bureau St Amand 
+149,PPROEMM0627,Emmental rapé 29% 1K,PRO A PRO,7.2,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Au Bureau St Amand 
+150,PPROFAR0627,Farine de blé ménagère T55 1K,PRO A PRO,0.609,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Au Bureau St Amand 
+151,PPROŒUF0627,Œuf jeteb.latex poudr.T9 x100 40pc,PRO A PRO,4.0,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Au Bureau St Amand 
+152,PPROHUI0627,Huile Meravella 20%OLI/tour.1L,PRO A PRO,4.1,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Au Bureau St Amand 
+153,PPROMAS0627,Mascarpone 41% 500g,PRO A PRO,3.99,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Au Bureau St Amand 
+154,PPROMOZ0627,"Mozzarella cossettes 21% 2,5K",PRO A PRO,14.0,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Au Bureau St Amand 
+155,PPROOLI0627,Olives noires dénoyaut. 30/33,PRO A PRO,2.183,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Au Bureau St Amand 
+156,PPROPAP0627,Papier cuisson 400/600 x50,PRO A PRO,25.0,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Au Bureau St Amand 
+157,PPROSAC0627,Sac congélation 22/35cm 3Lx75,PRO A PRO,5.64,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Au Bureau St Amand 
+158,PPROSAU0627,Sauce tomate aromatisée 10/12%,PRO A PRO,6.15,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Au Bureau St Amand 
+159,PPROSEL0627,Sel adoucisseur pastilles 25K,PRO A PRO,9.238,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Au Bureau St Amand 
+160,PPROSUC0627,Sucre poudre 500g,PRO A PRO,1.35,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Au Bureau St Amand 
+161,PPROTOR0627,Tortellini CS 5K,PRO A PRO,7.8,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Au Bureau St Amand 
+162,PPROPOT0627,"Potato toast 100g 2,5K",PRO A PRO,7.99,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Au Bureau St Amand 
+163,PMVABAV0627,Bavettes de bœuf,MVA,12.0,pièce,Non classé,2025-06-27 17:22:21,scanner_auto,Général
+164,PMVAHAC0627,Haché de bouchère rond,MVA,12.9,pièce,Non classé,2025-06-27 17:20:58,scanner_auto,Général
+165,PMVALAR0627,Lardons crus fumés,MVA,18.9,kg,Non classé,2025-06-27 17:20:58,scanner_auto,Général
+166,PMVAENT0627,Entrecôtes de bœuf,MVA,18.9,pièce,Non classé,2025-06-27 17:22:21,scanner_auto,Général
+167,PMVACVO0627,CVO ATM Bœuf S/OS > 8 mois,MVA,0.09,kg,Non classé,2025-06-27 17:20:58,scanner_auto,Général
+168,PMVAINT0627,INTERBEV bovin SS/OS,MVA,0.103,kg,Non classé,2025-06-27 17:20:58,scanner_auto,Général
+169,PMVABAV0627,Bavettes de bœuf,MVA,12.0,pièce,Non classé,2025-06-27 17:22:21,scanner_auto,Au Bureau St Amand 
+170,PMVAHAC0627,Haché de bouchère rond,MVA,12.9,pièce,Non classé,2025-06-27 17:20:58,scanner_auto,Au Bureau St Amand 
+171,PMVALAR0627,Lardons crus fumés,MVA,18.9,kg,Non classé,2025-06-27 17:20:58,scanner_auto,Au Bureau St Amand 
+172,PMVAENT0627,Entrecôtes de bœuf,MVA,18.9,pièce,Non classé,2025-06-27 17:22:21,scanner_auto,Au Bureau St Amand 
+173,PMVACVO0627,CVO ATM Bœuf S/OS > 8 mois,MVA,0.09,kg,Non classé,2025-06-27 17:20:58,scanner_auto,Au Bureau St Amand 
+174,PMVAINT0627,INTERBEV bovin SS/OS,MVA,0.103,kg,Non classé,2025-06-27 17:20:58,scanner_auto,Au Bureau St Amand 
+175,PMVAHAC0627,Haché de boucherie rond,MVA,16.2,pièce,Non classé,2025-06-27 17:22:21,scanner_auto,Général
+176,PMVAJUM0627,Jumeau pour bourguignon,MVA,12.9,pièce,Non classé,2025-06-27 17:22:21,scanner_auto,Général
+177,PMVALAR0627,Lardons fumés,MVA,18.9,kg,Non classé,2025-06-27 17:22:21,scanner_auto,Général
+178,PMVAHAC0627,Haché de boucherie rond,MVA,16.2,pièce,Non classé,2025-06-27 17:22:21,scanner_auto,Au Bureau St Amand 
+179,PMVAJUM0627,Jumeau pour bourguignon,MVA,12.9,pièce,Non classé,2025-06-27 17:22:21,scanner_auto,Au Bureau St Amand 
+180,PMVALAR0627,Lardons fumés,MVA,18.9,kg,Non classé,2025-06-27 17:22:21,scanner_auto,Au Bureau St Amand 
+181,PMVATES0627,Test Bavettes de bœuf,MVA,36.87,kg,Auto,2025-06-27 17:40:47,scanner_auto,Restaurant Test

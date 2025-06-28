@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}Configuration Email{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h3 mb-4">📧 Configuration Email</h1>
+    
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Paramètres SMTP</h5>
+                </div>
+                <div class="card-body">
+                    <form id="emailConfigForm">
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="enabled" name="enabled">
+                                <label class="form-check-label" for="enabled">
+                                    Activer l'envoi d'emails
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Adresse email</label>
+                            <input type="email" class="form-control" id="email" name="email" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Mot de passe d'application</label>
+                            <input type="password" class="form-control" id="password" name="password">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="smtp_server" class="form-label">Serveur SMTP</label>
+                            <select class="form-select" id="smtp_server" name="smtp_server">
+                                <option value="smtp.gmail.com">Gmail</option>
+                                <option value="smtp.mail.yahoo.com">Yahoo</option>
+                                <option value="smtp.outlook.com">Outlook</option>
+                            </select>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">Sauvegarder</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="testConnection()">Tester</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('emailConfigForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const config = {
+        enabled: document.getElementById('enabled').checked,
+        email: document.getElementById('email').value,
+        password: document.getElementById('password').value,
+        smtp_server: document.getElementById('smtp_server').value,
+        smtp_port: 587,
+        sender_name: 'FactureKiller V3',
+        auto_send: true
+    };
+    
+    try {
+        const response = await fetch('/api/email/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showNotification('Configuration sauvegardée', 'success');
+        } else {
+            showNotification('Erreur: ' + result.error, 'error');
+        }
+    } catch (error) {
+        showNotification('Erreur de connexion', 'error');
+    }
+});
+
+async function testConnection() {
+    try {
+        const response = await fetch('/api/email/test', { method: 'POST' });
+        const result = await response.json();
+        
+        if (result.success) {
+            showNotification('Connexion réussie', 'success');
+        } else {
+            showNotification('Erreur: ' + result.error, 'error');
+        }
+    } catch (error) {
+        showNotification('Erreur de test', 'error');
+    }
+}
+
+// Charger la config au démarrage
+document.addEventListener('DOMContentLoaded', async function() {
+    try {
+        const response = await fetch('/api/email/config');
+        const result = await response.json();
+        
+        if (result.success) {
+            const config = result.config;
+            document.getElementById('enabled').checked = config.enabled || false;
+            document.getElementById('email').value = config.email || '';
+            document.getElementById('smtp_server').value = config.smtp_server || 'smtp.gmail.com';
+        }
+    } catch (error) {
+        console.error('Erreur chargement config:', error);
+    }
+});
+</script>
+{% endblock %} 

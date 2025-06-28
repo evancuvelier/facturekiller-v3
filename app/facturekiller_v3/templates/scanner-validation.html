@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scanner avec Validation - FactureKiller V3</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .validation-step {
+            display: none;
+        }
+        .validation-step.active {
+            display: block;
+        }
+        .comparison-table {
+            font-size: 0.9em;
+        }
+        .status-perfect { color: #28a745; }
+        .status-difference { color: #ffc107; }
+        .status-missing { color: #dc3545; }
+        .status-extra { color: #17a2b8; }
+        .product-match { background-color: #f8f9fa; }
+        .attention-required { border-left: 4px solid #dc3545; }
+        .validation-summary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-receipt me-2"></i>FactureKiller V3
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/dashboard">Dashboard</a>
+                <a class="nav-link" href="/commandes">Commandes</a>
+                <a class="nav-link active" href="/scanner">Scanner</a>
+                <a class="nav-link" href="/factures">Factures</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h4 class="mb-0">
+                            <i class="fas fa-clipboard-check me-2"></i>
+                            Vérification des Commandes du Jour
+                        </h4>
+                        <small>Sélectionnez une commande à vérifier, puis scannez la facture correspondante</small>
+                    </div>
+                    <div class="card-body">
+                        
+                        <!-- Étape 1: Upload et Scan -->
+                        <div id="step1" class="validation-step active">
+                            <h5><i class="fas fa-camera text-primary"></i> Scanner la facture pour la commande sélectionnée</h5>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="border-2 border-dashed border-primary rounded p-5 text-center" id="dropZone">
+                                        <i class="fas fa-cloud-upload-alt fa-3x text-primary mb-3"></i>
+                                        <h5>Glissez votre facture ici</h5>
+                                        <p class="text-muted">ou cliquez pour sélectionner</p>
+                                        <input type="file" id="fileInput" class="d-none" accept="image/*,.pdf">
+                                        <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                                            <i class="fas fa-folder-open me-2"></i>Choisir un fichier
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div id="scanProgress" class="d-none">
+                                        <div class="text-center">
+                                            <div class="spinner-border text-primary mb-3" role="status"></div>
+                                            <h5>Analyse en cours...</h5>
+                                            <p id="scanStatus" class="text-muted">Extraction des données...</p>
+                                        </div>
+                                    </div>
+                                    <div id="scanResult" class="d-none">
+                                        <h6><i class="fas fa-check-circle text-success"></i> Facture scannée</h6>
+                                        <div id="invoiceInfo" class="bg-light p-3 rounded">
+                                            <!-- Infos facture -->
+                                        </div>
+                                        <button class="btn btn-success mt-3" onclick="nextStep(2)">
+                                            <i class="fas fa-arrow-right me-2"></i>Rechercher commandes correspondantes
+                                        </button>
+                                        <button class="btn btn-warning mt-3 ms-2" onclick="validateWithoutOrder()">
+                                            <i class="fas fa-check-double me-2"></i>Valider sans associer
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Étape 2: Sélection commande -->
+                        <div id="step2" class="validation-step">
+                            <h5><i class="fas fa-truck text-warning"></i> Commandes en livraison aujourd'hui</h5>
+                            <div class="row">
+                                <div class="col-12">
+                                    <div id="pendingOrdersContainer">
+                                        <!-- Commandes en attente -->
+                                    </div>
+                                    <div class="text-center mt-3">
+                                        <button class="btn btn-outline-secondary me-2" onclick="nextStep(1)">
+                                            <i class="fas fa-arrow-left me-2"></i>Retour
+                                        </button>
+                                        <button class="btn btn-primary" onclick="skipValidation()">
+                                            <i class="fas fa-forward me-2"></i>Scanner sans validation
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Étape 3: Validation et comparaison -->
+                        <div id="step3" class="validation-step">
+                            <div id="validationResults">
+                                <!-- Résultats de validation -->
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <!-- Modal de validation finale -->
+    <div class="modal fade" id="validationModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-clipboard-check me-2"></i>Validation finale
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="validationModalContent">
+                    <!-- Contenu validation -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger" onclick="rejectInvoice()">
+                        <i class="fas fa-times me-2"></i>Rejeter
+                    </button>
+                    <button type="button" class="btn btn-warning" onclick="modifyInvoice()">
+                        <i class="fas fa-edit me-2"></i>Modifier
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="acceptInvoice()">
+                        <i class="fas fa-check me-2"></i>Accepter et intégrer
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentInvoiceData = null;
+        let selectedOrderId = null;
+        let validationResults = null;
+        let verificationMode = false; // Mode vérification des commandes du jour
+
+        // Configuration du drag & drop
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+
+        // Vérifier si on est en mode vérification des commandes
+        document.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('mode') === 'verify-orders' || window.location.pathname === '/scanner-validation') {
+                verificationMode = true;
+                loadTodayOrdersForVerification();
+            }
+        });
+
+        // Nouvelle fonction pour charger les commandes du jour à vérifier
+        function loadTodayOrdersForVerification() {
+            console.log('🔄 Chargement des commandes vérifiables...');
+            
+            const container = document.getElementById('pendingOrdersContainer');
+            container.innerHTML = '<div class="text-center"><div class="spinner-border text-warning"></div><p>Chargement des commandes à vérifier...</p></div>';
+
+            // Utiliser la nouvelle API qui filtre automatiquement par restaurant et date
+            fetch('/api/orders/verifiable')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.data) {
+                    console.log(`✅ ${data.data.length} commandes vérifiables reçues`);
+                    console.log(`🏢 Restaurant: ${data.restaurant_context || 'Aucun'}`);
+                    console.log(`📅 Filtre date: ${data.filter_info}`);
+                    
+                    displayTodayOrdersForVerification(data.data);
+                } else {
+                    const errorMsg = data.error || 'Aucune commande à vérifier';
+                    container.innerHTML = `
+                        <div class="alert alert-warning">
+                            <i class="bi bi-info-circle me-2"></i>
+                            ${errorMsg}
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Erreur chargement commandes:', error);
+                container.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Erreur lors du chargement des commandes
+                    </div>
+                `;
+            });
+        }
+
+        function displayTodayOrdersForVerification(orders) {
+            const container = document.getElementById('pendingOrdersContainer');
+            
+            if (orders.length === 0) {
+                container.innerHTML = `
+                    <div class="alert alert-info text-center">
+                        <i class="fas fa-calendar-check fa-3x text-muted mb-3"></i>
+                        <h5>Aucune commande à vérifier</h5>
+                        <p class="mb-0">Il n'y a pas de commandes en livraison aujourd'hui ou récemment livrées.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Trier par date de livraison (plus récent en premier)
+            orders.sort((a, b) => new Date(b.delivery_date) - new Date(a.delivery_date));
+            
+            const today = new Date().toISOString().split('T')[0];
+            
+            let html = `
+                <div class="alert alert-success mb-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>${orders.length} commande(s)</strong> à vérifier. Cliquez sur une commande pour scanner sa facture.
+                </div>
+                <div class="row">
+            `;
+            
+            orders.forEach(order => {
+                const deliveryDate = new Date(order.delivery_date);
+                const isToday = deliveryDate.toISOString().split('T')[0] === today;
+                const dayLabel = isToday ? '🚚 AUJOURD\'HUI' : `📅 ${formatDate(order.delivery_date)}`;
+                
+                const statusLabels = {
+                    'confirmed': { label: '✅ Confirmée', class: 'warning' },
+                    'delivered': { label: '📦 Livrée', class: 'success' },
+                    'delivered_with_issues': { label: '⚠️ Problèmes', class: 'warning' },
+                    'invoiced': { label: '🧾 Facturée', class: 'info' }
+                };
+                const statusInfo = statusLabels[order.status] || { label: order.status, class: 'secondary' };
+                
+                html += `
+                    <div class="col-md-6 mb-3">
+                        <div class="card border-primary h-100 shadow-sm" style="cursor: pointer;" onclick="selectOrderForVerification('${order.id}')">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h6 class="card-title mb-0">
+                                        <i class="fas fa-shopping-cart me-2 text-primary"></i>
+                                        ${order.order_number}
+                                    </h6>
+                                    <span class="badge bg-${statusInfo.class}">${statusInfo.label}</span>
+                                </div>
+                                <p class="text-muted mb-2">
+                                    <i class="fas fa-store me-1"></i>${order.supplier}
+                                </p>
+                                <div class="row">
+                                    <div class="col-6">
+                                        <small class="text-muted">Livraison:</small><br>
+                                        <strong class="${isToday ? 'text-warning' : ''}">${dayLabel}</strong>
+                                    </div>
+                                    <div class="col-6">
+                                        <small class="text-muted">Total:</small><br>
+                                        <strong>${(order.total_amount || 0).toFixed(2)} €</strong>
+                                    </div>
+                                </div>
+                                ${order.products && order.products.length > 0 ? `
+                                    <div class="mt-2">
+                                        <span class="badge bg-secondary">${order.products.length} produits</span>
+                                    </div>
+                                ` : ''}
+                            </div>
+                            <div class="card-footer bg-light text-center">
+                                <small class="text-primary">
+                                    <i class="fas fa-camera me-1"></i>Cliquer pour scanner la facture
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            
+            container.innerHTML = html;
+            
+            console.log(`✅ ${orders.length} commandes à vérifier chargées`);
+        }
+
+        function selectOrderForVerification(orderId) {
+            selectedOrderId = orderId;
+            
+            // Marquer visuellement la sélection
+            document.querySelectorAll('.card.border-primary').forEach(card => {
+                card.classList.remove('border-success', 'bg-light');
+            });
+            event.currentTarget.classList.add('border-success', 'bg-light');
+            
+            // Passer à l'étape 1 pour scanner la facture
+            nextStep(1);
+            
+            // Modifier les instructions
+            document.querySelector('#step1 h5').innerHTML = `
+                <i class="fas fa-camera text-primary"></i> Scanner la facture pour la commande sélectionnée
+            `;
+            
+            // Ajouter un message d'information
+            const step1 = document.getElementById('step1');
+            let infoAlert = step1.querySelector('.alert-info');
+            if (!infoAlert) {
+                infoAlert = document.createElement('div');
+                infoAlert.className = 'alert alert-info mb-4';
+                step1.insertBefore(infoAlert, step1.firstElementChild.nextElementSibling);
+            }
+            
+            // Récupérer les infos de la commande sélectionnée
+            fetch(`/api/orders/${orderId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const order = data.data;
+                    infoAlert.innerHTML = `
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Commande sélectionnée :</strong> ${order.order_number} - ${order.supplier} 
+                        (${(order.total_amount || 0).toFixed(2)} €)
+                        <br><small>Scannez maintenant la facture correspondante pour la vérifier.</small>
+                    `;
+                }
+            });
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            try {
+                const date = new Date(dateString);
+                return date.toLocaleDateString('fr-FR');
+            } catch (e) {
+                return dateString;
+            }
+        }
+
+        function nextStep(step) {
+            // Masquer toutes les étapes
+            document.querySelectorAll('.validation-step').forEach(el => {
+                el.classList.remove('active');
+            });
+            
+            // Afficher l'étape demandée
+            document.getElementById(`step${step}`).classList.add('active');
+            
+            if (step === 2) {
+                loadTodayOrdersForVerification();
+            }
+        }
+
+        function loadPendingOrders() {
+            if (!currentInvoiceData || !currentInvoiceData.supplier) {
+                showToast('Erreur', 'Données facture manquantes', 'error');
+                return;
+            }
+
+            const container = document.getElementById('pendingOrdersContainer');
+            container.innerHTML = '<div class="text-center"><div class="spinner-border"></div><p>Recherche des commandes...</p></div>';
+
+            fetch(`/api/orders/pending-for-supplier/${encodeURIComponent(currentInvoiceData.supplier)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayPendingOrders(data.data);
+                } else {
+                    container.innerHTML = '<div class="alert alert-warning">Aucune commande en attente trouvée pour ce fournisseur</div>';
+                }
+            })
+            .catch(error => {
+                console.error('Erreur chargement commandes:', error);
+                container.innerHTML = '<div class="alert alert-danger">Erreur lors du chargement des commandes</div>';
+            });
+        }
+
+        function displayPendingOrders(orders) {
+            const container = document.getElementById('pendingOrdersContainer');
+            
+            if (orders.length === 0) {
+                container.innerHTML = `
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Aucune commande en attente trouvée pour <strong>${currentInvoiceData.supplier}</strong>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '<div class="row">';
+            orders.forEach(order => {
+                html += `
+                    <div class="col-md-6 mb-3">
+                        <div class="card border-primary h-100" style="cursor: pointer;" onclick="selectOrder('${order.id}')">
+                            <div class="card-body">
+                                <h6 class="card-title">
+                                    <i class="fas fa-shopping-cart me-2"></i>
+                                    Commande ${order.order_number}
+                                </h6>
+                                <div class="row">
+                                    <div class="col-6">
+                                        <small class="text-muted">Total:</small><br>
+                                        <strong>${order.total_amount.toFixed(2)} €</strong>
+                                    </div>
+                                    <div class="col-6">
+                                        <small class="text-muted">Livraison:</small><br>
+                                        <strong>${order.delivery_date}</strong>
+                                    </div>
+                                </div>
+                                <div class="mt-2">
+                                    <span class="badge bg-${order.status === 'sent' ? 'warning' : 'info'}">${order.status}</span>
+                                    <span class="badge bg-secondary">${order.items_count} produits</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            
+            container.innerHTML = html;
+        }
+
+        function selectOrder(orderId) {
+            selectedOrderId = orderId;
+            
+            // Marquer visuellement la sélection
+            document.querySelectorAll('.card.border-primary').forEach(card => {
+                card.classList.remove('border-success', 'bg-light');
+            });
+            event.currentTarget.classList.add('border-success', 'bg-light');
+            
+            // Lancer la validation
+            performValidation(orderId);
+        }
+
+        function performValidation(orderId) {
+            console.log('🔍 Validation commande', orderId, 'vs facture');
+            
+            nextStep(3);
+            
+            const container = document.getElementById('validationResults');
+            container.innerHTML = `
+                <div class="validation-summary text-center">
+                    <div class="spinner-border text-white mb-3"></div>
+                    <h5>Validation en cours...</h5>
+                    <p>Comparaison de la commande avec la facture scannée</p>
+                </div>
+            `;
+
+            // Préparer FormData pour scan avec validation
+            const formData = new FormData();
+            
+            // Créer un blob à partir des données d'image existantes
+            fetch(currentInvoiceData.image_path)
+            .then(response => response.blob())
+            .then(blob => {
+                formData.append('file', blob, 'invoice.jpg');
+                formData.append('mode', 'validation');
+                formData.append('order_id', orderId);
+
+                return fetch('/api/invoices/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.validation) {
+                    validationResults = data.validation;
+                    displayValidationResults(data.validation);
+                } else {
+                    container.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Erreur lors de la validation: ${data.error || 'Erreur inconnue'}
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Erreur validation:', error);
+                container.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Erreur réseau lors de la validation
+                    </div>
+                `;
+            });
+        }
+
+        function displayValidationResults(validation) {
+            const container = document.getElementById('validationResults');
+            const summary = validation.summary;
+            
+            let statusClass = summary.requires_attention ? 'danger' : 'success';
+            let statusIcon = summary.requires_attention ? 'exclamation-triangle' : 'check-circle';
+            
+            let html = `
+                <div class="validation-summary">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h5><i class="fas fa-${statusIcon} me-2"></i>Résultats de validation</h5>
+                            <p class="mb-0">Commande ${validation.order_number} vs Facture ${currentInvoiceData.invoice_number}</p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <h3 class="mb-0">${Math.round(summary.match_rate * 100)}% <small>correspondance</small></h3>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-primary text-white">
+                                <h6 class="mb-0"><i class="fas fa-shopping-cart me-2"></i>Commande</h6>
+                            </div>
+                            <div class="card-body">
+                                <strong>Fournisseur:</strong> ${validation.order_supplier}<br>
+                                <strong>Total:</strong> ${validation.total_order.toFixed(2)} €<br>
+                                <strong>Statut:</strong> <span class="badge bg-info">Commande</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-success text-white">
+                                <h6 class="mb-0"><i class="fas fa-receipt me-2"></i>Facture</h6>
+                            </div>
+                            <div class="card-body">
+                                <strong>Fournisseur:</strong> ${validation.invoice_supplier}<br>
+                                <strong>Total:</strong> ${validation.total_invoice.toFixed(2)} €<br>
+                                <strong>Différence:</strong> <span class="badge ${validation.total_difference > 1 ? 'bg-warning' : 'bg-success'}">${validation.total_difference.toFixed(2)} €</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-list me-2"></i>Comparaison produits</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm comparison-table">
+                                <thead>
+                                    <tr>
+                                        <th>Produit Commandé</th>
+                                        <th>Produit Facturé</th>
+                                        <th>Qté Cmd</th>
+                                        <th>Qté Fact</th>
+                                        <th>Prix Unit</th>
+                                        <th>Statut</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+            `;
+
+            validation.products_comparison.forEach(item => {
+                let statusIcon, statusClass, statusText;
+                
+                switch(item.status) {
+                    case 'perfect_match':
+                        statusIcon = 'check-circle';
+                        statusClass = 'status-perfect';
+                        statusText = 'Parfait';
+                        break;
+                    case 'quantity_difference':
+                        statusIcon = 'exclamation-triangle';
+                        statusClass = 'status-difference';
+                        statusText = 'Qté différente';
+                        break;
+                    case 'price_difference':
+                        statusIcon = 'exclamation-triangle';
+                        statusClass = 'status-difference';
+                        statusText = 'Prix différent';
+                        break;
+                    case 'missing_in_invoice':
+                        statusIcon = 'times-circle';
+                        statusClass = 'status-missing';
+                        statusText = 'Manquant facture';
+                        break;
+                    case 'extra_in_invoice':
+                        statusIcon = 'plus-circle';
+                        statusClass = 'status-extra';
+                        statusText = 'Extra facture';
+                        break;
+                    default:
+                        statusIcon = 'question-circle';
+                        statusClass = 'status-difference';
+                        statusText = 'Différent';
+                }
+
+                html += `
+                    <tr class="${item.status !== 'perfect_match' ? 'attention-required' : ''}">
+                        <td>${item.order_product || '-'}</td>
+                        <td>${item.invoice_product || '-'}</td>
+                        <td>${item.order_quantity}</td>
+                        <td>${item.invoice_quantity}</td>
+                        <td>
+                            Cmd: ${item.order_unit_price.toFixed(2)} €<br>
+                            Fact: ${item.invoice_unit_price.toFixed(2)} €
+                        </td>
+                        <td>
+                            <i class="fas fa-${statusIcon} ${statusClass} me-1"></i>
+                            <span class="${statusClass}">${statusText}</span>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-center mt-4">
+                    <button class="btn btn-outline-secondary me-2" onclick="nextStep(2)">
+                        <i class="fas fa-arrow-left me-2"></i>Changer de commande
+                    </button>
+                    <button class="btn btn-primary" onclick="showValidationModal()">
+                        <i class="fas fa-clipboard-check me-2"></i>Valider et finaliser
+                    </button>
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        function showValidationModal() {
+            const modal = new bootstrap.Modal(document.getElementById('validationModal'));
+            
+            const content = document.getElementById('validationModalContent');
+            const summary = validationResults.summary;
+            
+            content.innerHTML = `
+                <div class="alert ${summary.requires_attention ? 'alert-warning' : 'alert-success'}">
+                    <h6><i class="fas fa-info-circle me-2"></i>Résumé de validation</h6>
+                    <ul class="mb-0">
+                        <li><strong>${summary.perfect_matches}</strong> produits correspondent parfaitement</li>
+                        <li><strong>${summary.quantity_differences}</strong> différences de quantité</li>
+                        <li><strong>${summary.price_differences}</strong> différences de prix</li>
+                        <li><strong>${summary.missing_in_invoice}</strong> produits manquants dans la facture</li>
+                        <li><strong>${summary.extra_in_invoice}</strong> produits supplémentaires dans la facture</li>
+                    </ul>
+                </div>
+                
+                <p><strong>Actions qui seront effectuées si vous acceptez :</strong></p>
+                <ul>
+                    <li>✅ Facture sauvegardée dans l'historique</li>
+                    <li>✅ Statut de la commande mis à jour vers "Livrée"</li>
+                    <li>✅ Nouveaux produits ajoutés aux prix de référence (si applicable)</li>
+                    <li>✅ Données intégrées dans le système</li>
+                </ul>
+            `;
+            
+            modal.show();
+        }
+
+        function acceptInvoice() {
+            console.log('✅ Acceptation de la facture');
+            
+            const data = {
+                invoice_data: currentInvoiceData,
+                order_id: selectedOrderId,
+                action: 'accept'
+            };
+
+            fetch('/api/validation/validate-invoice', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    showToast('Succès', result.message, 'success');
+                    
+                    // Fermer le modal
+                    bootstrap.Modal.getInstance(document.getElementById('validationModal')).hide();
+                    
+                    // Rediriger vers les factures ou commandes
+                    setTimeout(() => {
+                        window.location.href = '/factures';
+                    }, 2000);
+                } else {
+                    showToast('Erreur', result.error, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Erreur acceptation:', error);
+                showToast('Erreur', 'Erreur lors de l\'acceptation', 'error');
+            });
+        }
+
+        function rejectInvoice() {
+            console.log('❌ Rejet de la facture');
+            
+            const data = {
+                invoice_data: currentInvoiceData,
+                order_id: selectedOrderId,
+                action: 'reject'
+            };
+
+            fetch('/api/validation/validate-invoice', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    showToast('Information', 'Facture rejetée', 'info');
+                    
+                    // Fermer le modal et revenir au début
+                    bootstrap.Modal.getInstance(document.getElementById('validationModal')).hide();
+                    nextStep(1);
+                } else {
+                    showToast('Erreur', result.error, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Erreur rejet:', error);
+                showToast('Erreur', 'Erreur lors du rejet', 'error');
+            });
+        }
+
+        function modifyInvoice() {
+            showToast('Information', 'Fonction de modification en développement', 'info');
+        }
+
+        function skipValidation() {
+            console.log('⏭️ Scanner sans validation');
+            // Rediriger vers le scanner normal
+            window.location.href = '/scanner';
+        }
+
+        function validateWithoutOrder() {
+            console.log('⏭️ Scanner sans associer');
+            // Rediriger vers le scanner avec édition
+            window.location.href = '/scanner-edition';
+        }
+
+        function showToast(title, message, type = 'info') {
+            // Système de notifications simple
+            const toastContainer = document.getElementById('toast-container') || createToastContainer();
+            
+            const toast = document.createElement('div');
+            toast.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show`;
+            toast.innerHTML = `
+                <strong>${title}:</strong> ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            toastContainer.appendChild(toast);
+            
+            // Auto-remove après 5 secondes
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.remove();
+                }
+            }, 5000);
+        }
+
+        function createToastContainer() {
+            const container = document.createElement('div');
+            container.id = 'toast-container';
+            container.style.position = 'fixed';
+            container.style.top = '20px';
+            container.style.right = '20px';
+            container.style.zIndex = '9999';
+            container.style.maxWidth = '400px';
+            document.body.appendChild(container);
+            return container;
+        }
+
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Scanner avec validation initialisé');
+        });
+    </script>
+</body>
+</html> 

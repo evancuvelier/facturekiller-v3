@@ -1,0 +1,10 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "python main.py"
+healthcheckPath = "/"
+healthcheckTimeout = 300
+
+[environments.production]
+variables = { FLASK_ENV = "production", PORT = "8000" } 

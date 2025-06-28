@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invitation - FactureKiller V3</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .invitation-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .invitation-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            max-width: 600px;
+            width: 100%;
+            overflow: hidden;
+        }
+        
+        .invitation-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+        }
+        
+        .invitation-body {
+            padding: 40px 30px;
+        }
+        
+        .invitation-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            display: block;
+        }
+        
+        .privilege-list {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .privilege-list h6 {
+            color: #1976d2;
+            margin-bottom: 15px;
+        }
+        
+        .privilege-list ul {
+            margin-bottom: 0;
+        }
+        
+        .privilege-list li {
+            margin-bottom: 8px;
+        }
+        
+        .btn-accept {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 50px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-accept:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(40, 167, 69, 0.3);
+        }
+        
+        .form-floating > label {
+            color: #666;
+        }
+        
+        .form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        
+        .expiry-warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="invitation-container">
+        <div class="invitation-card">
+            <div class="invitation-header">
+                <i class="bi bi-envelope-heart invitation-icon"></i>
+                <h1 class="h3 mb-3">🎉 Invitation FactureKiller V3</h1>
+                <p class="mb-0">Système de gestion multi-restaurants</p>
+            </div>
+            
+            <div class="invitation-body">
+                <div class="text-center mb-4">
+                    <h2>Bonjour <strong>{{ invitation.client_name }}</strong> ! 👋</h2>
+                    <p class="text-muted">Vous avez été invité(e) à rejoindre notre plateforme</p>
+                </div>
+                
+                <div class="privilege-list">
+                    <h6><i class="bi bi-crown me-2"></i>Vos privilèges en tant que Client :</h6>
+                    <ul class="list-unstyled">
+                        <li><i class="bi bi-check-circle-fill text-success me-2"></i>Gérer vos restaurants</li>
+                        <li><i class="bi bi-check-circle-fill text-success me-2"></i>Ajouter des utilisateurs (Admin/User) à vos restaurants</li>
+                        <li><i class="bi bi-check-circle-fill text-success me-2"></i>Voir les statistiques de tous vos établissements</li>
+                        <li><i class="bi bi-check-circle-fill text-success me-2"></i>Contrôler les permissions d'accès</li>
+                        <li><i class="bi bi-check-circle-fill text-success me-2"></i>Gérer les fournisseurs de vos restaurants</li>
+                    </ul>
+                </div>
+                
+                <form id="acceptInvitationForm" class="mt-4">
+                    <h5 class="mb-3">Créer votre compte :</h5>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-floating mb-3">
+                                <input type="text" class="form-control" id="username" required>
+                                <label for="username">Nom d'utilisateur *</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-floating mb-3">
+                                <input type="password" class="form-control" id="password" required minlength="6">
+                                <label for="password">Mot de passe *</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-floating mb-3">
+                        <input type="email" class="form-control" id="email" value="{{ invitation.client_email }}" readonly>
+                        <label for="email">Email</label>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-success btn-accept">
+                            <i class="bi bi-check-circle me-2"></i>
+                            Créer mon compte et rejoindre FactureKiller V3
+                        </button>
+                    </div>
+                </form>
+                
+                <div class="expiry-warning">
+                    <i class="bi bi-clock me-2"></i>
+                    <strong>Cette invitation expire le {{ invitation.expires_at[:10] }}</strong>
+                    <br><small>Si vous avez des questions, contactez votre administrateur.</small>
+                </div>
+                
+                <div class="text-center mt-4">
+                    <small class="text-muted">
+                        Déjà un compte ? <a href="/login">Se connecter</a>
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast pour les notifications -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="notificationToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <i class="bi bi-info-circle-fill text-primary me-2"></i>
+                <strong class="me-auto">Notification</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Token d'invitation
+        const invitationToken = '{{ token }}';
+        
+        // Fonction pour afficher les notifications
+        function showNotification(message, type = 'info') {
+            const toast = document.getElementById('notificationToast');
+            const toastBody = toast.querySelector('.toast-body');
+            const toastIcon = toast.querySelector('.toast-header i');
+            const toastTitle = toast.querySelector('.toast-header strong');
+            
+            toastBody.textContent = message;
+            
+            const configs = {
+                success: {
+                    icon: 'bi-check-circle-fill text-success',
+                    title: 'Succès'
+                },
+                error: {
+                    icon: 'bi-x-circle-fill text-danger',
+                    title: 'Erreur'
+                },
+                warning: {
+                    icon: 'bi-exclamation-triangle-fill text-warning',
+                    title: 'Attention'
+                },
+                info: {
+                    icon: 'bi-info-circle-fill text-primary',
+                    title: 'Information'
+                }
+            };
+            
+            const config = configs[type] || configs.info;
+            toastIcon.className = `bi ${config.icon} me-2`;
+            toastTitle.textContent = config.title;
+            
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+        }
+        
+        // Gestion du formulaire d'acceptation
+        document.getElementById('acceptInvitationForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            if (!username || !password) {
+                showNotification('Veuillez remplir tous les champs obligatoires', 'error');
+                return;
+            }
+            
+            if (password.length < 6) {
+                showNotification('Le mot de passe doit contenir au moins 6 caractères', 'error');
+                return;
+            }
+            
+            try {
+                // Désactiver le bouton pendant la requête
+                const submitBtn = this.querySelector('button[type="submit"]');
+                const originalText = submitBtn.innerHTML;
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Création en cours...';
+                
+                const response = await fetch('/api/invitation/accept', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        token: invitationToken,
+                        username: username,
+                        password: password
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showNotification('Compte créé avec succès ! Redirection vers la connexion...', 'success');
+                    
+                    setTimeout(() => {
+                        window.location.href = '/login?message=account_created';
+                    }, 2000);
+                } else {
+                    showNotification(result.error || 'Erreur lors de la création du compte', 'error');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+                
+            } catch (error) {
+                console.error('Erreur:', error);
+                showNotification('Erreur de connexion au serveur', 'error');
+                
+                const submitBtn = this.querySelector('button[type="submit"]');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }
+        });
+    </script>
+</body>
+</html>

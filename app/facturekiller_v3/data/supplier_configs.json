@@ -1,0 +1,78 @@
+{
+  "MVA": {
+    "supplier": "MVA",
+    "zones": [
+      {
+        "type": "supplier",
+        "x": 73,
+        "y": 35,
+        "width": 120,
+        "height": 40
+      },
+      {
+        "type": "invoice_number",
+        "x": 64,
+        "y": 219,
+        "width": 120,
+        "height": 40
+      },
+      {
+        "type": "date",
+        "x": 67,
+        "y": 271,
+        "width": 120,
+        "height": 40
+      },
+      {
+        "type": "total",
+        "x": 369,
+        "y": 688,
+        "width": 120,
+        "height": 40
+      },
+      {
+        "type": "name",
+        "x": 100,
+        "y": 317,
+        "width": 120,
+        "height": 40
+      },
+      {
+        "type": "name",
+        "x": 254,
+        "y": 317,
+        "width": 120,
+        "height": 40
+      },
+      {
+        "type": "name",
+        "x": 206,
+        "y": 319,
+        "width": 120,
+        "height": 40
+      },
+      {
+        "type": "quantity",
+        "x": 341,
+        "y": 309,
+        "width": 120,
+        "height": 40
+      },
+      {
+        "type": "unit_price",
+        "x": 440,
+        "y": 310,
+        "width": 120,
+        "height": 40
+      },
+      {
+        "type": "total_price",
+        "x": 494,
+        "y": 303,
+        "width": 120,
+        "height": 40
+      }
+    ],
+    "created_at": "2025-06-19T12:32:39.770Z"
+  }
+}

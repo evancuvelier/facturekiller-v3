@@ -1,0 +1,142 @@
+// FactureKiller V3 - Service Worker
+// Cache offline pour Scanner Pro Mobile
+
+const CACHE_NAME = 'facturekiller-scanner-v1.2';
+const urlsToCache = [
+    '/',
+    '/scanner',
+    '/static/css/style.css',
+    '/static/js/app.js',
+    '/static/js/scanner-pro.js',
+    '/static/images/icon-192x192.png',
+    '/static/images/icon-512x512.png'
+];
+
+// Installation du Service Worker
+self.addEventListener('install', (event) => {
+    console.log('Service Worker installing...');
+    event.waitUntil(
+        caches.open(CACHE_NAME)
+            .then(async (cache) => {
+                console.log('Cache opened');
+                // Cache les fichiers un par un pour éviter les erreurs
+                for (const url of urlsToCache) {
+                    try {
+                        const response = await fetch(url);
+                        if (response.ok) {
+                            await cache.put(url, response);
+                            console.log(`✅ Cached: ${url}`);
+                        } else {
+                            console.warn(`⚠️ Failed to cache ${url}: ${response.status}`);
+                        }
+                    } catch (error) {
+                        console.warn(`⚠️ Failed to fetch ${url}:`, error.message);
+                    }
+                }
+                console.log('Service Worker installation complete');
+            })
+            .catch(error => {
+                console.error('❌ Cache installation failed:', error);
+            })
+    );
+});
+
+// Activation du Service Worker
+self.addEventListener('activate', (event) => {
+    console.log('Service Worker activating...');
+    event.waitUntil(
+        caches.keys().then((cacheNames) => {
+            return Promise.all(
+                cacheNames.map((cacheName) => {
+                    if (cacheName !== CACHE_NAME) {
+                        console.log('Deleting old cache:', cacheName);
+                        return caches.delete(cacheName);
+                    }
+                })
+            );
+        })
+    );
+});
+
+// Interception des requêtes
+self.addEventListener('fetch', (event) => {
+    // Ignorer les requêtes non-GET
+    if (event.request.method !== 'GET') {
+        return;
+    }
+    
+    event.respondWith(
+        caches.match(event.request)
+            .then((response) => {
+                // Retourner la réponse du cache si elle existe
+                if (response) {
+                    return response;
+                }
+                
+                // Sinon, faire la requête réseau
+                return fetch(event.request).then((response) => {
+                    // Vérifier si la réponse est valide
+                    if (!response || response.status !== 200 || response.type !== 'basic') {
+                        return response;
+                    }
+                    
+                    // Cloner la réponse pour le cache
+                    const responseToCache = response.clone();
+                    
+                    caches.open(CACHE_NAME)
+                        .then((cache) => {
+                            cache.put(event.request, responseToCache);
+                        })
+                        .catch(error => {
+                            console.warn('Failed to cache response:', error);
+                        });
+                    
+                    return response;
+                }).catch(error => {
+                    console.warn('Fetch failed:', error);
+                    throw error;
+                });
+            })
+            .catch((error) => {
+                console.warn('Cache match failed:', error);
+                // Essayer de récupérer depuis le réseau en dernier recours
+                return fetch(event.request);
+            })
+    );
+});
+
+// Gestion des messages du client
+self.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
+});
+
+// Notification de mise à jour
+self.addEventListener('message', (event) => {
+    if (event.data && event.data.action === 'UPDATE_CACHE') {
+        event.waitUntil(updateCache());
+    }
+});
+
+async function updateCache() {
+    try {
+        const cache = await caches.open(CACHE_NAME);
+        const requests = await cache.keys();
+        
+        return Promise.allSettled(
+            requests.map(async (request) => {
+                try {
+                    const response = await fetch(request);
+                    if (response.status === 200) {
+                        await cache.put(request, response);
+                    }
+                } catch (error) {
+                    console.log('Failed to update cache for:', request.url);
+                }
+            })
+        );
+    } catch (error) {
+        console.error('Update cache failed:', error);
+    }
+} 

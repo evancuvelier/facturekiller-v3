@@ -1,0 +1,1330 @@
+{% extends "base.html" %}
+
+{% block title %}Scanner Pro - FactureKiller V3{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Design moderne pour le scanner */
+.scanner-container {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    position: relative;
+}
+
+.scanner-header {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 0 0 20px 20px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.mode-selector {
+    padding: 20px;
+}
+
+.mode-selector .btn {
+    border-radius: 15px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    transition: all 0.3s ease;
+}
+
+.mode-selector .btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+}
+
+.mode-selector .btn-check:checked + .btn {
+    background: rgba(255, 255, 255, 0.9);
+    color: #333;
+    border-color: white;
+}
+
+.upload-zone {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 25px;
+    margin: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(10px);
+}
+
+.upload-content {
+    padding: 3rem 2rem;
+}
+
+.upload-icon {
+    animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+}
+
+.camera-buttons .btn {
+    border-radius: 50px;
+    padding: 15px 30px;
+    font-weight: 600;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.camera-buttons .btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+.image-preview {
+    margin: 20px;
+    border-radius: 25px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.action-buttons .btn {
+    border-radius: 50px;
+    padding: 15px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.action-buttons .btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* Multi-pages */
+.pages-container {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 20px;
+    margin: 20px;
+    padding: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.page-item {
+    background: white;
+    border-radius: 15px;
+    padding: 15px;
+    margin-bottom: 15px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.page-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+.page-thumbnail {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 10px;
+    border: 2px solid #e9ecef;
+}
+
+.page-actions .btn {
+    border-radius: 20px;
+    padding: 8px 16px;
+}
+
+.results-container {
+    background: white;
+    border-radius: 25px 25px 0 0;
+    margin-top: 20px;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.1);
+}
+
+.stat-card {
+    border-radius: 20px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+.camera-preview {
+    border-radius: 25px;
+    margin: 20px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.scan-frame {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 280px;
+    height: 200px;
+    border: 2px solid #00ff88;
+    border-radius: 15px;
+}
+
+.scan-frame .corner {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border: 3px solid #00ff88;
+}
+
+.scan-frame .corner.top-left {
+    top: -3px;
+    left: -3px;
+    border-right: none;
+    border-bottom: none;
+    border-radius: 15px 0 0 0;
+}
+
+.scan-frame .corner.top-right {
+    top: -3px;
+    right: -3px;
+    border-left: none;
+    border-bottom: none;
+    border-radius: 0 15px 0 0;
+}
+
+.scan-frame .corner.bottom-left {
+    bottom: -3px;
+    left: -3px;
+    border-right: none;
+    border-top: none;
+    border-radius: 0 0 0 15px;
+}
+
+/* 🚀 STYLES POUR MULTI-FACTURES */
+.scanned-invoices-list {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 25px 25px 0 0;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+}
+
+.invoice-item {
+    background: white;
+    border-radius: 15px;
+    margin-bottom: 15px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    border: 2px solid transparent;
+    padding: 15px;
+}
+
+.invoice-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    border-color: #007bff;
+}
+
+.invoice-item.processing {
+    border-color: #ffc107;
+    background: linear-gradient(135deg, #fff8e1 0%, #ffffff 100%);
+}
+
+.invoice-item.completed {
+    border-color: #28a745;
+    background: linear-gradient(135deg, #e8f5e8 0%, #ffffff 100%);
+}
+
+.invoice-item.error {
+    border-color: #dc3545;
+    background: linear-gradient(135deg, #ffeaea 0%, #ffffff 100%);
+}
+
+.invoice-progress {
+    height: 6px;
+    background: #e9ecef;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 10px;
+}
+
+.invoice-progress .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #007bff, #28a745);
+    border-radius: 3px;
+    transition: width 0.5s ease;
+}
+
+.invoice-progress.processing .progress-bar {
+    background: linear-gradient(90deg, #ffc107, #fd7e14);
+    animation: progress-glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes progress-glow {
+    from { box-shadow: 0 0 5px rgba(255, 193, 7, 0.5); }
+    to { box-shadow: 0 0 15px rgba(255, 193, 7, 0.8); }
+}
+
+.invoice-status {
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 10px;
+    text-transform: uppercase;
+}
+
+.invoice-status.processing {
+    background: #ffc107;
+    color: #000;
+}
+
+.invoice-status.completed {
+    background: #28a745;
+    color: white;
+}
+
+.invoice-status.error {
+    background: #dc3545;
+    color: white;
+}
+
+.scan-frame .corner.bottom-right {
+    bottom: -3px;
+    right: -3px;
+    border-left: none;
+    border-top: none;
+    border-radius: 0 0 15px 0;
+}
+
+.scan-line {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #00ff88, transparent);
+    animation: scanLine 2s infinite;
+}
+
+@keyframes scanLine {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(200px); }
+}
+
+.camera-instructions {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.7);
+    padding: 10px 20px;
+    border-radius: 25px;
+    backdrop-filter: blur(10px);
+}
+
+.capture-btn {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: 4px solid white;
+    background: #007bff;
+    transition: all 0.3s ease;
+}
+
+.capture-btn:hover {
+    transform: scale(1.1);
+    background: #0056b3;
+}
+
+.page-counter {
+    background: rgba(0, 123, 255, 0.9);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: 600;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Scanner Mobile Pro - Plein écran -->
+<div class="scanner-container full-height">
+    <!-- Header Mobile -->
+    <div class="scanner-header">
+        <div class="d-flex align-items-center justify-content-between p-3">
+            <div>
+                <h1 class="h4 mb-0 fw-bold">
+                    <i class="bi bi-camera-fill text-primary"></i> Scanner Pro
+                </h1>
+                <small class="text-muted">IA Vision • Analyse instantanée</small>
+            </div>
+            <div class="scanner-actions">
+                <button class="btn btn-outline-primary btn-sm me-2" onclick="showHistory()">
+                    <i class="bi bi-clock-history"></i>
+                </button>
+                <button class="btn btn-outline-primary btn-sm" onclick="showSettings()">
+                    <i class="bi bi-gear"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mode Selector -->
+    <div class="mode-selector p-3">
+        <div class="row g-2">
+            <div class="col-6">
+                <input type="radio" class="btn-check" name="scanMode" id="quickScan" value="quick" checked>
+                <label class="btn btn-outline-primary w-100 py-3" for="quickScan">
+                    <i class="bi bi-lightning-fill d-block fs-4 mb-1"></i>
+                    <small class="fw-bold">Scan Rapide</small>
+                </label>
+            </div>
+            <div class="col-6">
+                <input type="radio" class="btn-check" name="scanMode" id="orderScan" value="order">
+                <label class="btn btn-outline-success w-100 py-3" for="orderScan">
+                    <i class="bi bi-cart-check-fill d-block fs-4 mb-1"></i>
+                    <small class="fw-bold">Vérif. Commande</small>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Camera Zone -->
+    <div class="camera-zone position-relative">
+        <!-- Live Camera Preview -->
+        <div class="camera-preview" id="cameraPreview" style="display: none;">
+            <video id="cameraVideo" autoplay playsinline class="w-100 h-100 object-fit-cover"></video>
+            <div class="camera-overlay">
+                <div class="scan-frame">
+                    <div class="corner top-left"></div>
+                    <div class="corner top-right"></div>
+                    <div class="corner bottom-left"></div>
+                    <div class="corner bottom-right"></div>
+                    <div class="scan-line"></div>
+                </div>
+                <div class="camera-instructions">
+                    <p class="text-white text-center mb-0">
+                        <i class="bi bi-camera me-2"></i>
+                        Positionnez la facture dans le cadre
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload Zone -->
+        <div class="upload-zone" id="uploadZone">
+            <div class="upload-content text-center p-5">
+                <div class="upload-icon mb-3">
+                    <i class="bi bi-camera-fill text-primary" style="font-size: 4rem;"></i>
+                </div>
+                <h5 class="fw-bold mb-2">📸 Scanner une facture</h5>
+                <p class="text-muted mb-4">Prenez plusieurs photos si la facture fait plusieurs pages</p>
+                
+                <!-- Camera Buttons -->
+                <div class="camera-buttons mb-4">
+                    <button class="btn btn-primary btn-lg me-3" onclick="startCamera()">
+                        <i class="bi bi-camera me-2"></i>📷 Appareil Photo
+                    </button>
+                    <button class="btn btn-outline-primary btn-lg" onclick="document.getElementById('fileInput').click()">
+                        <i class="bi bi-folder2-open me-2"></i>📁 Galerie
+                    </button>
+                </div>
+
+                <!-- File Input -->
+                <input type="file" id="fileInput" class="d-none" accept="image/*,.pdf,.heic,.heif" capture="environment" multiple>
+                
+                <!-- Multi-page Info -->
+                <div class="multi-page-info mb-3">
+                    <div class="alert alert-info border-0" style="background: rgba(13, 202, 240, 0.1);">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Facture multi-pages ?</strong><br>
+                        <small>Ajoutez plusieurs photos - elles seront analysées ensemble</small>
+                    </div>
+                </div>
+                
+                <!-- Supported Formats -->
+                <div class="supported-formats">
+                    <small class="text-muted">
+                        <i class="bi bi-check-circle text-success me-1"></i>JPG, PNG, PDF, HEIC
+                        <span class="mx-2">•</span>
+                        <i class="bi bi-shield-check text-success me-1"></i>Max 10MB par image
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pages Container - Affichage des pages multiples -->
+        <div class="pages-container" id="pagesContainer" style="display: none;">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h6 class="mb-0 fw-bold">
+                    <i class="bi bi-collection me-2"></i>Pages de la facture
+                </h6>
+                <span class="page-counter" id="pageCounter">0 page(s)</span>
+            </div>
+            
+            <div id="pagesList" class="pages-list">
+                <!-- Les pages seront ajoutées ici dynamiquement -->
+            </div>
+            
+            <!-- Actions pour pages multiples -->
+            <div class="pages-actions mt-3">
+                <div class="row g-2">
+                    <div class="col-3">
+                        <button class="btn btn-outline-primary w-100" onclick="addMorePages()">
+                            <i class="bi bi-plus-circle me-1"></i>
+                            <small>Ajouter</small>
+                        </button>
+                    </div>
+                    <div class="col-3">
+                        <button class="btn btn-warning w-100" onclick="analyzeMultiplePages()" id="analyzeMultiBtn" disabled>
+                            <i class="bi bi-robot me-1"></i>
+                            <small>Analyser</small>
+                        </button>
+                    </div>
+                    <div class="col-3">
+                        <button class="btn btn-success w-100" onclick="addToQueue()" id="addToQueueBtn" disabled>
+                            <i class="bi bi-plus-square me-1"></i>
+                            <small>En File</small>
+                        </button>
+                    </div>
+                    <div class="col-3">
+                        <button class="btn btn-outline-secondary w-100" onclick="clearAllPages()">
+                            <i class="bi bi-trash me-1"></i>
+                            <small>Vider</small>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Image Preview -->
+        <div class="image-preview" id="imagePreview" style="display: none;">
+            <div class="preview-container position-relative">
+                <img id="previewImg" class="w-100 h-100 object-fit-cover rounded">
+                <div class="preview-overlay">
+                    <button class="btn btn-light btn-sm position-absolute top-0 end-0 m-3" onclick="resetScanner()">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Camera Controls -->
+    <div class="camera-controls" id="cameraControls" style="display: none;">
+        <div class="d-flex justify-content-center align-items-center p-4">
+            <button class="btn btn-outline-light btn-lg me-3" onclick="switchCamera()">
+                <i class="bi bi-arrow-repeat"></i>
+            </button>
+            <button class="btn btn-primary btn-lg capture-btn" onclick="capturePhoto()">
+                <i class="bi bi-camera-fill fs-2"></i>
+            </button>
+            <button class="btn btn-outline-light btn-lg ms-3" onclick="stopCamera()">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Action Buttons - Quand image sélectionnée -->
+    <div class="action-buttons" id="actionButtons" style="display: none;">
+        <div class="d-grid gap-2 p-3">
+            <button class="btn btn-warning btn-lg fw-bold" onclick="analyzeInvoice()">
+                <i class="bi bi-robot me-2"></i>🤖 Analyser cette facture
+            </button>
+        </div>
+    </div>
+
+    <!-- Final Actions - Navigation principale -->
+    <div class="final-actions p-3">
+        <div class="d-grid gap-2">            
+            <div class="row g-2">
+                <div class="col-6">
+                    <button class="btn btn-primary w-100" onclick="document.getElementById('fileInput').click()">
+                        <i class="bi bi-plus-circle me-2"></i>➕ Ajouter Photo
+                    </button>
+                </div>
+                <div class="col-6">
+                    <button class="btn btn-outline-secondary w-100" onclick="resetScanner()">
+                        <i class="bi bi-arrow-repeat me-2"></i>🔄 Nouveau
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Résultats complets avec anomalies -->
+<div class="analysis-results" id="analysisResults" style="display: none;">
+    <div class="results-container">
+        <!-- En-tête des résultats -->
+        <div class="results-header">
+            <div class="d-flex align-items-center justify-content-between p-3 bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-check-circle me-2"></i>🎉 Facture analysée !
+                </h5>
+                <button class="btn btn-outline-light btn-sm" onclick="resetScanner()">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Contenu des résultats -->
+        <div class="results-content p-3" id="resultsContent">
+            <!-- Quick Stats -->
+            <div class="row g-3 mb-4" id="quickStats">
+                <div class="col-6">
+                    <div class="stat-card text-center p-3 bg-primary text-white rounded">
+                        <div class="fs-4 fw-bold" id="totalAmount">0€</div>
+                        <small>Montant Total</small>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="stat-card text-center p-3 bg-info text-white rounded">
+                        <div class="fs-4 fw-bold" id="totalProducts">0</div>
+                        <small>Produits</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Invoice Info -->
+            <div class="invoice-info mb-4" id="invoiceInfo">
+                <h6 class="mb-2">📄 Informations Facture</h6>
+                <div class="card">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-6">
+                                <strong>Fournisseur:</strong><br>
+                                <span id="supplierName">-</span>
+                            </div>
+                            <div class="col-6">
+                                <strong>Date:</strong><br>
+                                <span id="invoiceDate">-</span>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-6">
+                                <strong>N° Facture:</strong><br>
+                                <span id="invoiceNumber">-</span>
+                            </div>
+                            <div class="col-6">
+                                <strong>TVA:</strong><br>
+                                <span id="vatAmount">0€</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Products List -->
+            <div class="products-section mb-4" id="productsSection">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <h6 class="mb-0">🛒 Produits détectés</h6>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary" onclick="showEditProductsModal()">
+                            <i class="bi bi-pencil me-1"></i>Éditer
+                        </button>
+                        <button class="btn btn-outline-warning" onclick="toggleProductsView(this)">
+                            <i class="bi bi-arrows-expand" id="expandIcon"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="products-container" id="productsContainer" style="max-height: 300px; overflow-y: auto;">
+                    <!-- Products will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Anomalies Section -->
+            <div class="anomalies-section mb-4" id="anomaliesSection">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <h6 class="mb-0">⚠️ Anomalies détectées</h6>
+                    <button class="btn btn-outline-danger btn-sm" onclick="addAnomaly()">
+                        <i class="bi bi-plus-circle me-1"></i>Ajouter
+                    </button>
+                </div>
+                <div id="anomaliesContainer">
+                    <!-- Anomalies will be displayed here -->
+                </div>
+                <div id="currentAnomaliesList" style="display: none;">
+                    <!-- Current anomalies list -->
+                </div>
+            </div>
+
+            <!-- Actions finales -->
+            <div class="final-results-actions">
+                <div class="row g-2">
+                    <div class="col-6 mb-2">
+                        <button class="btn btn-success btn-lg w-100" onclick="saveInvoice()">
+                            <i class="bi bi-save me-2"></i>💾 Enregistrer
+                        </button>
+                    </div>
+                    <div class="col-6 mb-2">
+                        <button class="btn btn-warning btn-lg w-100" onclick="saveAndContinue()">
+                            <i class="bi bi-plus-circle me-2"></i>➕ Scanner Suivante
+                        </button>
+                    </div>
+                    <div class="col-6">
+                        <button class="btn btn-outline-primary w-100" onclick="showEditModal()">
+                            <i class="bi bi-pencil me-2"></i>✏️ Éditer
+                        </button>
+                    </div>
+                    <div class="col-6">
+                        <button class="btn btn-outline-secondary w-100" onclick="resetScanner()">
+                            <i class="bi bi-x me-2"></i>🏠 Recommencer
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 🚀 NOUVELLE SECTION: Liste des factures scannées -->
+<div class="scanned-invoices-list" id="scannedInvoicesList" style="display: none;">
+    <div class="container-fluid p-3">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <h5 class="mb-0">
+                <i class="bi bi-list-check me-2"></i>📄 Factures Scannées
+                <span class="badge bg-primary ms-2" id="scannedCount">0</span>
+            </h5>
+            <div>
+                <button class="btn btn-success btn-sm me-2" onclick="viewAllInvoices()" id="viewAllBtn" style="display: none;">
+                    <i class="bi bi-eye me-1"></i>Voir Toutes
+                </button>
+                <button class="btn btn-outline-primary btn-sm" onclick="addNewInvoice()">
+                    <i class="bi bi-plus-circle me-1"></i>➕ Nouvelle
+                </button>
+            </div>
+        </div>
+        
+        <div class="scanned-invoices-container" id="scannedInvoicesContainer">
+            <!-- Les factures scannées apparaîtront ici -->
+        </div>
+    </div>
+</div>
+
+<!-- Processing Status - Fixed at bottom -->
+<div class="processing-status" id="processingStatus" style="display: none;">
+    <div class="processing-content">
+        <div class="d-flex align-items-center justify-content-center">
+            <div class="spinner-border spinner-border-sm text-white me-3" role="status"></div>
+            <div>
+                <div class="fw-bold" id="processingTitle">🤖 Analyse en cours...</div>
+                <small class="text-muted" id="processingDetails">Claude Vision traite votre facture</small>
+            </div>
+        </div>
+        <div class="progress mt-2">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" id="processingProgress" style="width: 0%"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Modals existants -->
+<!-- Order Selection Modal -->
+<div class="modal fade" id="orderSelectionModal" tabindex="-1" aria-labelledby="orderModalLabel">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="orderModalLabel">
+                    <i class="bi bi-cart-check me-2"></i>🛒 Sélectionner une Commande
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body">
+                <div class="list-group" id="ordersList">
+                    <!-- Orders will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editModalLabel">
+                    <i class="bi bi-pencil me-2"></i>✏️ Éditer la Facture
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editSupplier" class="form-label">Fournisseur</label>
+                                <select class="form-select" id="editSupplier">
+                                    <option value="">Sélectionner...</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editDate" class="form-label">Date</label>
+                                <input type="date" class="form-control" id="editDate">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editReference" class="form-label">Référence</label>
+                                <input type="text" class="form-control" id="editReference">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editTotal" class="form-label">Montant Total (€)</label>
+                                <input type="number" step="0.01" class="form-control" id="editTotal">
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="applyScanCorrections()">Appliquer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Products Modal -->
+<div class="modal fade" id="editProductsModal" tabindex="-1" aria-labelledby="editProductsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editProductsModalLabel">
+                    <i class="bi bi-pencil me-2"></i>✏️ Éditer les Produits
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body">
+                <div id="editableProductsList">
+                    <!-- Editable products list will be loaded here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="applyProductsAndAnomalies()">Appliquer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Anomaly Modal -->
+<div class="modal fade" id="addAnomalyModal" tabindex="-1" aria-labelledby="addAnomalyModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addAnomalyModalLabel">
+                    <i class="bi bi-exclamation-triangle me-2"></i>⚠️ Ajouter une Anomalie
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body">
+                <form id="anomalyForm">
+                    <div class="mb-3">
+                        <label for="anomalyType" class="form-label">Type d'anomalie</label>
+                        <select class="form-select" id="anomalyType" required>
+                            <option value="">Sélectionner...</option>
+                            <option value="quantity">Quantité incorrecte</option>
+                            <option value="price">Prix incorrect</option>
+                            <option value="missing">Produit manquant</option>
+                            <option value="extra">Produit en trop</option>
+                            <option value="quality">Problème qualité</option>
+                            <option value="other">Autre</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="anomalyDescription" class="form-label">Description</label>
+                        <textarea class="form-control" id="anomalyDescription" rows="3" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Gravité</label>
+                        <div class="d-flex gap-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="severity" id="severityLow" value="low">
+                                <label class="form-check-label" for="severityLow">🟢 Faible</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="severity" id="severityMedium" value="medium" checked>
+                                <label class="form-check-label" for="severityMedium">🟡 Moyenne</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="severity" id="severityHigh" value="high">
+                                <label class="form-check-label" for="severityHigh">🔴 Élevée</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Champs spécifiques pour quantité -->
+                    <div class="card mt-3" id="quantityAnomalyCard" style="display: none;">
+                        <div class="card-body">
+                            <h6 class="card-title">Détails de quantité</h6>
+                            <div class="row">
+                                <div class="col-6">
+                                    <label for="orderedQuantity" class="form-label">Qté commandée</label>
+                                    <input type="number" class="form-control" id="orderedQuantity">
+                                </div>
+                                <div class="col-6">
+                                    <label for="receivedQuantity" class="form-label">Qté reçue</label>
+                                    <input type="number" class="form-control" id="receivedQuantity">
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <label for="affectedProduct" class="form-label">Produit concerné</label>
+                                <select class="form-select" id="affectedProduct">
+                                    <option value="">Sélectionner...</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-warning" onclick="submitAnomaly()">Ajouter l'Anomalie</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Autres modals (History, Settings, etc.) -->
+<div class="modal fade" id="historyModal" tabindex="-1" aria-labelledby="historyModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="historyModalLabel">
+                    <i class="bi bi-clock-history me-2"></i>📚 Historique des Scans
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body">
+                <div id="historyContent">
+                    <!-- History will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="settingsModalLabel">
+                    <i class="bi bi-gear me-2"></i>⚙️ Paramètres du Scanner
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Qualité de l'image</label>
+                    <select class="form-select" id="imageQuality">
+                        <option value="0.8">Normale</option>
+                        <option value="0.9" selected>Haute</option>
+                        <option value="1.0">Maximum</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="autoAnalysis" checked>
+                        <label class="form-check-label" for="autoAnalysis">
+                            Analyse automatique
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scanner JavaScript -->
+<script src="{{ url_for('static', filename='js/scanner-pro.js') }}"></script>
+<!-- Extension multi-pages -->
+<script src="{{ url_for('static', filename='js/scanner-multi-pages.js') }}"></script>
+
+<!-- Patch corrections d'erreurs -->
+<script>
+// Patch pour éviter les erreurs JavaScript
+document.addEventListener('DOMContentLoaded', function() {
+    // Vérifications des éléments Bootstrap modal
+    const modals = ['orderSelectionModal', 'scanHistoryModal', 'scanSettingsModal', 'editModal', 'editProductsModal', 'addAnomalyModal'];
+    
+    modals.forEach(modalId => {
+        const modalElement = document.getElementById(modalId);
+        if (modalElement && modalElement.getAttribute('aria-hidden') === 'true') {
+            modalElement.removeAttribute('aria-hidden');
+            console.log(`✅ Correction aria-hidden pour ${modalId}`);
+        }
+    });
+    
+    // Vérifications des stats elements
+    const statsElements = ['totalProducts', 'totalAmount', 'savingsAmount', 'newProducts'];
+    statsElements.forEach(elementId => {
+        if (!document.getElementById(elementId)) {
+            console.warn(`⚠️ Élément manquant: ${elementId}`);
+        }
+    });
+    
+    // Fix pour les fonctions non définies
+    window.editSingleProduct = window.editSingleProduct || function(productIndex) {
+        console.log('editSingleProduct appelé pour produit:', productIndex);
+        if (window.scanner && window.scanner.editSingleProduct) {
+            window.scanner.editSingleProduct(productIndex);
+        }
+    };
+    
+    window.showProductDetails = window.showProductDetails || function(productIndex) {
+        console.log('showProductDetails appelé pour produit:', productIndex);
+        if (window.scanner && window.scanner.showProductDetails) {
+            window.scanner.showProductDetails(productIndex);
+        }
+    };
+});
+    if (window.scanner) {
+        // Patch fillQuickStats pour vérifier l'existence des éléments
+        const originalFillQuickStats = window.scanner.fillQuickStats;
+        if (originalFillQuickStats) {
+            window.scanner.fillQuickStats = function(data) {
+                try {
+                    const totalProductsEl = document.getElementById('totalProducts');
+                    const totalAmountEl = document.getElementById('totalAmount');
+                    
+                    if (totalProductsEl) {
+                        totalProductsEl.textContent = data.products?.length || 0;
+                    }
+                    
+                    if (totalAmountEl) {
+                        totalAmountEl.textContent = this.formatPrice(data.total_amount || 0);
+                    }
+                    
+                    // Éléments optionnels
+                    const savingsAmountEl = document.getElementById('savingsAmount');
+                    const newProductsEl = document.getElementById('newProducts');
+                    
+                    if (savingsAmountEl) {
+                        const stats = data.price_comparison || {};
+                        savingsAmountEl.textContent = this.formatPrice(stats.total_savings || 0);
+                    }
+                    
+                    if (newProductsEl) {
+                        const stats = data.price_comparison || {};
+                        newProductsEl.textContent = stats.new_products || 0;
+                    }
+                    
+                    this.animateNumbers();
+                } catch (error) {
+                    console.warn('Erreur fillQuickStats:', error);
+                }
+            };
+        }
+        
+        // Patch showEditModal pour vérifier l'existence du modal
+        const originalShowEditModal = window.scanner.showEditModal;
+        if (originalShowEditModal) {
+            window.scanner.showEditModal = async function() {
+                const modalElement = document.getElementById('editScanModal');
+                if (!modalElement) {
+                    console.warn('Modal editScanModal not found');
+                    this.showNotification && this.showNotification('Fonction d\'édition non disponible', 'warning');
+                    return;
+                }
+                
+                if (typeof bootstrap === 'undefined') {
+                    console.error('Bootstrap not loaded');
+                    this.showNotification && this.showNotification('Erreur: Bootstrap non chargé', 'error');
+                    return;
+                }
+                
+                return originalShowEditModal.call(this);
+            };
+        }
+        
+        // Patch showEditProductsModal
+        const originalShowEditProductsModal = window.scanner.showEditProductsModal;
+        if (originalShowEditProductsModal) {
+            window.scanner.showEditProductsModal = async function() {
+                const modalElement = document.getElementById('editProductsModal');
+                if (!modalElement) {
+                    console.warn('Modal editProductsModal not found');
+                    this.showNotification && this.showNotification('Fonction d\'édition des produits non disponible', 'warning');
+                    return;
+                }
+                
+                if (typeof bootstrap === 'undefined') {
+                    console.error('Bootstrap not loaded');
+                    this.showNotification && this.showNotification('Erreur: Bootstrap non chargé', 'error');
+                    return;
+                }
+                
+                return originalShowEditProductsModal.call(this);
+            };
+        }
+        
+        // Patch fillEditableProductsList
+        const originalFillEditableProductsList = window.scanner.fillEditableProductsList;
+        if (originalFillEditableProductsList) {
+            window.scanner.fillEditableProductsList = function() {
+                const container = document.getElementById('editableProductsList');
+                if (!container) {
+                    console.warn('Element editableProductsList not found');
+                    return;
+                }
+                
+                return originalFillEditableProductsList.call(this);
+            };
+        }
+    }
+    
+    // Patch pour les fonctions globales
+    if (typeof showEditModal !== 'undefined') {
+        const originalGlobalShowEditModal = showEditModal;
+        showEditModal = function() {
+            if (window.scanner && window.scanner.showEditModal) {
+                return window.scanner.showEditModal();
+            }
+            return originalGlobalShowEditModal();
+        };
+    }
+    
+    if (typeof showEditProductsModal !== 'undefined') {
+        const originalGlobalShowEditProductsModal = showEditProductsModal;
+        showEditProductsModal = function() {
+            if (window.scanner && window.scanner.showEditProductsModal) {
+                return window.scanner.showEditProductsModal();
+            }
+            return originalGlobalShowEditProductsModal();
+        };
+    }
+    
+    // Ajouter les fonctions globales manquantes
+    window.editSingleProduct = function(productIndex) {
+        if (!window.scanner || !window.scanner.analysisResult) {
+            console.warn('Aucune analyse disponible');
+            return;
+        }
+        
+        const product = window.scanner.analysisResult.products[productIndex];
+        if (!product) {
+            console.warn('Produit non trouvé:', productIndex);
+            return;
+        }
+        
+        // Ouvrir le modal d'anomalie
+        const modal = new bootstrap.Modal(document.getElementById('addAnomalyModal'));
+        
+        // Pré-remplir avec les données du produit
+        document.getElementById('anomalyType').value = 'quantity';
+        document.getElementById('anomalyDescription').value = `Vérification du produit: ${product.name}`;
+        
+        // Afficher la section quantité
+        document.getElementById('quantityAnomalyCard').style.display = 'block';
+        
+        // Pré-remplir les quantités
+        document.getElementById('orderedQuantity').value = product.quantity || 1;
+        document.getElementById('receivedQuantity').value = '';
+        
+        // Pré-sélectionner le produit
+        const productSelect = document.getElementById('affectedProduct');
+        if (productSelect) {
+            // Remplir la liste des produits si pas déjà fait
+            if (productSelect.children.length <= 1 && window.scanner.fillAnomalyProductsList) {
+                window.scanner.fillAnomalyProductsList();
+            }
+            productSelect.value = productIndex;
+        }
+        
+        // Mettre le focus sur la quantité reçue
+        setTimeout(() => {
+            const receivedInput = document.getElementById('receivedQuantity');
+            if (receivedInput) {
+                receivedInput.focus();
+                receivedInput.placeholder = `Quantité reçue (facturée: ${product.quantity || 1})`;
+            }
+        }, 200);
+        
+        modal.show();
+        
+        console.log(`🔍 Édition du produit ${productIndex}: ${product.name}`);
+    };
+    
+    window.showProductDetails = function(productIndex) {
+        if (!window.scanner || !window.scanner.analysisResult) {
+            console.warn('Aucune analyse disponible');
+            return;
+        }
+        
+        const product = window.scanner.analysisResult.products[productIndex];
+        if (!product) {
+            console.warn('Produit non trouvé:', productIndex);
+            return;
+        }
+        
+        // Créer un modal temporaire pour afficher les détails
+        const modalHTML = `
+            <div class="modal fade" id="productDetailsModal" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">📦 ${product.name}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row g-3">
+                                <div class="col-6">
+                                    <label class="form-label text-muted">Quantité</label>
+                                    <div class="fw-bold fs-5">${product.quantity || 1}</div>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label text-muted">Prix unitaire</label>
+                                    <div class="fw-bold fs-5 text-primary">${window.scanner.formatPrice ? window.scanner.formatPrice(product.unit_price || 0) : (product.unit_price || 0) + '€'}</div>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label text-muted">Unité</label>
+                                    <div class="fw-bold">${product.unit || 'pièce'}</div>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label text-muted">Total</label>
+                                    <div class="fw-bold fs-5 text-success">${window.scanner.formatPrice ? window.scanner.formatPrice((product.unit_price || 0) * (product.quantity || 1)) : ((product.unit_price || 0) * (product.quantity || 1)) + '€'}</div>
+                                </div>
+                                ${product.code ? `
+                                <div class="col-12">
+                                    <label class="form-label text-muted">Code produit</label>
+                                    <div class="fw-bold">${product.code}</div>
+                                </div>
+                                ` : ''}
+                            </div>
+                            <div class="mt-3">
+                                <button class="btn btn-warning w-100" onclick="editSingleProduct(${productIndex}); bootstrap.Modal.getInstance(document.getElementById('productDetailsModal')).hide();">
+                                    ⚠️ Signaler une anomalie
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Supprimer l'ancien modal s'il existe
+        const existingModal = document.getElementById('productDetailsModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Ajouter le nouveau modal
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        
+        // Afficher le modal
+        const modal = new bootstrap.Modal(document.getElementById('productDetailsModal'));
+        modal.show();
+        
+        // Nettoyer après fermeture
+        document.getElementById('productDetailsModal').addEventListener('hidden.bs.modal', function() {
+            this.remove();
+        });
+    };
+    
+    console.log('✅ Scanner patches appliqués');
+});
+
+// Ajouter les event listeners pour le calcul automatique
+document.addEventListener('DOMContentLoaded', function() {
+    const receivedQuantityInput = document.getElementById('receivedQuantity');
+    const orderedQuantityInput = document.getElementById('orderedQuantity');
+    
+    if (receivedQuantityInput) {
+        receivedQuantityInput.addEventListener('input', calculateQuantityDifference);
+    }
+    
+    if (orderedQuantityInput) {
+        orderedQuantityInput.addEventListener('input', calculateQuantityDifference);
+    }
+    
+    // Charger le script multi-pages
+    const script = document.createElement('script');
+    script.src = '/static/js/scanner-multi-pages.js';
+    script.onload = function() {
+        console.log('📄 Scanner Multi-Pages chargé et intégré');
+    };
+    document.head.appendChild(script);
+});
+</script>
+
+<!-- 🎯 SECTION QUEUE DES FACTURES - NOUVEAU SYSTÈME MULTI-FACTURES -->
+<div class="invoice-queue-section" id="invoiceQueueSection" style="display: none;">
+    <div class="container-fluid p-3">
+        <!-- En-tête de la queue -->
+        <div class="queue-header mb-3">
+            <div class="d-flex align-items-center justify-content-between">
+                <h5 class="mb-0">
+                    <i class="bi bi-collection me-2"></i>📋 File d'attente des factures
+                </h5>
+                <div class="queue-stats">
+                    <span class="badge bg-primary" id="queueCount">0</span>
+                    <span class="small text-muted">facture(s)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions globales de la queue -->
+        <div class="queue-actions mb-3">
+            <div class="row g-2">
+                <div class="col-4">
+                    <button class="btn btn-success w-100" onclick="processAllInvoices()" id="processAllBtn" disabled>
+                        <i class="bi bi-play-circle me-1"></i>
+                        <small>Traiter Tout</small>
+                    </button>
+                </div>
+                <div class="col-4">
+                    <button class="btn btn-primary w-100" onclick="newInvoice()">
+                        <i class="bi bi-plus-circle me-1"></i>
+                        <small>Nouvelle</small>
+                    </button>
+                </div>
+                <div class="col-4">
+                    <button class="btn btn-outline-secondary w-100" onclick="clearQueue()">
+                        <i class="bi bi-trash me-1"></i>
+                        <small>Vider</small>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Liste des factures en queue -->
+        <div class="queue-list" id="queueList">
+            <!-- Les factures en queue seront ajoutées ici dynamiquement -->
+        </div>
+
+        <!-- Message queue vide -->
+        <div class="empty-queue text-center py-4" id="emptyQueueMessage">
+            <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
+            <p class="text-muted mt-2">Aucune facture en file d'attente</p>
+            <small class="text-muted">Ajoutez des factures avec le bouton "En File" 📸</small>
+        </div>
+    </div>
+</div>
+
+<!-- 🔄 SECTION TRAITEMENT EN COURS -->
+<div class="processing-overlay" id="processingOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999;">
+    <div class="d-flex flex-column align-items-center justify-content-center h-100 text-white">
+        <div class="spinner-border mb-3" style="width: 3rem; height: 3rem;"></div>
+        <h5 id="processingTitle">🤖 Analyse en cours...</h5>
+        <p id="processingStatus" class="text-center">Traitement de la facture en cours</p>
+        <div class="progress" style="width: 300px;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" id="processingProgress" style="width: 0%"></div>
+        </div>
+    </div>
+</div>
+
+<!-- 📱 BOUTON FLOTTANT QUEUE (visible quand il y a des factures) -->
+<div class="floating-queue-btn" id="floatingQueueBtn" style="display: none; position: fixed; bottom: 80px; right: 20px; z-index: 1000;">
+    <button class="btn btn-primary btn-lg rounded-circle shadow" onclick="toggleQueueSection()" title="Voir la file d'attente">
+        <i class="bi bi-collection-fill"></i>
+        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="floatingQueueCount">0</span>
+    </button>
+</div>
+
+{% endblock %}

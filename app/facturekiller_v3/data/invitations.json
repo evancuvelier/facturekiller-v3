@@ -1,0 +1,79 @@
+[
+  {
+    "id": 1,
+    "client_id": "f9b41a3b-a8c6-4241-bb50-321408b4e2b8",
+    "client_name": "Restaurant Le Gourmet",
+    "client_email": "contact@legourmet.fr",
+    "token": "4WYjp7VZRP5cA-lGi1UYnx_DHfeTQZ-4wXjAnGsSb78",
+    "invited_by": "master_001",
+    "created_at": "2025-06-21T19:22:48.678919",
+    "expires_at": "2025-06-28T19:22:48.678923",
+    "status": "pending"
+  },
+  {
+    "id": 2,
+    "client_id": "1fbf1379-45a3-4520-a112-d80c2ddd9f84",
+    "client_name": "Restaurant Le Gourmet 1750526648",
+    "client_email": "contact-1750526648@legourmet.fr",
+    "token": "EscFk3G7nnwXEubLZio_0mTxgpwcsYSpZaqRZ1Dswn0",
+    "invited_by": "master_001",
+    "created_at": "2025-06-21T19:24:08.422542",
+    "expires_at": "2025-06-28T19:24:08.422544",
+    "status": "pending"
+  },
+  {
+    "id": 3,
+    "client_id": "ced5c30a-f409-4f9f-8f50-e1cc49f5855c",
+    "client_name": "Restaurant Le Gourmet 1750526689",
+    "client_email": "contact-1750526689@legourmet.fr",
+    "token": "_A-2nK2qVZDNBzXwgQh3CRN87RT1IGaE1S2mJp38cEA",
+    "invited_by": "master_001",
+    "created_at": "2025-06-21T19:24:49.544326",
+    "expires_at": "2025-06-28T19:24:49.544330",
+    "status": "pending"
+  },
+  {
+    "id": 4,
+    "client_id": "f19fa2ca-09c9-4f94-bb54-ec487f3142fd",
+    "client_name": "test 1",
+    "client_email": "evancuvelier@yahoo.com",
+    "token": "gdmmk7PALIzTQ4Knn7L94cMh-0iehx8iPXazd-0NCPU",
+    "invited_by": "master_001",
+    "created_at": "2025-06-21T19:28:50.325480",
+    "expires_at": "2025-06-28T19:28:50.325491",
+    "status": "pending"
+  },
+  {
+    "id": 5,
+    "client_id": "98065bc3-91dd-428a-b172-a3b61cac161c",
+    "client_name": "Restaurant Test Email",
+    "client_email": "test@example.com",
+    "token": "RN_1wdXNmlOiMdYGhY_5kwyKHQxBZs4W16xWcuSRxOk",
+    "invited_by": "test_user",
+    "created_at": "2025-06-24T20:22:45.413699",
+    "expires_at": "2025-07-01T20:22:45.413700",
+    "status": "pending"
+  },
+  {
+    "id": 6,
+    "client_id": "5504d8f0-60d1-46b6-99a4-d77043eec859",
+    "client_name": "Restaurant Test Email Workflow",
+    "client_email": "client-test-workflow@example.com",
+    "token": "mPSIWBdFl6v4JvRsFRX_3yoGBuOAU-Ew0vVi8Yp8I9E",
+    "invited_by": "test_workflow",
+    "created_at": "2025-06-24T20:30:33.294052",
+    "expires_at": "2025-07-01T20:30:33.294053",
+    "status": "pending"
+  },
+  {
+    "id": 7,
+    "client_id": "e7780bcd-8fe5-49f1-9d80-3d6f712edb60",
+    "client_name": "Au Bureau St Amand",
+    "client_email": "aubureau.stamand@yahoo.fr",
+    "token": "aMI-33E93MJTOZAEwYziQgqlhBcy0jTe3RnLUS7GODc",
+    "invited_by": "evan_master",
+    "created_at": "2025-06-24T21:57:10.681380",
+    "expires_at": "2025-07-01T21:57:10.681384",
+    "status": "pending"
+  }
+]

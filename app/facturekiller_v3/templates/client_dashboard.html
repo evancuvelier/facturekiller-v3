@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard Client - FactureKiller V3{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">
+                    <i class="bi bi-building me-2 text-info"></i>
+                    Mes Restaurants
+                </h1>
+                <div class="badge bg-info fs-6">
+                    <i class="bi bi-person-badge me-1"></i>Client
+                </div>
+            </div>
+
+            <!-- Statistiques rapides -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="card-title">Restaurants</h6>
+                                    <h3 id="totalRestaurants">0</h3>
+                                </div>
+                                <i class="bi bi-building display-6"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="card-title">Utilisateurs</h6>
+                                    <h3 id="totalUsers">0</h3>
+                                </div>
+                                <i class="bi bi-people display-6"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning text-dark">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="card-title">Admins</h6>
+                                    <h3 id="totalAdmins">0</h3>
+                                </div>
+                                <i class="bi bi-shield-check display-6"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="card-title">Utilisateurs</h6>
+                                    <h3 id="totalRegularUsers">0</h3>
+                                </div>
+                                <i class="bi bi-person display-6"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Liste des restaurants -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-building me-2"></i>Gestion de vos Restaurants
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="restaurantsList">
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-info" role="status">
+                                <span class="visually-hidden">Chargement...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Gestion des Utilisateurs -->
+<div class="modal fade" id="manageUsersModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-people me-2"></i>Gestion des Utilisateurs - <span id="modalRestaurantName"></span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-lg-8">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6>Utilisateurs actuels</h6>
+                            <button class="btn btn-success btn-sm" onclick="showAddUserForm()">
+                                <i class="bi bi-plus-circle me-1"></i>Ajouter un utilisateur
+                            </button>
+                        </div>
+                        <div id="usersList">
+                            <div class="text-center py-3">
+                                <div class="spinner-border text-info" role="status">
+                                    <span class="visually-hidden">Chargement...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="card bg-light">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="bi bi-info-circle me-2"></i>Types d'utilisateurs
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <h6 class="text-success">👑 Admin Restaurant</h6>
+                                    <ul class="small">
+                                        <li>Accès complet au restaurant</li>
+                                        <li>Gestion des commandes</li>
+                                        <li>Gestion des factures</li>
+                                        <li>Gestion des fournisseurs</li>
+                                        <li>Statistiques complètes</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h6 class="text-secondary">👤 Utilisateur</h6>
+                                    <ul class="small">
+                                        <li>Passer des commandes</li>
+                                        <li>Vérifier les factures</li>
+                                        <li>Voir les fournisseurs</li>
+                                        <li>Accès en lecture seulement</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Formulaire d'ajout d'utilisateur -->
+                <div id="addUserForm" class="mt-4" style="display: none;">
+                    <hr>
+                    <h6>Ajouter un nouvel utilisateur</h6>
+                    <form id="createUserForm">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="newUserName" class="form-label">Nom complet *</label>
+                                    <input type="text" class="form-control" id="newUserName" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="newUserUsername" class="form-label">Nom d'utilisateur *</label>
+                                    <input type="text" class="form-control" id="newUserUsername" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="newUserEmail" class="form-label">Email *</label>
+                                    <input type="email" class="form-control" id="newUserEmail" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="newUserPassword" class="form-label">Mot de passe *</label>
+                                    <input type="password" class="form-control" id="newUserPassword" required minlength="6">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newUserRole" class="form-label">Rôle *</label>
+                            <select class="form-select" id="newUserRole" required>
+                                <option value="">Sélectionner un rôle...</option>
+                                <option value="admin">👑 Admin Restaurant (Accès complet)</option>
+                                <option value="user">👤 Utilisateur (Commandes et factures)</option>
+                            </select>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-save me-1"></i>Créer l'utilisateur
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="hideAddUserForm()">
+                                Annuler
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/client_dashboard.js') }}"></script>
+{% endblock %}

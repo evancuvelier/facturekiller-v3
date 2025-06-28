@@ -1,0 +1,57 @@
+id,code,produit,fournisseur,prix,unite,categorie,date_ajout,source,restaurant
+2,PPROBOB0627,Bobine dévidoir centr.450Fx6(8405),PRO A PRO,10.5,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+3,PPROCHE0627,Cheddar rouge râpé 11% 1K,PRO A PRO,7.56,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+4,PPROCOR0627,Cornichons mi-fins (40/59),PRO A PRO,6.9,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+5,PPROEMM0627,Emmental rapé 29% 1K,PRO A PRO,7.2,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+7,PPROFAR0627,Farine de blé ménagère T55 1K,PRO A PRO,0.609,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+8,PNOUFIL0626,Filet de bœuf,NOUVEAU_FOURNISSEUR,45.5,kg,Non classé,2025-06-26 18:07:45,scanner_auto,Général
+9,PPROFRO0627,Fromage à la crème natu 24% 1K,PRO A PRO,8.67,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+10,PMVAHAC0627,Hachée de bœuf,MVA,12.0,kg,Non classé,2025-06-27 17:45:46,scanner_auto,Au Bureau St Amand 
+11,PPROHUI0627,Huile Meravella 20%OLI/tour.1L,PRO A PRO,4.1,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+12,PMVAJUM0627,Jumeau pour bourguignon,MVA,12.9,kg,Non classé,2025-06-27 19:40:24,scanner_auto,Au Bureau St Amand 
+13,PMVALAR0627,Lardons fumés,MVA,18.9,kg,Non classé,2025-06-27 19:40:24,scanner_auto,Au Bureau St Amand 
+14,PPROMAS0627,Mascarpone 41% 500g,PRO A PRO,3.99,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+15,PUNKMOI0624,Mois K,UNKNOWN,23.94,pièce,Non classé,2025-06-24 19:46:18,scanner_auto,Le Gourmet Parisien
+16,PPROMOZ0627,"Mozzarella cossettes 21% 2,5K",PRO A PRO,14.0,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+17,PPROOLI0627,Olives noires dénoyaut. 30/33,PRO A PRO,2.183,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+18,PPROPAP0627,Papier cuisson 400/600 x50,PRO A PRO,25.0,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+19,PUNKPOM0624,Pommes de Terre Test,UNKNOWN,2.8,kg,Non classé,2025-06-24 23:38:17,scanner_auto,Général
+20,PPROPOT0627,"Potato toast 100g 2,5K",PRO A PRO,7.99,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+21,R1ONLY,Produit Restaurant 1 UNIQUEMENT,MVA Test,10.5,unité,Test,2025-06-24 22:17:43,restaurant_manual,Restaurant Produit Test
+22,PUNKPRO0624,Produit Test A,UNKNOWN,10.6,kg,Non classé,2025-06-24 23:20:52,scanner_auto,Général
+23,PUNKPRO0624,Produit Test B,UNKNOWN,25.0,pièce,Non classé,2025-06-24 23:20:52,scanner_auto,Général
+24,PPROSAC0627,Sac congélation 22/35cm 3Lx75,PRO A PRO,5.64,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+25,PPROSAU0627,Sauce tomate aromatisée 10/12%,PRO A PRO,6.15,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+26,PNOUSAU0626,Saumon fumé,NOUVEAU_FOURNISSEUR,28.9,kg,Non classé,2025-06-26 18:07:45,scanner_auto,Général
+27,PPROSEL0627,Sel adoucisseur pastilles 25K,PRO A PRO,9.238,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+28,PPROST0627,St Marcellin IGP 22% nu 80gx16,PRO A PRO,20.463,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+29,STEAK001,Steak de Bœuf Restaurant Test,MVA Test,25.5,kg,Viandes,2025-06-24 22:17:04,restaurant_manual,Restaurant Produit Test
+30,PUNKSTE0624,Steak de Bœuf Test,UNKNOWN,29.0,kg,Non classé,2025-06-24 23:38:17,scanner_auto,Général
+31,PPROSUC0627,Sucre cassonade 75g,PRO A PRO,2.3,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+32,PPROSUC0627,Sucre poudre 500g,PRO A PRO,1.35,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+33,PUNKTAX0624,Taxes,UNKNOWN,4.71,pièce,Non classé,2025-06-24 19:46:18,scanner_auto,Le Gourmet Parisien
+35,PMVATES0627,Test Bavettes de bœuf,MVA,36.87,kg,Auto,2025-06-27 17:45:37,scanner_auto,Restaurant Test
+36,PPROTOR0627,Tortellini CS 5K,PRO A PRO,7.8,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+37,PUNKTY0624,Ty Frais Nt Soest Myn,UNKNOWN,83.76,pièce,Non classé,2025-06-24 19:46:18,scanner_auto,Le Gourmet Parisien
+38,PPROVER0627,Vermicelles multicolores 1K,PRO A PRO,10.702,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+39,PPROŒUF0627,Œuf jeteb.latex poudr.T9 x100 40pc,PRO A PRO,4.0,pièce,Non classé,2025-06-27 13:09:42,scanner_auto,Général
+40,PTESTES0627,Test Product,TEST,10.0,unité,Non classé,2025-06-27 18:00:12,scanner_auto,Général
+41,PMVABAV0627,Bavettes de bœuf,MVA,12.0,pièce,Non classé,2025-06-27 19:40:24,scanner_auto,Général
+42,PMVAHAC0627,Haché de bœuf,MVA,12.0,pièce,Non classé,2025-06-27 19:40:24,scanner_auto,Général
+43,PMVAJUM0627,Jumeau pour bourguignon,MVA,12.9,pièce,Non classé,2025-06-27 19:40:24,scanner_auto,Général
+44,PMVALAR0627,Lardons fumés,MVA,18.9,kg,Non classé,2025-06-27 19:40:24,scanner_auto,Général
+45,PMVAENT0627,Entrecôtes de bœuf,MVA,18.9,pièce,Non classé,2025-06-27 19:28:39,scanner_auto,Général
+46,PMVACŒU0627,Cœur de rumsteck de bœuf,MVA,0.09,kg,Non classé,2025-06-27 18:48:37,scanner_auto,Général
+47,PMVARÔT0627,Rôti de bœuf,MVA,0.103,kg,Non classé,2025-06-27 18:48:37,scanner_auto,Général
+48,PMVARED0627,Red san,MVA,0.002,kg,Non classé,2025-06-27 18:48:37,scanner_auto,Général
+49,PMVAHAC0627,Haché de bœuf,MVA,12.0,pièce,Non classé,2025-06-27 19:40:24,scanner_auto,Au Bureau St Amand 
+50,PMVACŒU0627,Cœur de rumsteck de bœuf,MVA,0.09,kg,Non classé,2025-06-27 18:48:37,scanner_auto,Au Bureau St Amand 
+51,PMVARÔT0627,Rôti de bœuf,MVA,0.103,kg,Non classé,2025-06-27 18:48:37,scanner_auto,Au Bureau St Amand 
+52,PMVARED0627,Red san,MVA,0.002,kg,Non classé,2025-06-27 18:48:37,scanner_auto,Au Bureau St Amand 
+53,PMVAHAC0627,Haché de bœuf bourguignon,MVA,12.9,pièce,Non classé,2025-06-27 19:07:14,scanner_auto,Général
+54,PMVAHAC0627,Haché de bœuf bourguignon,MVA,12.9,pièce,Non classé,2025-06-27 19:07:14,scanner_auto,Au Bureau St Amand 
+55,PMVABAV0627,Bavettes de bœuf,MVA,12.0,pièce,Non classé,2025-06-27 19:40:24,scanner_auto,Au Bureau St Amand 
+56,PMVACVO0627,CVO ATM bœuf S/OS > 8 mois,MVA,0.103,kg,Non classé,2025-06-27 19:40:24,scanner_auto,Général
+57,PMVAINT0627,INTERBEV bovin SS/OS,MVA,0.002,kg,Non classé,2025-06-27 19:40:24,scanner_auto,Général
+58,PMVACVO0627,CVO ATM bœuf S/OS > 8 mois,MVA,0.103,kg,Non classé,2025-06-27 19:40:24,scanner_auto,Au Bureau St Amand 
+59,PMVAINT0627,INTERBEV bovin SS/OS,MVA,0.002,kg,Non classé,2025-06-27 19:40:24,scanner_auto,Au Bureau St Amand 

@@ -1,0 +1,83 @@
+/* FactureKiller V3 - PWA Icons CSS */
+/* Icônes générées en CSS en attendant les vraies images */
+
+.pwa-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: white;
+    font-weight: bold;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    border-radius: 20%;
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+}
+
+.pwa-icon-16 { width: 16px; height: 16px; font-size: 8px; }
+.pwa-icon-32 { width: 32px; height: 32px; font-size: 16px; }
+.pwa-icon-57 { width: 57px; height: 57px; font-size: 28px; }
+.pwa-icon-60 { width: 60px; height: 60px; font-size: 30px; }
+.pwa-icon-72 { width: 72px; height: 72px; font-size: 36px; }
+.pwa-icon-76 { width: 76px; height: 76px; font-size: 38px; }
+.pwa-icon-96 { width: 96px; height: 96px; font-size: 48px; }
+.pwa-icon-114 { width: 114px; height: 114px; font-size: 57px; }
+.pwa-icon-120 { width: 120px; height: 120px; font-size: 60px; }
+.pwa-icon-128 { width: 128px; height: 128px; font-size: 64px; }
+.pwa-icon-144 { width: 144px; height: 144px; font-size: 72px; }
+.pwa-icon-152 { width: 152px; height: 152px; font-size: 76px; }
+.pwa-icon-180 { width: 180px; height: 180px; font-size: 90px; }
+.pwa-icon-192 { width: 192px; height: 192px; font-size: 96px; }
+.pwa-icon-384 { width: 384px; height: 384px; font-size: 192px; }
+.pwa-icon-512 { width: 512px; height: 512px; font-size: 256px; }
+
+/* Icônes spéciales pour les raccourcis */
+.shortcut-icon {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    border-radius: 25%;
+}
+
+.shortcut-icon.scan {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+}
+
+.shortcut-icon.verify {
+    background: linear-gradient(135deg, #ffc107, #e0a800);
+}
+
+.shortcut-icon.history {
+    background: linear-gradient(135deg, #6f42c1, #5a2d91);
+}
+
+/* Animation pour les icônes */
+.pwa-icon {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pwa-icon:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(0, 123, 255, 0.4);
+}
+
+/* Badges pour les notifications */
+.pwa-icon-badge {
+    position: relative;
+}
+
+.pwa-icon-badge::after {
+    content: attr(data-badge);
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #dc3545;
+    color: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    border: 2px solid white;
+    box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+} 

@@ -1,0 +1,26 @@
+[
+  {
+    "product_name": "Tomates bio",
+    "supplier": "MVA",
+    "invoice_price": 4.5,
+    "reference_price": 3.5,
+    "price_difference": 1.0,
+    "percentage_difference": 28.57,
+    "status": "overprice",
+    "scan_date": "2025-06-26T18:43:08.419087",
+    "quantity": 2,
+    "total_impact": 2.0
+  },
+  {
+    "product_name": "Tomates bio",
+    "supplier": "MVA",
+    "invoice_price": 4.5,
+    "reference_price": 3.5,
+    "price_difference": 1.0,
+    "percentage_difference": 28.57,
+    "status": "overprice",
+    "scan_date": "2025-06-26T18:43:08.419095",
+    "quantity": 3,
+    "total_impact": 3.0
+  }
+]

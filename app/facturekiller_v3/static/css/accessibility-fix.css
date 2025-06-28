@@ -1,0 +1,70 @@
+/* 
+ * Corrections d'accessibilité pour FactureKiller V3
+ * Résout les problèmes aria-hidden avec les modales Bootstrap
+ */
+
+/* Quand une modale est affichée, s'assurer que aria-hidden est correctement géré */
+.modal.show {
+    /* Forcer la suppression d'aria-hidden quand la modale est visible */
+}
+
+.modal.show[aria-hidden="true"] {
+    /* Corriger automatiquement aria-hidden sur les modales visibles */
+    aria-hidden: false !important;
+}
+
+/* S'assurer que les éléments focusables dans les modales visibles ne sont pas cachés */
+.modal.show [aria-hidden="true"] button,
+.modal.show [aria-hidden="true"] input,
+.modal.show [aria-hidden="true"] select,
+.modal.show [aria-hidden="true"] textarea,
+.modal.show [aria-hidden="true"] [tabindex] {
+    /* Rendre les éléments focusables accessibles */
+    visibility: visible !important;
+    pointer-events: auto !important;
+}
+
+/* Améliorer le contraste pour l'accessibilité */
+.modal-header {
+    border-bottom: 2px solid #dee2e6;
+}
+
+.modal-footer {
+    border-top: 2px solid #dee2e6;
+}
+
+/* Focus visible pour les éléments interactifs */
+.modal button:focus,
+.modal input:focus,
+.modal select:focus,
+.modal textarea:focus {
+    outline: 2px solid #0d6efd;
+    outline-offset: 2px;
+}
+
+/* Améliorer la lisibilité des badges de statut */
+.badge {
+    font-size: 0.875em;
+    font-weight: 600;
+}
+
+/* S'assurer que les alertes sont accessibles */
+.alert {
+    border-left-width: 4px;
+}
+
+.alert-info {
+    border-left-color: #0dcaf0;
+}
+
+.alert-warning {
+    border-left-color: #ffc107;
+}
+
+.alert-success {
+    border-left-color: #198754;
+}
+
+.alert-danger {
+    border-left-color: #dc3545;
+} 

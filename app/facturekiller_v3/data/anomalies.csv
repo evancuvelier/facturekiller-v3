@@ -1,0 +1,4 @@
+id,facture_id,produit_nom,fournisseur,restaurant,type_anomalie,prix_facture,prix_catalogue,ecart_euros,ecart_pourcent,statut,date_detection,date_mail_envoye,date_reponse,reponse_fournisseur,commentaire,utilisateur
+ANOM_20250627_181119_1,FACTURE_TEST_001,Bière Desperados 33cl,MVA,Général,prix_different,3.5,2.8,0.7,25.0,avoir_accepte,2025-06-27 18:11:19,2025-06-27 18:13:09,2025-06-27 18:13:11,,Erreur confirmée - Avoir de 0.70€ établi,
+ANOM_20250627_181119_2,FACTURE_TEST_001,Pain Burger,Au Bureau St Amand,Général,prix_different,1.0,1.5,-0.5,-33.3,detectee,2025-06-27 18:11:19,,,,,
+ANOM_20250627_181309_3,DEMO_FACTURE_001,Bière Desperados 33cl,MVA,Général,prix_different,3.5,2.8,0.7,25.0,detectee,2025-06-27 18:13:09,,,,,

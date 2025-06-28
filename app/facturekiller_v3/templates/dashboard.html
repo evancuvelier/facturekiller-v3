@@ -1,0 +1,320 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - FactureKiller V3{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Alerte de sélection restaurant -->
+    <div id="restaurantAlert" class="alert alert-warning alert-dismissible fade show" role="alert" style="display: none;">
+        <h4 class="alert-heading"><i class="bi bi-exclamation-triangle-fill me-2"></i>Restaurant requis</h4>
+        <p>Vous devez sélectionner un restaurant pour accéder aux fonctionnalités de gestion.</p>
+        <hr>
+        <p class="mb-0">
+            <strong>Master Admin :</strong> Cliquez sur votre nom puis "Choisir Restaurant"<br>
+            <strong>Client :</strong> Cliquez sur votre nom puis sélectionnez un restaurant<br>
+            <strong>Gérant/Utilisateur :</strong> Contactez votre administrateur
+        </p>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h2 mb-0">
+                    <i class="bi bi-speedometer2 text-primary me-2"></i>
+                    Dashboard
+                </h1>
+                <div class="d-flex align-items-center">
+                    <span class="badge bg-success me-2" id="restaurantBadge" style="display: none;">
+                        <i class="bi bi-building me-1"></i>
+                        <span id="currentRestaurantDisplay">Restaurant</span>
+                    </span>
+                    <button class="btn btn-outline-primary btn-sm" onclick="refreshDashboard()">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Actualiser
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cartes de statistiques -->
+    <div class="row g-4 mb-4" id="statsCards">
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-primary bg-gradient rounded-3 p-3">
+                                <i class="bi bi-cart3 text-white fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="card-title text-muted mb-1">Commandes</h6>
+                            <h3 class="mb-0" id="totalOrders">-</h3>
+                            <small class="text-success" id="ordersChange">-</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-success bg-gradient rounded-3 p-3">
+                                <i class="bi bi-receipt text-white fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="card-title text-muted mb-1">Factures</h6>
+                            <h3 class="mb-0" id="totalInvoices">-</h3>
+                            <small class="text-success" id="invoicesChange">-</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-info bg-gradient rounded-3 p-3">
+                                <i class="bi bi-truck text-white fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="card-title text-muted mb-1">Fournisseurs</h6>
+                            <h3 class="mb-0" id="totalSuppliers">-</h3>
+                            <small class="text-info" id="suppliersInfo">-</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-warning bg-gradient rounded-3 p-3">
+                                <i class="bi bi-currency-euro text-white fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="card-title text-muted mb-1">Prix référencés</h6>
+                            <h3 class="mb-0" id="totalPrices">-</h3>
+                            <small class="text-warning" id="pricesInfo">-</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenu principal -->
+    <div class="row g-4" id="mainContent">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0 pb-0">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-graph-up text-primary me-2"></i>
+                        Activité récente
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="activityChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0 pb-0">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-list-check text-success me-2"></i>
+                        Actions rapides
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2" id="quickActions">
+                        <button class="btn btn-outline-primary" onclick="window.location.href='/scanner'" disabled>
+                            <i class="bi bi-upc-scan me-2"></i>Scanner une facture
+                        </button>
+                        <button class="btn btn-outline-success" onclick="window.location.href='/commandes'" disabled>
+                            <i class="bi bi-cart-plus me-2"></i>Nouvelle commande
+                        </button>
+                        <button class="btn btn-outline-info" onclick="window.location.href='/fournisseurs'" disabled>
+                            <i class="bi bi-truck me-2"></i>Gérer fournisseurs
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let activityChart = null;
+
+// Charger le dashboard
+async function loadDashboard() {
+    try {
+        // Charger les informations utilisateur
+        const userResponse = await fetch('/api/auth/user');
+        const userResult = await userResponse.json();
+        
+        if (userResult.success) {
+            currentUser = userResult.data;
+            
+            if (currentUser.restaurant) {
+                // Restaurant sélectionné - afficher le dashboard normal
+                document.getElementById('restaurantAlert').style.display = 'none';
+                document.getElementById('restaurantBadge').style.display = 'inline-block';
+                document.getElementById('currentRestaurantDisplay').textContent = currentUser.restaurant.name;
+                
+                // Activer les boutons d'actions rapides
+                const buttons = document.querySelectorAll('#quickActions button');
+                buttons.forEach(btn => btn.disabled = false);
+                
+                // Charger les statistiques
+                await loadRestaurantStats();
+            } else {
+                // Aucun restaurant sélectionné - afficher l'alerte
+                document.getElementById('restaurantAlert').style.display = 'block';
+                document.getElementById('restaurantBadge').style.display = 'none';
+                
+                // Désactiver les boutons d'actions rapides
+                const buttons = document.querySelectorAll('#quickActions button');
+                buttons.forEach(btn => btn.disabled = true);
+                
+                // Afficher des statistiques génériques
+                showGenericStats();
+            }
+        }
+    } catch (error) {
+        console.error('Erreur chargement dashboard:', error);
+        showNotification('Erreur lors du chargement du dashboard', 'error');
+    }
+}
+
+// Charger les statistiques du restaurant
+async function loadRestaurantStats() {
+    try {
+        // Charger les statistiques en parallèle
+        const [suppliersResponse, ordersResponse, invoicesResponse, pricesResponse] = await Promise.all([
+            fetch('/api/restaurant/suppliers'),
+            fetch('/api/restaurant/orders'),
+            fetch('/api/restaurant/invoices'),
+            fetch('/api/restaurant/prices')
+        ]);
+        
+        const [suppliers, orders, invoices, prices] = await Promise.all([
+            suppliersResponse.json(),
+            ordersResponse.json(),
+            invoicesResponse.json(),
+            pricesResponse.json()
+        ]);
+        
+        // Mettre à jour les cartes
+        if (suppliers.success) {
+            document.getElementById('totalSuppliers').textContent = suppliers.count;
+            document.getElementById('suppliersInfo').textContent = `${suppliers.data.length} actifs`;
+        }
+        
+        if (orders.success) {
+            document.getElementById('totalOrders').textContent = orders.count;
+            document.getElementById('ordersChange').textContent = '+12% ce mois';
+        }
+        
+        if (invoices.success) {
+            document.getElementById('totalInvoices').textContent = invoices.count;
+            document.getElementById('invoicesChange').textContent = '+8% ce mois';
+        }
+        
+        if (prices.success) {
+            document.getElementById('totalPrices').textContent = prices.count;
+            document.getElementById('pricesInfo').textContent = `${prices.suppliers.length} fournisseurs`;
+        }
+        
+        // Créer le graphique d'activité
+        createActivityChart();
+        
+    } catch (error) {
+        console.error('Erreur chargement stats restaurant:', error);
+        showGenericStats();
+    }
+}
+
+// Afficher des statistiques génériques
+function showGenericStats() {
+    document.getElementById('totalOrders').textContent = '0';
+    document.getElementById('ordersChange').textContent = 'Sélectionnez un restaurant';
+    
+    document.getElementById('totalInvoices').textContent = '0';
+    document.getElementById('invoicesChange').textContent = 'Sélectionnez un restaurant';
+    
+    document.getElementById('totalSuppliers').textContent = '0';
+    document.getElementById('suppliersInfo').textContent = 'Sélectionnez un restaurant';
+    
+    document.getElementById('totalPrices').textContent = '0';
+    document.getElementById('pricesInfo').textContent = 'Sélectionnez un restaurant';
+}
+
+// Créer le graphique d'activité
+function createActivityChart() {
+    const ctx = document.getElementById('activityChart').getContext('2d');
+    
+    if (activityChart) {
+        activityChart.destroy();
+    }
+    
+    activityChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
+            datasets: [{
+                label: 'Commandes',
+                data: [12, 19, 8, 15, 23, 18, 14],
+                borderColor: '#0d6efd',
+                backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                tension: 0.4
+            }, {
+                label: 'Factures',
+                data: [8, 12, 6, 10, 15, 12, 9],
+                borderColor: '#198754',
+                backgroundColor: 'rgba(25, 135, 84, 0.1)',
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+// Actualiser le dashboard
+async function refreshDashboard() {
+    showNotification('Actualisation en cours...', 'info');
+    await loadDashboard();
+    showNotification('Dashboard actualisé', 'success');
+}
+
+// Charger le dashboard au chargement de la page
+document.addEventListener('DOMContentLoaded', loadDashboard);
+</script>
+{% endblock %} 

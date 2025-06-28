@@ -1,0 +1,39 @@
+[
+  {
+    "id": "e7780bcd-8fe5-49f1-9d80-3d6f712edb60",
+    "name": "EMACE et CIVAL",
+    "email": "aubureau.stamand@yahoo.fr",
+    "contact_name": "Evan Cuvelier",
+    "phone": "0643197181",
+    "created_at": "2025-06-24T21:57:10.680668",
+    "active": true,
+    "updated_at": "2025-06-24T22:00:01.398932"
+  },
+  {
+    "id": "4b96d88c-672d-45af-90c1-cbfc5accc39c",
+    "name": "Test Client",
+    "email": "test@client.com",
+    "contact_name": "Test Contact",
+    "phone": "0123456789",
+    "created_at": "2025-06-24T21:59:44.048975",
+    "active": true
+  },
+  {
+    "id": "f48b9388-9708-40f2-b61d-0fe48ddfd3f1",
+    "name": "Test Client Produit",
+    "email": "test@produit.com",
+    "contact_name": "Test Contact",
+    "phone": "0123456789",
+    "created_at": "2025-06-24T22:14:45.329099",
+    "active": true
+  },
+  {
+    "id": "206604ff-c83c-4c36-bfcb-44a551ed66cb",
+    "name": "Test Client Produit",
+    "email": "test.produit.unique@test.com",
+    "contact_name": "Test Contact",
+    "phone": "0123456789",
+    "created_at": "2025-06-24T22:15:17.811290",
+    "active": true
+  }
+]

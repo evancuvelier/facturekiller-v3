@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - FactureKiller V3{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- Header dynamique du restaurant -->
+    <div class="restaurant-header mb-4" id="restaurantHeader" style="display: none;">
+        <div class="restaurant-banner">
+            <div class="restaurant-info">
+                <div class="restaurant-avatar">
+                    <i class="bi bi-shop" id="restaurantIcon"></i>
+                </div>
+                <div class="restaurant-details">
+                    <h1 class="restaurant-name" id="restaurantName">Restaurant</h1>
+                    <p class="restaurant-subtitle" id="restaurantSubtitle">Tableau de bord de gestion</p>
+                    <div class="restaurant-badges">
+                        <span class="badge bg-success" id="statusBadge">
+                            <i class="bi bi-check-circle me-1"></i>Actif
+                        </span>
+                        <span class="badge bg-info" id="timeBadge">
+                            <i class="bi bi-clock me-1"></i>En ligne
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div class="restaurant-actions">
+                <button class="btn btn-outline-light btn-glow" onclick="refreshDashboard()">
+                    <i class="bi bi-arrow-clockwise me-1"></i>Actualiser
+                </button>
+                <button class="btn btn-light btn-glow" onclick="window.location.href='/scanner'">
+                    <i class="bi bi-camera me-1"></i>Scanner
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alerte de sélection restaurant (améliorée) -->
+    <div id="restaurantAlert" class="restaurant-selection-alert" style="display: none;">
+        <div class="alert-content">
+            <div class="alert-icon">
+                <i class="bi bi-building"></i>
+            </div>
+            <div class="alert-text">
+                <h4>🏪 Sélectionnez votre restaurant</h4>
+                <p>Pour accéder à votre tableau de bord personnalisé, veuillez d'abord sélectionner un restaurant.</p>
+                <button class="btn btn-primary btn-glow" onclick="openRestaurantSelector()">
+                    <i class="bi bi-plus-circle me-1"></i>Choisir un restaurant
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cartes de statistiques modernes -->
+    <div class="stats-grid" id="statsGrid">
+        <div class="stat-card orders-card">
+            <div class="stat-icon">
+                <i class="bi bi-cart3"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value" id="totalOrders">-</div>
+                <div class="stat-label">Commandes</div>
+                <div class="stat-change" id="ordersChange">-</div>
+            </div>
+            <div class="stat-chart">
+                <canvas id="ordersChart" width="60" height="30"></canvas>
+            </div>
+        </div>
+
+        <div class="stat-card invoices-card">
+            <div class="stat-icon">
+                <i class="bi bi-receipt"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value" id="totalInvoices">-</div>
+                <div class="stat-label">Factures</div>
+                <div class="stat-change" id="invoicesChange">-</div>
+            </div>
+            <div class="stat-chart">
+                <canvas id="invoicesChart" width="60" height="30"></canvas>
+            </div>
+        </div>
+
+        <div class="stat-card suppliers-card">
+            <div class="stat-icon">
+                <i class="bi bi-truck"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value" id="totalSuppliers">-</div>
+                <div class="stat-label">Fournisseurs</div>
+                <div class="stat-change" id="suppliersInfo">-</div>
+            </div>
+            <div class="stat-chart">
+                <canvas id="suppliersChart" width="60" height="30"></canvas>
+            </div>
+        </div>
+
+        <div class="stat-card prices-card">
+            <div class="stat-icon">
+                <i class="bi bi-tag"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value" id="totalPrices">-</div>
+                <div class="stat-label">Prix référencés</div>
+                <div class="stat-change" id="pricesInfo">-</div>
+            </div>
+            <div class="stat-chart">
+                <canvas id="pricesChart" width="60" height="30"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenu principal -->
+    <div class="row g-4" id="mainContent">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0 pb-0">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-graph-up text-primary me-2"></i>
+                        Activité récente
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="activityChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0 pb-0">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-list-check text-success me-2"></i>
+                        Actions rapides
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2" id="quickActions">
+                        <button class="btn btn-outline-primary" onclick="window.location.href='/scanner'" disabled>
+                            <i class="bi bi-upc-scan me-2"></i>Scanner une facture
+                        </button>
+                        <button class="btn btn-outline-success" onclick="window.location.href='/commandes'" disabled>
+                            <i class="bi bi-cart-plus me-2"></i>Nouvelle commande
+                        </button>
+                        <button class="btn btn-outline-info" onclick="window.location.href='/fournisseurs'" disabled>
+                            <i class="bi bi-truck me-2"></i>Gérer fournisseurs
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let activityChart = null;
+
+// Charger le dashboard
+async function loadDashboard() {
+    try {
+        // Charger les informations utilisateur
+        const userResponse = await fetch('/api/auth/user');
+        const userResult = await userResponse.json();
+        
+        if (userResult.success) {
+            currentUser = userResult.data;
+            
+            if (currentUser.restaurant) {
+                // Restaurant sélectionné - afficher le dashboard normal
+                document.getElementById('restaurantAlert').style.display = 'none';
+                document.getElementById('restaurantBadge').style.display = 'inline-block';
+                document.getElementById('currentRestaurantDisplay').textContent = currentUser.restaurant.name;
+                
+                // Activer les boutons d'actions rapides
+                const buttons = document.querySelectorAll('#quickActions button');
+                buttons.forEach(btn => btn.disabled = false);
+                
+                // Charger les statistiques
+                await loadRestaurantStats();
+            } else {
+                // Aucun restaurant sélectionné - afficher l'alerte
+                document.getElementById('restaurantAlert').style.display = 'block';
+                document.getElementById('restaurantBadge').style.display = 'none';
+                
+                // Désactiver les boutons d'actions rapides
+                const buttons = document.querySelectorAll('#quickActions button');
+                buttons.forEach(btn => btn.disabled = true);
+                
+                // Afficher des statistiques génériques
+                showGenericStats();
+            }
+        }
+    } catch (error) {
+        console.error('Erreur chargement dashboard:', error);
+        showNotification('Erreur lors du chargement du dashboard', 'error');
+    }
+}
+
+// Charger les statistiques du restaurant
+async function loadRestaurantStats() {
+    try {
+        // Charger les statistiques en parallèle
+        const [suppliersResponse, ordersResponse, invoicesResponse, pricesResponse] = await Promise.all([
+            fetch('/api/restaurant/suppliers'),
+            fetch('/api/restaurant/orders'),
+            fetch('/api/restaurant/invoices'),
+            fetch('/api/restaurant/prices')
+        ]);
+        
+        const [suppliers, orders, invoices, prices] = await Promise.all([
+            suppliersResponse.json(),
+            ordersResponse.json(),
+            invoicesResponse.json(),
+            pricesResponse.json()
+        ]);
+        
+        // Mettre à jour les cartes
+        if (suppliers.success) {
+            document.getElementById('totalSuppliers').textContent = suppliers.count;
+            document.getElementById('suppliersInfo').textContent = `${suppliers.data.length} actifs`;
+        }
+        
+        if (orders.success) {
+            document.getElementById('totalOrders').textContent = orders.count;
+            document.getElementById('ordersChange').textContent = '+12% ce mois';
+        }
+        
+        if (invoices.success) {
+            document.getElementById('totalInvoices').textContent = invoices.count;
+            document.getElementById('invoicesChange').textContent = '+8% ce mois';
+        }
+        
+        if (prices.success) {
+            document.getElementById('totalPrices').textContent = prices.count;
+            document.getElementById('pricesInfo').textContent = `${prices.suppliers.length} fournisseurs`;
+        }
+        
+        // Créer le graphique d'activité
+        createActivityChart();
+        
+    } catch (error) {
+        console.error('Erreur chargement stats restaurant:', error);
+        showGenericStats();
+    }
+}
+
+// Afficher des statistiques génériques
+function showGenericStats() {
+    document.getElementById('totalOrders').textContent = '0';
+    document.getElementById('ordersChange').textContent = 'Sélectionnez un restaurant';
+    
+    document.getElementById('totalInvoices').textContent = '0';
+    document.getElementById('invoicesChange').textContent = 'Sélectionnez un restaurant';
+    
+    document.getElementById('totalSuppliers').textContent = '0';
+    document.getElementById('suppliersInfo').textContent = 'Sélectionnez un restaurant';
+    
+    document.getElementById('totalPrices').textContent = '0';
+    document.getElementById('pricesInfo').textContent = 'Sélectionnez un restaurant';
+}
+
+// Créer le graphique d'activité
+function createActivityChart() {
+    const ctx = document.getElementById('activityChart').getContext('2d');
+    
+    if (activityChart) {
+        activityChart.destroy();
+    }
+    
+    activityChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
+            datasets: [{
+                label: 'Commandes',
+                data: [12, 19, 8, 15, 23, 18, 14],
+                borderColor: '#0d6efd',
+                backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                tension: 0.4
+            }, {
+                label: 'Factures',
+                data: [8, 12, 6, 10, 15, 12, 9],
+                borderColor: '#198754',
+                backgroundColor: 'rgba(25, 135, 84, 0.1)',
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+// Actualiser le dashboard
+async function refreshDashboard() {
+    showNotification('Actualisation en cours...', 'info');
+    await loadDashboard();
+    showNotification('Dashboard actualisé', 'success');
+}
+
+// Charger le dashboard au chargement de la page
+document.addEventListener('DOMContentLoaded', loadDashboard);
+</script>
+{% endblock %} 

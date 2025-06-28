@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+
+{% block title %}Fournisseurs - FactureKiller V3{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="h2">
+                <i class="bi bi-building"></i> Gestion des Fournisseurs
+            </h1>
+            <p class="text-muted">Gérez vos fournisseurs et leurs catalogues produits</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <button class="btn btn-primary" onclick="showAddSupplierModal()">
+                <i class="bi bi-plus-circle"></i> Nouveau Fournisseur
+            </button>
+        </div>
+    </div>
+
+    <!-- Information Restaurant Actuel -->
+    <div id="currentRestaurantInfo">
+        <!-- Information du restaurant chargée dynamiquement -->
+    </div>
+
+    <!-- Filtres et recherche -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="bi bi-search"></i>
+                        </span>
+                        <input type="text" class="form-control" id="searchInput" 
+                               placeholder="Rechercher un fournisseur...">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="filterStatus">
+                        <option value="">Tous les statuts</option>
+                        <option value="complete">Fiches complètes</option>
+                        <option value="incomplete">Fiches incomplètes</option>
+                        <option value="no-email">Sans email</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="sortBy">
+                        <option value="name">Trier par nom</option>
+                        <option value="products">Trier par nb produits</option>
+                        <option value="updated">Trier par mise à jour</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des fournisseurs -->
+    <div id="suppliersContainer">
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Chargement...</span>
+            </div>
+            <p class="mt-3 text-muted">Chargement des fournisseurs...</p>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Ajout/Édition Fournisseur -->
+<div class="modal fade" id="supplierModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="supplierModalTitle">
+                    <i class="bi bi-building me-2"></i>Nouveau Fournisseur
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="supplierForm">
+                    <input type="hidden" id="supplierId">
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="supplierName" class="form-label">
+                                <i class="bi bi-building me-1"></i>Nom du fournisseur *
+                            </label>
+                            <input type="text" class="form-control" id="supplierName" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="supplierEmail" class="form-label">
+                                <i class="bi bi-envelope me-1"></i>Email de contact
+                            </label>
+                            <input type="email" class="form-control" id="supplierEmail">
+                        </div>
+                    </div>
+                    
+                    <div class="row g-3 mt-2">
+                        <div class="col-12">
+                            <label class="form-label">
+                                <i class="bi bi-calendar-week me-1"></i>Jours de livraison
+                            </label>
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" value="lundi" id="deliveryMonday">
+                                        <label class="form-check-label" for="deliveryMonday">Lundi</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" value="mardi" id="deliveryTuesday">
+                                        <label class="form-check-label" for="deliveryTuesday">Mardi</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" value="mercredi" id="deliveryWednesday">
+                                        <label class="form-check-label" for="deliveryWednesday">Mercredi</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" value="jeudi" id="deliveryThursday">
+                                        <label class="form-check-label" for="deliveryThursday">Jeudi</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row mt-2">
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" value="vendredi" id="deliveryFriday">
+                                        <label class="form-check-label" for="deliveryFriday">Vendredi</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" value="samedi" id="deliverySaturday">
+                                        <label class="form-check-label" for="deliverySaturday">Samedi</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" value="dimanche" id="deliverySunday">
+                                        <label class="form-check-label" for="deliverySunday">Dimanche</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row g-3 mt-2">
+                        <div class="col-12">
+                            <label for="supplierNotes" class="form-label">
+                                <i class="bi bi-sticky me-1"></i>Notes
+                            </label>
+                            <textarea class="form-control" id="supplierNotes" rows="3" 
+                                      placeholder="Notes sur le fournisseur (horaires, conditions, etc.)"></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger" id="deleteSupplierBtn" onclick="deleteSupplier()" style="display: none;">
+                    <i class="bi bi-trash me-1"></i>Supprimer
+                </button>
+                <div class="ms-auto">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="button" class="btn btn-primary" onclick="saveSupplier()">
+                        <i class="bi bi-check-lg me-1"></i><span id="saveSupplierText">Ajouter</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Ajout/Édition Produit -->
+<div class="modal fade" id="productModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="productModalTitle">
+                    <i class="bi bi-box-seam me-2"></i>Nouveau Produit
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="productForm">
+                    <input type="hidden" id="productId">
+                    <input type="hidden" id="productSupplier">
+                    
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label for="productName" class="form-label">
+                                <i class="bi bi-box-seam me-1"></i>Nom du produit *
+                            </label>
+                            <input type="text" class="form-control" id="productName" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="productCode" class="form-label">
+                                <i class="bi bi-upc-scan me-1"></i>Code produit
+                            </label>
+                            <input type="text" class="form-control" id="productCode">
+                        </div>
+                    </div>
+                    
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-4">
+                            <label for="productPrice" class="form-label">
+                                <i class="bi bi-currency-euro me-1"></i>Prix unitaire *
+                            </label>
+                            <input type="number" class="form-control" id="productPrice" step="0.01" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="productUnit" class="form-label">
+                                <i class="bi bi-rulers me-1"></i>Unité
+                            </label>
+                            <select class="form-select" id="productUnit">
+                                <option value="kg">kg</option>
+                                <option value="g">g</option>
+                                <option value="l">l</option>
+                                <option value="ml">ml</option>
+                                <option value="pièce">pièce</option>
+                                <option value="boîte">boîte</option>
+                                <option value="paquet">paquet</option>
+                                <option value="carton">carton</option>
+                                <option value="sachet">sachet</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="productCategory" class="form-label">
+                                <i class="bi bi-tags me-1"></i>Catégorie
+                            </label>
+                            <select class="form-select" id="productCategory">
+                                <option value="Non classé">Non classé</option>
+                                <option value="Viandes">Viandes</option>
+                                <option value="Poissons">Poissons</option>
+                                <option value="Légumes">Légumes</option>
+                                <option value="Fruits">Fruits</option>
+                                <option value="Épicerie">Épicerie</option>
+                                <option value="Boissons">Boissons</option>
+                                <option value="Produits laitiers">Produits laitiers</option>
+                                <option value="Boulangerie">Boulangerie</option>
+                                <option value="Surgelés">Surgelés</option>
+                                <option value="Hygiène">Hygiène</option>
+                                <option value="Matériel">Matériel</option>
+                                <option value="Autres">Autres</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <label for="productNotes" class="form-label">
+                            <i class="bi bi-sticky me-1"></i>Notes
+                        </label>
+                        <textarea class="form-control" id="productNotes" rows="2" 
+                                  placeholder="Notes sur le produit (description, conditionnement, etc.)"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger" id="deleteProductBtn" onclick="deleteCurrentProduct()" style="display: none;">
+                    <i class="bi bi-trash me-1"></i>Supprimer
+                </button>
+                <div class="ms-auto">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="button" class="btn btn-primary" onclick="saveProduct()">
+                        <i class="bi bi-check-lg me-1"></i><span id="saveProductText">Ajouter</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/fournisseurs.js') }}"></script>
+<script src="{{ url_for('static', filename='js/fournisseurs-pending.js') }}"></script>
+<script>
+console.log('🔧 Page fournisseurs chargée - utilisation de fournisseurs.js + fournisseurs-pending.js');
+</script>
+{% endblock %} 
