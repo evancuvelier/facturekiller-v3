@@ -23,8 +23,8 @@ class ClaudeVision:
     """Analyseur de factures avec Claude Vision"""
     
     def __init__(self):
-        # Compatible avec anthropic 0.3.11
-        self.client = anthropic.Client(
+        # Compatible avec anthropic 0.25.0+
+        self.client = anthropic.Anthropic(
             api_key=os.getenv('ANTHROPIC_API_KEY')
         )
         self.model = "claude-3-opus-20240229"  # Claude 3 Opus avec vision
