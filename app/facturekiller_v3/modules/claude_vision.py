@@ -23,7 +23,8 @@ class ClaudeVision:
     """Analyseur de factures avec Claude Vision"""
     
     def __init__(self):
-        self.client = anthropic.Anthropic(
+        # Compatible avec anthropic 0.3.11
+        self.client = anthropic.Client(
             api_key=os.getenv('ANTHROPIC_API_KEY')
         )
         self.model = "claude-3-opus-20240229"  # Claude 3 Opus avec vision
@@ -87,95 +88,22 @@ Réponds UNIQUEMENT avec le JSON."""
     def analyze_invoice_image(self, image_path: str) -> Dict[str, Any]:
         """
         Analyser une image de facture avec Claude Vision
+        TEMPORAIRE: Version 0.3.11 d'Anthropic ne supporte pas l'analyse d'images
         """
-        try:
-            # Vérifier que le fichier existe
-            if not os.path.exists(image_path):
-                return {
-                    'success': False,
-                    'error': f'Fichier non trouvé: {image_path}'
-                }
-            
-            # Convertir l'image en base64
-            image_base64 = self._image_to_base64(image_path)
-            if not image_base64:
-                return {
-                    'success': False,
-                    'error': 'Impossible de lire l\'image'
-                }
-            
-            # Détecter le fournisseur d'abord avec un prompt simple
-            supplier = self._detect_supplier_from_image(image_base64)
-            logger.info(f"🏪 Fournisseur détecté: {supplier}")
-            
-            # Choisir le prompt approprié
-            system_prompt = self.supplier_prompts.get(supplier, self.supplier_prompts['GENERIC'])
-            
-            # Préparer le message pour Claude
-            message = {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": "image/jpeg",
-                            "data": image_base64
-                        }
-                    },
-                    {
-                        "type": "text",
-                        "text": f"Analyse cette facture {supplier} et extrait les produits alimentaires selon les règles spécifiques."
-                    }
-                ]
+        return {
+            'success': False,
+            'error': 'Analyse d\'images non supportée avec la version actuelle d\'Anthropic (0.3.11). Veuillez utiliser l\'OCR traditionnel ou mettre à jour vers anthropic>=0.25.0 pour Claude Vision.',
+            'data': {
+                'supplier': 'Inconnu',
+                'invoice_number': None,
+                'date': None,
+                'total_amount': 0,
+                'products': [],
+                'confidence_score': 0.0,
+                'analysis_timestamp': datetime.now().isoformat(),
+                'analyzer': 'claude-vision-disabled'
             }
-            
-            # Appel à Claude Vision
-            logger.info(f"🤖 Analyse {supplier} avec Claude Vision...")
-            response = self.client.messages.create(
-                model=self.model,
-                max_tokens=4000,
-                system=system_prompt,
-                messages=[message]
-            )
-            
-            # Extraire le texte de la réponse
-            response_text = response.content[0].text.strip()
-            logger.info(f"📝 Réponse Claude: {response_text[:200]}...")
-            
-            # Parser le JSON
-            try:
-                # Nettoyer la réponse
-                if response_text.startswith('```json'):
-                    response_text = response_text[7:]
-                if response_text.endswith('```'):
-                    response_text = response_text[:-3]
-                
-                analysis_data = json.loads(response_text.strip())
-                
-                # Valider et enrichir les données
-                analysis_data = self._validate_and_enrich_data(analysis_data)
-                
-                return {
-                    'success': True,
-                    'data': analysis_data,
-                    'raw_response': response_text
-                }
-                
-            except json.JSONDecodeError as e:
-                logger.error(f"Erreur parsing JSON: {e}")
-                return {
-                    'success': False,
-                    'error': f'Réponse JSON invalide: {str(e)}',
-                    'raw_response': response_text
-                }
-                
-        except Exception as e:
-            logger.error(f"Erreur Claude Vision: {e}")
-            return {
-                'success': False,
-                'error': f'Erreur lors de l\'analyse: {str(e)}'
-            }
+        }
     
     def _image_to_base64(self, image_path: str) -> Optional[str]:
         """Convertir une image en base64"""
