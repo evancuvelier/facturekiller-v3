@@ -13,14 +13,19 @@ import uuid
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 from PIL import Image
-import pillow_heif
+try:
+    import pillow_heif
+    # Enregistrer le plugin HEIF AVANT tout autre import PIL
+    pillow_heif.register_heif_opener()
+    HEIF_SUPPORT = True
+except ImportError:
+    HEIF_SUPPORT = False
+    print("⚠️ pillow_heif non disponible - support HEIF désactivé")
+
 import pytesseract
 import cv2
 import numpy as np
 import sqlite3
-
-# Enregistrer le plugin HEIF AVANT tout autre import PIL
-pillow_heif.register_heif_opener()
 
 # Charger les variables d'environnement
 load_dotenv()
