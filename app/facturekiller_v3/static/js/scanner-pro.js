@@ -685,8 +685,8 @@ class ScannerPro {
             
             // Redirection immédiate
             setTimeout(() => {
-                console.log('🚀 REDIRECTION VERS SCANNER-VALIDATION');
-                window.location.href = '/scanner-validation';
+                console.log('🚀 REDIRECTION VERS SCANNER-EDITION');
+                window.location.href = '/scanner-edition';
             }, 1500);
             
             // On arrête ici - pas besoin d'afficher les résultats puisqu'on redirige

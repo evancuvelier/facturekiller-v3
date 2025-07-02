@@ -218,6 +218,36 @@
         let currentInvoiceData = null;
         let editedProducts = [];
 
+        // 🚀 NOUVEAU: Vérifier si on vient du scanner avec des données
+        document.addEventListener('DOMContentLoaded', function() {
+            const lastScanResult = sessionStorage.getItem('lastScanResult');
+            const lastScanImage = sessionStorage.getItem('lastScanImage');
+            
+            if (lastScanResult) {
+                try {
+                    const scanData = JSON.parse(lastScanResult);
+                    console.log('📊 Données du scan récupérées depuis scanner:', scanData);
+                    
+                    // Utiliser directement les données du scan
+                    currentInvoiceData = scanData;
+                    displayInvoiceForEditing(scanData);
+                    
+                    // Masquer la zone d'upload
+                    document.getElementById('uploadZone').classList.add('d-none');
+                    document.getElementById('editingTable').classList.remove('d-none');
+                    
+                    // Nettoyer sessionStorage
+                    sessionStorage.removeItem('lastScanResult');
+                    sessionStorage.removeItem('lastScanImage');
+                    
+                    showToast('Succès', '✅ Facture chargée depuis le scanner !', 'success');
+                    
+                } catch (error) {
+                    console.error('Erreur chargement scan:', error);
+                }
+            }
+        });
+
         // Configuration du drag & drop
         const fileInput = document.getElementById('fileInput');
         const uploadZone = document.getElementById('uploadZone');
@@ -472,6 +502,43 @@
             detailsContainer.innerHTML = html;
             
             modal.show();
+        }
+
+        // Fonction showToast pour les notifications
+        function showToast(title, message, type = 'info') {
+            // Créer le toast Bootstrap
+            const toastHtml = `
+                <div class="toast align-items-center text-white bg-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            <strong>${title}:</strong> ${message}
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                </div>
+            `;
+            
+            // Container pour les toasts
+            let toastContainer = document.getElementById('toast-container');
+            if (!toastContainer) {
+                toastContainer = document.createElement('div');
+                toastContainer.id = 'toast-container';
+                toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+                document.body.appendChild(toastContainer);
+            }
+            
+            // Ajouter le toast
+            toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+            
+            // Initialiser et afficher le toast
+            const toastElement = toastContainer.lastElementChild;
+            const toast = new bootstrap.Toast(toastElement);
+            toast.show();
+            
+            // Supprimer le toast après fermeture
+            toastElement.addEventListener('hidden.bs.toast', () => {
+                toastElement.remove();
+            });
         }
 
         function finalSave() {
