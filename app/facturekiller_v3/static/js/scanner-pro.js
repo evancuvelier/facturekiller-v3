@@ -142,10 +142,10 @@ class ScannerPro {
                 }
             }
 
-            // Swipe down to reset
-            if (diffY < -50 && Math.abs(diffX) < 100) {
-                this.resetScanner();
-            }
+            // Swipe down to reset - SUPPRIMÉ pour éviter de perdre les scans
+            // if (diffY < -50 && Math.abs(diffX) < 100) {
+            //     this.resetScanner();
+            // }
         });
     }
 
