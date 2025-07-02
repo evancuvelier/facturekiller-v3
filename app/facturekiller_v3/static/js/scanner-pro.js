@@ -448,8 +448,9 @@ class ScannerPro {
         // Afficher les boutons d'action
         document.getElementById('actionButtons').style.display = 'block';
         
-        // Auto-analyse si activée
-        if (this.isAutoAnalyzeEnabled()) {
+        // Auto-analyse SEULEMENT si explicitement activée dans les paramètres
+        // ET pas déjà en cours de traitement
+        if (this.isAutoAnalyzeEnabled() && !this.isProcessing && !this.analysisResult) {
             setTimeout(() => this.analyzeInvoice(), 1000);
         }
     }
@@ -522,6 +523,12 @@ class ScannerPro {
 
     async analyzeInvoice() {
         if (!this.currentFile || this.isProcessing) return;
+        
+        // Empêcher le re-scan automatique si déjà analysé
+        if (this.analysisResult) {
+            console.log('⚠️ Analyse déjà effectuée, utilisation du cache');
+            return;
+        }
         
         this.isProcessing = true;
         this.showProgress('Préparation de l\'analyse...');
@@ -1273,57 +1280,29 @@ class ScannerPro {
     }
 
     resetScanner() {
-        // Réinitialiser toutes les variables
-        this.analysisResult = null;
+        // Arrêter la caméra si active
+        this.stopCamera();
+        
+        // Nettoyer complètement l'état
         this.currentFile = null;
-        this.isAnalyzing = false;
-        this.isSaved = false;
+        this.currentImageData = null;
+        this.analysisResult = null;
+        this.selectedOrderId = null;
+        this.isProcessing = false;
         
-        // Cacher les sections de résultats
-        const analysisResults = document.getElementById('analysisResults');
-        if (analysisResults) {
-            analysisResults.style.display = 'none';
-        }
+        // Réinitialiser l'interface
+        document.getElementById('uploadZone').style.display = 'block';
+        document.getElementById('imagePreview').style.display = 'none';
+        document.getElementById('actionButtons').style.display = 'none';
+        document.getElementById('scanResults').style.display = 'none';
         
-        // Réafficher la zone de scanner
-        const scannerContainer = document.querySelector('.scanner-container');
-        if (scannerContainer) {
-            scannerContainer.style.display = 'block';
-        }
-        
-        // Remettre l'affichage initial
-        const uploadZone = document.getElementById('uploadZone');
-        const imagePreview = document.getElementById('imagePreview');
-        const actionButtons = document.getElementById('actionButtons');
-        const finalActions = document.querySelector('.final-actions');
-        
-        if (uploadZone) uploadZone.style.display = 'flex';
-        if (imagePreview) imagePreview.style.display = 'none';
-        if (actionButtons) actionButtons.style.display = 'none';
-        if (finalActions) finalActions.style.display = 'block';
-        
-        // Arrêter la caméra si elle fonctionne
-        if (this.stream) {
-            this.stopCamera();
-        }
-        
-        // Nettoyer le formulaire de fichier
+        // Nettoyer l'input file
         const fileInput = document.getElementById('fileInput');
         if (fileInput) {
             fileInput.value = '';
         }
         
-        // Fermer les modaux ouverts
-        const modals = document.querySelectorAll('.modal.show');
-        modals.forEach(modal => {
-            const modalInstance = bootstrap.Modal.getInstance(modal);
-            if (modalInstance) {
-                modalInstance.hide();
-            }
-        });
-        
-        // Notification
-        this.showNotification('Scanner réinitialisé', 'info');
+        console.log('🔄 Scanner réinitialisé complètement');
     }
 
     saveToHistory(data) {

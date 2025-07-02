@@ -115,58 +115,48 @@ STRUCTURE JSON OBLIGATOIRE - RESPECTE EXACTEMENT CE FORMAT:
 
 IMPORTANT: Réponds UNIQUEMENT avec ce JSON exact, rien d'autre.""",
 
-                'GENERIC': """Tu es un expert en analyse de factures alimentaires.
-Analyse cette facture et extrait TOUS les produits alimentaires avec leurs prix.
+                'GENERIC': """Tu es un expert en analyse de factures alimentaires TRÈS MÉTICULEUX.
+Analyse cette facture et extrait ABSOLUMENT TOUS les produits alimentaires avec leurs prix.
 
-RÈGLES STRICTES:
-- Identifie le fournisseur (METRO, TRANSGOURMET, BRAKE, PROMOCASH ou autre)
-- Extrait TOUS les produits alimentaires avec quantités et prix
-- IGNORE: TVA, totaux, frais de livraison, codes techniques
-- Simplifie les noms de produits
+INSTRUCTIONS ULTRA-STRICTES:
+1. LIS CHAQUE LIGNE de la facture attentivement
+2. TROUVE TOUS les produits alimentaires, même en petites quantités
+3. EXTRAIT les quantités exactes (kg, pièces, litres, etc.)
+4. RELÈVE les prix unitaires ET totaux
+5. N'OUBLIE AUCUN PRODUIT même s'il est à la fin de la liste
 
-STRUCTURE JSON OBLIGATOIRE - RESPECTE EXACTEMENT CE FORMAT:
+MÉTHODOLOGIE:
+- Commence par le haut de la facture
+- Descends ligne par ligne
+- Cherche les patterns: [PRODUIT] [QUANTITÉ] [PRIX]
+- Vérifie bien les totaux en bas
+
+EXEMPLES DE FORMATS À CHERCHER:
+- "Filet de bœuf 2kg 45.80€"
+- "Tomates 1.5kg 3.20€/kg = 4.80€"
+- "Pain 5 pièces 1.20€"
+- "Saumon 800g 28.90€"
+
+STRUCTURE JSON OBLIGATOIRE - TOUS LES PRODUITS:
 {
-  "supplier": "nom du fournisseur",
-  "invoice_number": "numero de la facture",
+  "supplier": "nom exact du fournisseur sur la facture",
+  "invoice_number": "numero facture exact",
   "date": "YYYY-MM-DD",
-  "total_amount": 123.45,
+  "total_amount": 0.00,
   "products": [
     {
-      "name": "nom du produit alimentaire",
-      "quantity": 1,
-      "unit": "pièce",
-      "unit_price": 15.90,
-      "total_price": 15.90
-    },
-    {
-      "name": "autre produit",
-      "quantity": 2,
-      "unit": "kg", 
-      "unit_price": 8.50,
-      "total_price": 17.00
+      "name": "nom exact du produit alimentaire",
+      "quantity": 0.0,
+      "unit": "kg/pièce/litre/etc",
+      "unit_price": 0.00,
+      "total_price": 0.00
     }
   ]
 }
 
-EXEMPLE CONCRET:
-Si tu vois "FILET BOEUF 500G - 25.90€", tu dois retourner:
-{
-  "supplier": "METRO",
-  "invoice_number": "12345",
-  "date": "2025-07-02",
-  "total_amount": 25.90,
-  "products": [
-    {
-      "name": "Filet de bœuf",
-      "quantity": 1,
-      "unit": "pièce",
-      "unit_price": 25.90,
-      "total_price": 25.90
-    }
-  ]
-}
+RÈGLE ABSOLUE: Si tu vois 10 produits sur la facture, je dois avoir 10 produits dans le JSON.
 
-IMPORTANT: Réponds UNIQUEMENT avec le JSON dans ce format exact, pas d'autre texte."""
+IMPORTANT: Réponds UNIQUEMENT avec le JSON complet, pas d'autre texte."""
             }
         
         except Exception as e:
