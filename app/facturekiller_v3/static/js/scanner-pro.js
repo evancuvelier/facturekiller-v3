@@ -527,13 +527,20 @@ class ScannerPro {
         document.getElementById('actionButtons').style.display = 'block';
     }
 
-    async analyzeInvoice() {
+    async analyzeInvoice(forceRescan = false) {
         if (!this.currentFile || this.isProcessing) return;
         
         // Empêcher le re-scan automatique si déjà analysé
-        if (this.analysisResult) {
+        // SAUF si c'est un re-scan forcé pour correction d'incohérences
+        if (this.analysisResult && !forceRescan) {
             console.log('⚠️ Analyse déjà effectuée, utilisation du cache');
             return;
+        }
+
+        if (forceRescan) {
+            console.log('🔄 Re-scan forcé pour correction d\'incohérences');
+            // Reset des résultats précédents
+            this.analysisResult = null;
         }
         
         this.isProcessing = true;
@@ -624,22 +631,17 @@ class ScannerPro {
     }
 
     async displayResults(data) {
-        console.log('📊 Affichage des résultats:', data);
-        
-        // Sauvegarder les résultats
-        this.analysisResult = data;
-        
-        // Cacher l'état d'analyse et la zone scanner
-        this.hideProgress();
-        document.querySelector('.scanner-container').style.display = 'none';
-        
-        // Afficher la section des résultats complète
-        const analysisResults = document.getElementById('analysisResults');
-        if (analysisResults) {
-            analysisResults.style.display = 'block';
+        try {
+            this.hideProgress();
+            this.analysisResult = data;
             
-            // Remplir les statistiques rapides
-            this.fillQuickStats(data);
+            // 🧠 VÉRIFICATION INTELLIGENTE D'INCOHÉRENCES
+            if (data.coherence_check) {
+                const coherenceIssues = this.checkResultCoherence(data);
+                if (coherenceIssues.needsRescan) {
+                    return this.handleIncoherentResults(data, coherenceIssues);
+                }
+            }
             
             // Remplir les informations de facture
             this.fillInvoiceInfo(data);
@@ -647,15 +649,302 @@ class ScannerPro {
             // Remplir la liste des produits
             await this.fillProductsList(data);
             
-            // Initialiser la section anomalies (vide au début)
-            if (!data.anomalies) {
-                data.anomalies = [];
-            }
-            this.refreshAnomaliesList();
+            // Afficher les statistiques rapides
+            this.fillQuickStats(data);
             
-            // Configurer les listeners pour les anomalies
-            this.setupAnomalyModal();
+            // Animer l'affichage des résultats
+            document.getElementById('scanResults').style.display = 'block';
+            document.getElementById('scanResults').scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'start' 
+            });
+            
+            // Démarrer le rappel de sauvegarde après 30 secondes
+            this.startSaveReminder();
+            
+            // Sauvegarder automatiquement dans l'historique
+            this.saveToHistory(data);
+            
+            console.log('✅ Résultats affichés avec succès');
+            
+        } catch (error) {
+            console.error('❌ Erreur affichage résultats:', error);
+            this.showNotification('Erreur lors de l\'affichage des résultats', 'error');
         }
+    }
+
+    checkResultCoherence(data) {
+        /**
+         * 🧠 VÉRIFICATION INTELLIGENTE DE LA COHÉRENCE DES RÉSULTATS
+         * Détecte les problèmes qui nécessitent un re-scan automatique
+         */
+        const issues = {
+            needsRescan: false,
+            criticalIssues: [],
+            warnings: [],
+            confidence: 1.0
+        };
+
+        // 1. Vérifier s'il y a déjà une détection d'incohérence par Claude
+        if (data.requires_rescan || data.coherence_check?.needs_rescan) {
+            issues.needsRescan = true;
+            issues.criticalIssues.push(...(data.rescan_reason || data.coherence_check?.critical_issues || []));
+        }
+
+        // 2. Vérifier le nombre de produits (seuil minimum)
+        if (data.products && data.products.length < 2) {
+            issues.warnings.push(`Seulement ${data.products.length} produit(s) détecté(s) - facture peut-être incomplète`);
+            issues.confidence -= 0.3;
+        }
+
+        // 3. Vérifier les calculs de totaux
+        if (data.products && data.total_amount) {
+            let calculatedTotal = 0;
+            let priceErrors = 0;
+            
+            for (const product of data.products) {
+                const expectedTotal = (product.quantity || 1) * (product.unit_price || 0);
+                const actualTotal = product.total_price || 0;
+                
+                // Vérifier cohérence des calculs
+                if (Math.abs(expectedTotal - actualTotal) > 0.01) {
+                    priceErrors++;
+                }
+                
+                calculatedTotal += actualTotal;
+            }
+            
+            // Si plus de 30% des produits ont des erreurs de calcul
+            if (priceErrors > data.products.length * 0.3) {
+                issues.needsRescan = true;
+                issues.criticalIssues.push(`${priceErrors}/${data.products.length} produits ont des calculs de prix incohérents`);
+            }
+            
+            // Vérifier le total général
+            const totalDifference = Math.abs(calculatedTotal - data.total_amount);
+            if (totalDifference > 10 || (totalDifference / data.total_amount) > 0.05) {
+                issues.needsRescan = true;
+                issues.criticalIssues.push(`Total incohérent: calculé ${calculatedTotal.toFixed(2)}€ vs déclaré ${data.total_amount.toFixed(2)}€`);
+            }
+        }
+
+        // 4. Détecter les produits avec des noms suspects
+        if (data.products) {
+            const suspiciousProducts = data.products.filter(p => 
+                !p.name || 
+                p.name.length < 3 || 
+                /^[\d\s\-\.]+$/.test(p.name) ||
+                p.unit_price === 0
+            );
+            
+            if (suspiciousProducts.length > data.products.length * 0.4) {
+                issues.needsRescan = true;
+                issues.criticalIssues.push(`${suspiciousProducts.length} produits suspects détectés (noms vides/incorrects)`);
+            }
+        }
+
+        // 5. Calculer le score de confiance final
+        if (issues.criticalIssues.length > 0) {
+            issues.confidence = Math.max(0.1, issues.confidence - (issues.criticalIssues.length * 0.2));
+        }
+
+        console.log('🔍 Vérification cohérence:', issues);
+        return issues;
+    }
+
+    async handleIncoherentResults(data, coherenceIssues) {
+        /**
+         * 🔄 GESTION DES RÉSULTATS INCOHÉRENTS
+         * Propose/déclenche automatiquement un re-scan
+         */
+        console.log('⚠️ Résultats incohérents détectés, gestion automatique...');
+        
+        // Afficher une notification d'incohérence
+        this.showNotification('Incohérences détectées dans l\'analyse - Vérification automatique...', 'warning');
+        
+        // Masquer les résultats partiels
+        document.getElementById('scanResults').style.display = 'none';
+        
+        // Afficher le modal d'incohérence avec options
+        this.showCoherenceModal(data, coherenceIssues);
+    }
+
+    showCoherenceModal(data, coherenceIssues) {
+        /**
+         * 📋 MODAL DE GESTION DES INCOHÉRENCES
+         * Permet à l'utilisateur de choisir l'action à prendre
+         */
+        const modal = document.createElement('div');
+        modal.className = 'modal fade';
+        modal.innerHTML = `
+            <div class="modal-dialog modal-lg modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header bg-warning text-dark">
+                        <h5 class="modal-title">
+                            <i class="bi bi-exclamation-triangle me-2"></i>Incohérences Détectées
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-warning">
+                            <h6><i class="bi bi-robot me-2"></i>Analyse Intelligente</h6>
+                            <p class="mb-2">L'IA a détecté des incohérences qui suggèrent que l'analyse n'est pas complète ou correcte :</p>
+                        </div>
+                        
+                        ${coherenceIssues.criticalIssues.length > 0 ? `
+                            <div class="mb-3">
+                                <h6 class="text-danger"><i class="bi bi-x-circle me-2"></i>Problèmes Critiques :</h6>
+                                <ul class="list-unstyled">
+                                    ${coherenceIssues.criticalIssues.map(issue => `
+                                        <li class="text-danger mb-1">• ${issue}</li>
+                                    `).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
+                        
+                        ${coherenceIssues.warnings.length > 0 ? `
+                            <div class="mb-3">
+                                <h6 class="text-warning"><i class="bi bi-exclamation-triangle me-2"></i>Avertissements :</h6>
+                                <ul class="list-unstyled">
+                                    ${coherenceIssues.warnings.map(warning => `
+                                        <li class="text-warning mb-1">• ${warning}</li>
+                                    `).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
+                        
+                        <div class="mb-3">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <span>Niveau de confiance :</span>
+                                <span class="badge ${coherenceIssues.confidence > 0.7 ? 'bg-success' : coherenceIssues.confidence > 0.4 ? 'bg-warning' : 'bg-danger'}">
+                                    ${Math.round(coherenceIssues.confidence * 100)}%
+                                </span>
+                            </div>
+                            <div class="progress">
+                                <div class="progress-bar ${coherenceIssues.confidence > 0.7 ? 'bg-success' : coherenceIssues.confidence > 0.4 ? 'bg-warning' : 'bg-danger'}" 
+                                     style="width: ${coherenceIssues.confidence * 100}%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <h6><i class="bi bi-lightbulb me-2"></i>Recommandations :</h6>
+                            <p class="mb-2">Pour améliorer la précision :</p>
+                            <ul class="mb-0">
+                                <li>Assurez-vous que la facture est bien éclairée et nette</li>
+                                <li>Vérifiez que tous les produits sont visibles</li>
+                                <li>Évitez les reflets ou les ombres sur le document</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <div class="d-flex justify-content-between w-100">
+                            <div>
+                                <button type="button" class="btn btn-outline-primary" onclick="scanner.acceptPartialResults()">
+                                    <i class="bi bi-check me-2"></i>Accepter malgré tout
+                                </button>
+                            </div>
+                            <div>
+                                <button type="button" class="btn btn-warning me-2" onclick="scanner.retryAutomaticScan()">
+                                    <i class="bi bi-arrow-repeat me-2"></i>Re-scanner automatiquement
+                                </button>
+                                <button type="button" class="btn btn-primary" onclick="scanner.retakePhoto()">
+                                    <i class="bi bi-camera me-2"></i>Reprendre la photo
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+        
+        // Stocker les données pour les actions
+        this.partialResults = data;
+        this.coherenceIssues = coherenceIssues;
+        
+        modal.addEventListener('hidden.bs.modal', () => {
+            document.body.removeChild(modal);
+        });
+    }
+
+    async retryAutomaticScan() {
+        /**
+         * 🔄 RE-SCAN AUTOMATIQUE
+         * Relance l'analyse avec des paramètres optimisés
+         */
+        console.log('🔄 Démarrage du re-scan automatique...');
+        
+        // Fermer le modal
+        const modal = document.querySelector('.modal.show');
+        if (modal) {
+            const bsModal = bootstrap.Modal.getInstance(modal);
+            bsModal.hide();
+        }
+        
+        this.showNotification('Re-scan automatique en cours...', 'info');
+        this.showProgress('Re-scan intelligent avec paramètres optimisés...');
+        
+        try {
+            // Relancer l'analyse avec l'image existante
+            if (this.currentFile || this.currentImageData) {
+                await this.analyzeInvoice(true); // true = force rescan
+            } else {
+                this.showNotification('Image non disponible pour le re-scan', 'error');
+                this.hideProgress();
+            }
+        } catch (error) {
+            console.error('❌ Erreur re-scan automatique:', error);
+            this.showNotification('Erreur lors du re-scan automatique', 'error');
+            this.hideProgress();
+        }
+    }
+
+    acceptPartialResults() {
+        /**
+         * ✅ ACCEPTER LES RÉSULTATS PARTIELS
+         * Affiche les résultats malgré les incohérences
+         */
+        console.log('✅ Acceptation des résultats partiels...');
+        
+        // Fermer le modal
+        const modal = document.querySelector('.modal.show');
+        if (modal) {
+            const bsModal = bootstrap.Modal.getInstance(modal);
+            bsModal.hide();
+        }
+        
+        // Marquer les résultats comme acceptés malgré les problèmes
+        if (this.partialResults) {
+            this.partialResults.accepted_with_issues = true;
+            this.partialResults.coherence_override = true;
+            
+            // Afficher les résultats normalement
+            this.displayResults(this.partialResults);
+            
+            this.showNotification('Résultats acceptés - Vérifiez et corrigez si nécessaire', 'warning');
+        }
+    }
+
+    retakePhoto() {
+        /**
+         * 📸 REPRENDRE LA PHOTO
+         * Remet le scanner en mode capture
+         */
+        console.log('📸 Reprise de photo demandée...');
+        
+        // Fermer le modal
+        const modal = document.querySelector('.modal.show');
+        if (modal) {
+            const bsModal = bootstrap.Modal.getInstance(modal);
+            bsModal.hide();
+        }
+        
+        // Reset complet du scanner
+        this.resetScanner();
+        this.showNotification('Reprenez une photo de meilleure qualité', 'info');
     }
 
     formatResultsHTML(data) {
@@ -1020,92 +1309,215 @@ class ScannerPro {
     }
 
     async saveInvoice() {
-        if (!this.analysisResult) return;
-        
-        this.showProgress('Sauvegarde en cours...');
-        
+        if (!this.analysisResult) {
+            this.showNotification('Aucune analyse à sauvegarder', 'error');
+            return;
+        }
+
         try {
-            // Préparer les données à sauvegarder avec anomalies et corrections
+            // Préparer les données à sauvegarder
             const saveData = {
                 ...this.analysisResult,
-                // Marquer si l'utilisateur a fait des corrections
-                corrections_applied: {
-                    user_corrected: this.hasUserModifications(),
-                    timestamp: new Date().toISOString(),
-                    types: this.getModificationTypes()
+                manual_edits: this.hasUserModifications(),
+                modifications: this.getModificationTypes(),
+                scanner_version: '3.0',
+                scan_timestamp: new Date().toISOString(),
+                device_info: {
+                    userAgent: navigator.userAgent,
+                    screen: { width: screen.width, height: screen.height }
                 }
             };
-            
+
+            this.showProgress('Sauvegarde en cours...');
+
             const response = await fetch('/api/invoices/save-simple', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json'
                 },
-                credentials: 'include',
-                body: JSON.stringify(saveData)
+                body: JSON.stringify(saveData),
+                credentials: 'include'
             });
-            
+
             const result = await response.json();
-            
+
             if (result.success) {
-                // Marquer comme sauvegardé pour arrêter les rappels
                 this.isSaved = true;
                 
-                // Désactiver le bouton de sauvegarde et montrer le succès
-                const saveBtn = document.getElementById('saveBtn');
-                if (saveBtn) {
-                    saveBtn.innerHTML = `
-                        <i class="bi bi-check-circle me-2"></i>✅ Facture Sauvegardée !
-                        <small class="d-block mt-1">Redirection vers la liste...</small>
-                    `;
-                    saveBtn.disabled = true;
-                    saveBtn.className = 'btn btn-success btn-lg fw-bold';
-                    saveBtn.style.animation = 'none';
+                // 🎯 NOTIFICATION INTELLIGENTE POUR NOUVEAUX PRODUITS
+                const newProductsInfo = this.getNewProductsInfo();
+                if (newProductsInfo.hasNewProducts) {
+                    this.showNewProductsNotification(newProductsInfo);
+                } else {
+                    this.showNotification('✅ Facture sauvegardée avec succès!', 'success');
                 }
                 
-                // Message personnalisé selon les anomalies
-                let message = '🎉 Facture sauvegardée avec succès!';
-                if (this.analysisResult.anomalies && this.analysisResult.anomalies.length > 0) {
-                    message += ` ${this.analysisResult.anomalies.length} anomalie(s) signalée(s).`;
-                }
+                // Marquer la sauvegarde comme effectuée visuellement
+                this.markAsSaved();
                 
-                this.showNotification(message, 'success');
-                
-                // Haptic feedback de succès
+                // Vibration de succès
                 if (navigator.vibrate) {
-                    navigator.vibrate([200, 100, 200, 100, 200]);
+                    navigator.vibrate([100, 50, 100]);
                 }
                 
-                // Fermer automatiquement le modal de rappel s'il est ouvert
-                const reminderModal = document.getElementById('saveReminderModal');
-                if (reminderModal) {
-                    const modalInstance = bootstrap.Modal.getInstance(reminderModal);
-                    if (modalInstance) {
-                        modalInstance.hide();
-                    }
-                }
-                
-                // Redirection après 3 secondes
-                setTimeout(() => {
-                    window.location.href = '/factures';
-                }, 3000);
             } else {
                 throw new Error(result.error || 'Erreur lors de la sauvegarde');
             }
-            
+
         } catch (error) {
-            console.error('Erreur sauvegarde:', error);
-            this.showNotification(`❌ Erreur: ${error.message}`, 'error');
+            console.error('❌ Erreur sauvegarde:', error);
+            this.showNotification(`Erreur: ${error.message}`, 'error');
             
-            // Haptic feedback d'erreur
+            // Vibration d'erreur
             if (navigator.vibrate) {
-                navigator.vibrate([300, 100, 300]);
+                navigator.vibrate([200, 100, 200, 100, 200]);
             }
         } finally {
             this.hideProgress();
         }
     }
-    
+
+    getNewProductsInfo() {
+        /**
+         * 🆕 ANALYSER LES NOUVEAUX PRODUITS DÉTECTÉS
+         * Retourne des infos sur les produits qui vont en attente
+         */
+        if (!this.analysisResult?.products) {
+            return { hasNewProducts: false, count: 0, supplier: null };
+        }
+
+        // Compter les nouveaux produits (ceux sans prix de référence)
+        const newProducts = this.analysisResult.products.filter(product => 
+            !product.reference_price || product.is_new === true
+        );
+
+        const supplier = this.analysisResult.supplier || 
+                        this.analysisResult.invoice_info?.supplier;
+
+        return {
+            hasNewProducts: newProducts.length > 0,
+            count: newProducts.length,
+            supplier: supplier,
+            products: newProducts.slice(0, 3), // Premiers 3 pour l'affichage
+            totalProducts: this.analysisResult.products.length
+        };
+    }
+
+    showNewProductsNotification(newProductsInfo) {
+        /**
+         * 🎯 NOTIFICATION SPÉCIALE POUR NOUVEAUX PRODUITS
+         * Informe l'utilisateur et propose d'aller les valider
+         */
+        const { count, supplier, products } = newProductsInfo;
+        
+        // Créer une notification riche
+        const notificationModal = document.createElement('div');
+        notificationModal.className = 'modal fade';
+        notificationModal.innerHTML = `
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title">
+                            <i class="bi bi-check-circle me-2"></i>Facture Sauvegardée !
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-info">
+                            <h6><i class="bi bi-info-circle me-2"></i>Nouveaux produits détectés</h6>
+                            <p class="mb-2">
+                                <strong>${count} nouveau(x) produit(s)</strong> ont été ajoutés à la liste d'attente pour 
+                                <strong>${supplier}</strong> :
+                            </p>
+                            <ul class="mb-2">
+                                ${products.map(product => `
+                                    <li>${product.name} - <strong>${product.unit_price}€</strong></li>
+                                `).join('')}
+                                ${count > 3 ? `<li class="text-muted">... et ${count - 3} autres</li>` : ''}
+                            </ul>
+                            <small class="text-muted">
+                                <i class="bi bi-hourglass-split me-1"></i>
+                                Ces produits ne sont <strong>pas encore dans votre catalogue</strong>. 
+                                Vous devez les valider pour les ajouter définitivement.
+                            </small>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-warning" onclick="scanner.goToFournisseurs()">
+                                <i class="bi bi-eye me-2"></i>Voir les produits en attente
+                            </button>
+                            <button class="btn btn-outline-primary" onclick="scanner.continueScanning()">
+                                <i class="bi bi-camera me-2"></i>Scanner une autre facture
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(notificationModal);
+        const bsModal = new bootstrap.Modal(notificationModal);
+        bsModal.show();
+        
+        // Auto-suppression après fermeture
+        notificationModal.addEventListener('hidden.bs.modal', () => {
+            document.body.removeChild(notificationModal);
+        });
+        
+        // Notification toast aussi
+        this.showNotification(
+            `✅ Facture sauvée ! ${count} nouveau(x) produit(s) en attente pour ${supplier}`, 
+            'success'
+        );
+    }
+
+    goToFournisseurs() {
+        /**
+         * 🔗 REDIRECTION VERS FOURNISSEURS
+         * Ferme le modal et redirige vers la page fournisseurs
+         */
+        // Fermer le modal
+        const modal = document.querySelector('.modal.show');
+        if (modal) {
+            const bsModal = bootstrap.Modal.getInstance(modal);
+            bsModal.hide();
+        }
+        
+        // Rediriger avec un petit délai
+        setTimeout(() => {
+            window.location.href = '/fournisseurs';
+        }, 300);
+    }
+
+    continueScanning() {
+        /**
+         * 🔄 CONTINUER LE SCAN
+         * Ferme le modal et reset le scanner pour une nouvelle facture
+         */
+        // Fermer le modal
+        const modal = document.querySelector('.modal.show');
+        if (modal) {
+            const bsModal = bootstrap.Modal.getInstance(modal);
+            bsModal.hide();
+        }
+        
+        // Reset du scanner
+        setTimeout(() => {
+            this.resetScanner();
+            this.showNotification('Prêt pour une nouvelle facture !', 'info');
+        }, 300);
+    }
+
+    markAsSaved() {
+        // Ajouter une indication visuelle que la facture est sauvegardée
+        const saveBtn = document.getElementById('saveBtn');
+        if (saveBtn) {
+            saveBtn.style.backgroundColor = '#28a745';
+            saveBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Sauvegardé!';
+            saveBtn.className = 'btn btn-success';
+        }
+    }
+
     hasUserModifications() {
         // Vérifier si l'utilisateur a fait des modifications
         if (this.analysisResult.anomalies && this.analysisResult.anomalies.length > 0) return true;
@@ -1839,6 +2251,12 @@ class ScannerPro {
                             </button>
                         </div>
                     </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                        <button type="button" class="btn btn-primary" id="saveSettingsBtn">
+                            <i class="bi bi-check-lg me-2"></i>Confirmer
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
@@ -1847,17 +2265,23 @@ class ScannerPro {
         const bsModal = new bootstrap.Modal(modal);
         bsModal.show();
         
-        // Gestion des paramètres
-        modal.querySelector('#autoAnalyze').addEventListener('change', (e) => {
-            localStorage.setItem('autoAnalyze', e.target.checked);
-        });
-        
-        modal.querySelector('#hapticFeedback').addEventListener('change', (e) => {
-            localStorage.setItem('hapticFeedback', e.target.checked);
-        });
-        
-        modal.querySelector('#imageQuality').addEventListener('change', (e) => {
-            localStorage.setItem('imageQuality', e.target.value);
+        // Gestion des paramètres avec confirmation
+        const saveBtn = modal.querySelector('#saveSettingsBtn');
+        saveBtn.addEventListener('click', () => {
+            // Sauvegarder tous les paramètres
+            const autoAnalyze = modal.querySelector('#autoAnalyze').checked;
+            const hapticFeedback = modal.querySelector('#hapticFeedback').checked;
+            const imageQuality = modal.querySelector('#imageQuality').value;
+            
+            localStorage.setItem('autoAnalyze', autoAnalyze);
+            localStorage.setItem('hapticFeedback', hapticFeedback);
+            localStorage.setItem('imageQuality', imageQuality);
+            
+            // Notifier l'utilisateur
+            this.showNotification('Paramètres sauvegardés !', 'success');
+            
+            // Fermer le modal
+            bsModal.hide();
         });
         
         modal.addEventListener('hidden.bs.modal', () => {

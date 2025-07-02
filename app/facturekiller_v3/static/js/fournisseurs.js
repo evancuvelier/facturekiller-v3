@@ -25,7 +25,7 @@ function setupEventListeners() {
 // Charger les fournisseurs du restaurant
 async function loadSuppliers() {
     try {
-        console.log('📦 Chargement des fournisseurs du restaurant...');
+        console.log('🔄 Chargement des fournisseurs...');
         
         // Utiliser l'API filtrée par restaurant
         const response = await fetch('/api/restaurant/suppliers');
@@ -58,11 +58,21 @@ async function loadSuppliers() {
             
             console.log(`✅ ${suppliers.length} fournisseurs chargés pour ${result.restaurant}`);
             
+            // 🔔 NOTIFICATION SI NOUVEAUX PRODUITS EN ATTENTE
+            const totalPendingProducts = suppliers.reduce((total, supplier) => 
+                total + (supplier.pending_products?.length || 0), 0
+            );
+            
+            if (totalPendingProducts > 0) {
+                showPendingProductsAlert(totalPendingProducts);
+            }
+            
             // Afficher le restaurant actuel dans le titre
             const titleElement = document.querySelector('h1.h2');
             if (titleElement && result.restaurant) {
                 titleElement.innerHTML = `
                     <i class="bi bi-building"></i> Fournisseurs - ${result.restaurant}
+                    ${totalPendingProducts > 0 ? `<span class="badge bg-warning ms-2">${totalPendingProducts} en attente</span>` : ''}
                 `;
             }
             
@@ -778,18 +788,134 @@ async function editPendingProduct(supplierName, pendingId) {
 
 // Fonction pour formater les dates
 function formatDate(dateString) {
-    if (!dateString) return '-';
-    
+    if (!dateString) return '';
     try {
         const date = new Date(dateString);
         return date.toLocaleDateString('fr-FR', {
             day: '2-digit',
             month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
+            year: 'numeric'
         });
     } catch (error) {
         return dateString;
     }
-} 
+}
+
+function showPendingProductsAlert(count) {
+    /**
+     * 🔔 ALERTE POUR PRODUITS EN ATTENTE
+     * Affiche une notification discrète mais visible
+     */
+    const existingAlert = document.getElementById('pendingProductsAlert');
+    if (existingAlert) {
+        existingAlert.remove();
+    }
+    
+    const alert = document.createElement('div');
+    alert.id = 'pendingProductsAlert';
+    alert.className = 'alert alert-warning alert-dismissible fade show';
+    alert.style.position = 'sticky';
+    alert.style.top = '10px';
+    alert.style.zIndex = '1050';
+    alert.innerHTML = `
+        <div class="d-flex align-items-center">
+            <div class="flex-grow-1">
+                <h6 class="alert-heading mb-1">
+                    <i class="bi bi-hourglass-split me-2"></i>Nouveaux produits détectés !
+                </h6>
+                <p class="mb-0">
+                    <strong>${count} produit(s)</strong> en attente de validation. 
+                    Ces produits ont été détectés lors de scans mais ne sont pas encore dans vos catalogues.
+                </p>
+            </div>
+            <div class="ms-3">
+                <button class="btn btn-warning btn-sm" onclick="scrollToPendingProducts()">
+                    <i class="bi bi-eye me-1"></i>Voir
+                </button>
+            </div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    // Insérer en haut de la page
+    const container = document.querySelector('.container-fluid');
+    container.insertBefore(alert, container.firstChild);
+}
+
+function scrollToPendingProducts() {
+    /**
+     * 📍 SCROLL VERS LES PRODUITS EN ATTENTE
+     * Trouve et affiche la première section de produits en attente
+     */
+    const pendingCard = document.querySelector('.card.border-warning');
+    if (pendingCard) {
+        // Développer la section produits si elle est fermée
+        const parentCard = pendingCard.closest('.card');
+        const productSection = parentCard.querySelector('.collapse');
+        if (productSection && !productSection.classList.contains('show')) {
+            productSection.classList.add('show');
+            // Mettre à jour l'icône
+            const toggleIcon = parentCard.querySelector('[id^="toggle-"]');
+            if (toggleIcon) {
+                toggleIcon.className = 'bi bi-chevron-up';
+            }
+        }
+        
+        // Scroll vers la carte
+        pendingCard.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+        });
+        
+        // Animation de surbrillance
+        pendingCard.style.animation = 'pulse 1s ease-in-out 3';
+    } else {
+        showNotification('Aucun produit en attente visible actuellement', 'info');
+    }
+}
+
+// 🔄 FONCTION DE RECHARGEMENT FORCÉ
+async function forceRefreshSuppliers() {
+    /**
+     * Force le rechargement complet des données fournisseurs
+     * Utile après un scan ou des modifications
+     */
+    const refreshBtn = document.getElementById('refreshBtn');
+    if (refreshBtn) {
+        refreshBtn.disabled = true;
+        refreshBtn.innerHTML = '<i class="bi bi-arrow-repeat spinner-border spinner-border-sm me-2"></i>Actualisation...';
+    }
+    
+    try {
+        await loadSuppliers();
+        showNotification('Données actualisées !', 'success');
+    } catch (error) {
+        showNotification('Erreur lors de l\'actualisation', 'error');
+    } finally {
+        if (refreshBtn) {
+            refreshBtn.disabled = false;
+            refreshBtn.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>Actualiser';
+        }
+    }
+}
+
+// 🎧 ÉCOUTER LES ÉVÉNEMENTS DE SCAN TERMINÉ
+window.addEventListener('invoiceScanCompleted', function(event) {
+    /**
+     * Réagir aux scans de factures terminés depuis d'autres pages
+     * Recharge automatiquement les fournisseurs si de nouveaux produits ont été détectés
+     */
+    console.log('🔔 Scan de facture terminé détecté, rechargement des fournisseurs...');
+    
+    if (event.detail?.newProductsCount > 0) {
+        showNotification(
+            `🆕 ${event.detail.newProductsCount} nouveaux produits détectés ! Actualisation en cours...`, 
+            'info'
+        );
+        
+        // Recharger après un court délai
+        setTimeout(() => {
+            forceRefreshSuppliers();
+        }, 1000);
+    }
+}); 

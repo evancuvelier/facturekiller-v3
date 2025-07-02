@@ -606,7 +606,110 @@ RÉPONDS UNIQUEMENT avec le JSON dans le format exact demandé."""
         if not validated_data['tax_amount'] and validated_data['total_amount'] and validated_data['subtotal']:
             validated_data['tax_amount'] = validated_data['total_amount'] - validated_data['subtotal']
         
+        # 🧠 VALIDATION INTELLIGENTE - DÉTECTION D'INCOHÉRENCES
+        coherence_check = self._check_invoice_coherence(validated_data)
+        validated_data['coherence_check'] = coherence_check
+        
+        # Si incohérences critiques détectées, marquer pour re-scan
+        if coherence_check['needs_rescan']:
+            validated_data['requires_rescan'] = True
+            validated_data['rescan_reason'] = coherence_check['critical_issues']
+            logger.warning(f"🔄 Re-scan requis: {coherence_check['critical_issues']}")
+        
         return validated_data
+    
+    def _check_invoice_coherence(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        🧠 VÉRIFICATION INTELLIGENTE DE LA COHÉRENCE DE LA FACTURE
+        Détecte les incohérences qui nécessitent un re-scan automatique
+        """
+        coherence_check = {
+            'total_products': len(data['products']),
+            'calculated_total': 0,
+            'declared_total': data.get('total_amount', 0),
+            'price_coherence': True,
+            'quantity_coherence': True,
+            'total_coherence': True,
+            'needs_rescan': False,
+            'critical_issues': [],
+            'warnings': []
+        }
+        
+        # 1. VÉRIFICATION DES CALCULS DE PRIX
+        calculated_total = 0
+        price_inconsistencies = 0
+        
+        for i, product in enumerate(data['products']):
+            # Vérifier cohérence quantité × prix unitaire = prix total
+            expected_total = product['quantity'] * product['unit_price']
+            actual_total = product['total_price']
+            
+            # Tolérance de 1 centime pour les arrondis
+            if abs(expected_total - actual_total) > 0.01:
+                price_inconsistencies += 1
+                coherence_check['warnings'].append(
+                    f"Produit {i+1}: {product['name']} - "
+                    f"Calcul incohérent: {product['quantity']} × {product['unit_price']} "
+                    f"= {expected_total:.2f}€ mais affiché {actual_total:.2f}€"
+                )
+            
+            calculated_total += actual_total
+        
+        coherence_check['calculated_total'] = round(calculated_total, 2)
+        
+        # 2. VÉRIFICATION DU TOTAL GÉNÉRAL
+        if coherence_check['declared_total'] > 0:
+            total_difference = abs(calculated_total - coherence_check['declared_total'])
+            
+            # Si différence > 5% ou > 10€, c'est critique
+            if total_difference > 10 or (total_difference / coherence_check['declared_total']) > 0.05:
+                coherence_check['total_coherence'] = False
+                coherence_check['critical_issues'].append(
+                    f"Total incohérent: calculé {calculated_total:.2f}€ "
+                    f"vs déclaré {coherence_check['declared_total']:.2f}€ "
+                    f"(différence: {total_difference:.2f}€)"
+                )
+        
+        # 3. VÉRIFICATION NOMBRES DE PRODUITS SUSPECTS
+        if len(data['products']) < 3:
+            coherence_check['warnings'].append(
+                f"Seulement {len(data['products'])} produits détectés - "
+                "vérifiez si des lignes ont été oubliées"
+            )
+        
+        # 4. DÉTECTION PRODUITS AVEC PRIX ZÉRO
+        zero_price_products = [p for p in data['products'] if p['unit_price'] == 0]
+        if zero_price_products:
+            coherence_check['warnings'].append(
+                f"{len(zero_price_products)} produit(s) avec prix zéro détecté(s)"
+            )
+        
+        # 5. DÉTECTION QUANTITÉS ANORMALES
+        suspicious_quantities = [
+            p for p in data['products'] 
+            if p['quantity'] > 100 or p['quantity'] <= 0
+        ]
+        if suspicious_quantities:
+            coherence_check['warnings'].append(
+                f"{len(suspicious_quantities)} quantité(s) suspecte(s) détectée(s)"
+            )
+        
+        # 6. DÉCISION DE RE-SCAN AUTOMATIQUE
+        # Re-scan si plus de 30% des prix sont incohérents
+        if price_inconsistencies > len(data['products']) * 0.3:
+            coherence_check['price_coherence'] = False
+            coherence_check['critical_issues'].append(
+                f"Trop d'incohérences de prix: {price_inconsistencies}/{len(data['products'])}"
+            )
+        
+        # Déclencher re-scan si problèmes critiques
+        if (not coherence_check['total_coherence'] or 
+            not coherence_check['price_coherence'] or
+            len(coherence_check['critical_issues']) > 0):
+            coherence_check['needs_rescan'] = True
+        
+        logger.info(f"🔍 Vérification cohérence: {coherence_check}")
+        return coherence_check
     
     def _clean_product_name(self, name: str) -> str:
         """Nettoyer le nom d'un produit"""

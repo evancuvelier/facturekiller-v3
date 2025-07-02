@@ -13,9 +13,19 @@
             <p class="text-muted">Gérez vos fournisseurs et leurs catalogues produits</p>
         </div>
         <div class="col-md-4 text-end">
-            <button class="btn btn-primary" onclick="showAddSupplierModal()">
-                <i class="bi bi-plus-circle"></i> Nouveau Fournisseur
-            </button>
+            <div class="btn-group">
+                <button class="btn btn-outline-secondary" id="refreshBtn" onclick="forceRefreshSuppliers()" title="Actualiser les données">
+                    <i class="bi bi-arrow-repeat me-2"></i>Actualiser
+                </button>
+                            <div class="btn-group">
+                <button class="btn btn-outline-secondary" id="refreshBtn" onclick="forceRefreshSuppliers()" title="Actualiser les données">
+                    <i class="bi bi-arrow-repeat me-2"></i>Actualiser
+                </button>
+                <button class="btn btn-primary" onclick="showAddSupplierModal()">
+                    <i class="bi bi-plus-circle"></i> Nouveau Fournisseur
+                </button>
+            </div>
+            </div>
         </div>
     </div>
 
