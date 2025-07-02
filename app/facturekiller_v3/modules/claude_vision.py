@@ -87,6 +87,40 @@ STRUCTURE JSON OBLIGATOIRE - RESPECTE EXACTEMENT CE FORMAT:
 
 IMPORTANT: Réponds UNIQUEMENT avec ce JSON exact, rien d'autre.""",
 
+                'MVA': """Tu es un expert en analyse de factures MVA - ULTRA-PRÉCIS.
+
+RÈGLES SPÉCIALES MVA (qui fonctionnent parfaitement):
+- Lis CHAQUE ligne de produit alimentaire
+- MVA a un format très clair: Nom | Quantité | Prix
+- Extrait TOUS les produits, sans exception
+- Les quantités sont souvent en kg, pièces, litres
+- Ignore seulement: TVA, totaux, en-têtes
+
+MÉTHODOLOGIE MVA:
+1. Scan ligne par ligne depuis le haut
+2. Identifie tous les produits alimentaires 
+3. Extrais quantités exactes et prix
+4. Vérifie de n'avoir rien oublié
+
+STRUCTURE JSON MVA:
+{
+  "supplier": "MVA",
+  "invoice_number": "numéro facture MVA",
+  "date": "YYYY-MM-DD",
+  "total_amount": 123.45,
+  "products": [
+    {
+      "name": "nom produit MVA",
+      "quantity": 1.5,
+      "unit": "kg",
+      "unit_price": 12.50,
+      "total_price": 18.75
+    }
+  ]
+}
+
+IMPORTANT: Sois aussi précis que d'habitude avec MVA - TOUS les produits !""",
+
                 'TRANSGOURMET': """Tu es un expert en analyse de factures TRANSGOURMET.
 Analyse cette facture et extrait UNIQUEMENT les produits alimentaires réels.
 
@@ -115,48 +149,55 @@ STRUCTURE JSON OBLIGATOIRE - RESPECTE EXACTEMENT CE FORMAT:
 
 IMPORTANT: Réponds UNIQUEMENT avec ce JSON exact, rien d'autre.""",
 
-                'GENERIC': """Tu es un expert en analyse de factures alimentaires TRÈS MÉTICULEUX.
-Analyse cette facture et extrait ABSOLUMENT TOUS les produits alimentaires avec leurs prix.
+                'GENERIC': """Tu es un expert en analyse de factures alimentaires ULTRA-MÉTICULEUX.
 
-INSTRUCTIONS ULTRA-STRICTES:
-1. LIS CHAQUE LIGNE de la facture attentivement
-2. TROUVE TOUS les produits alimentaires, même en petites quantités
-3. EXTRAIT les quantités exactes (kg, pièces, litres, etc.)
-4. RELÈVE les prix unitaires ET totaux
-5. N'OUBLIE AUCUN PRODUIT même s'il est à la fin de la liste
+⚠️ MISSION CRITIQUE: TROUVER ABSOLUMENT TOUTES LES LIGNES DE PRODUITS
 
-MÉTHODOLOGIE:
-- Commence par le haut de la facture
-- Descends ligne par ligne
-- Cherche les patterns: [PRODUIT] [QUANTITÉ] [PRIX]
-- Vérifie bien les totaux en bas
+MÉTHODOLOGIE STRICTE - OBLIGATOIRE:
+1. COMMENCE PAR LE HAUT de la facture
+2. LIS CHAQUE LIGNE une par une, de haut en bas
+3. IDENTIFIE chaque produit alimentaire, même le plus petit
+4. DESCENDS ligne par ligne jusqu'en bas - N'OUBLIE RIEN
+5. VÉRIFIE 3 FOIS que tu as tout lu
 
-EXEMPLES DE FORMATS À CHERCHER:
-- "Filet de bœuf 2kg 45.80€"
-- "Tomates 1.5kg 3.20€/kg = 4.80€"
-- "Pain 5 pièces 1.20€"
-- "Saumon 800g 28.90€"
+RÈGLES ULTRA-STRICTES:
+✓ Lis TOUTES les lignes - même en bas de page
+✓ Trouve TOUS les produits alimentaires 
+✓ Extrais TOUTES les quantités exactes
+✓ Relève TOUS les prix (unitaires + totaux)
+✓ Double-contrôle: si tu vois 15 lignes produits, je dois avoir 15 produits dans le JSON
 
-STRUCTURE JSON OBLIGATOIRE - TOUS LES PRODUITS:
+FORMATS À CHERCHER (exemples):
+"Filet de bœuf 2.5kg 45.80€"
+"Tomates cerises 1kg 6.50€"
+"Saumon fumé 500g 12.90€"
+"Pain complet 3 pièces 4.20€"
+"Lait bio 2L 3.80€"
+"Pommes golden 2kg 5.60€"
+
+STRUCTURE JSON - TOUS LES PRODUITS TROUVÉS:
 {
-  "supplier": "nom exact du fournisseur sur la facture",
-  "invoice_number": "numero facture exact",
+  "supplier": "nom exact visible sur la facture",
+  "invoice_number": "numéro exact de la facture",
   "date": "YYYY-MM-DD",
-  "total_amount": 0.00,
+  "total_amount": 123.45,
   "products": [
     {
-      "name": "nom exact du produit alimentaire",
-      "quantity": 0.0,
-      "unit": "kg/pièce/litre/etc",
-      "unit_price": 0.00,
-      "total_price": 0.00
+      "name": "nom exact du produit",
+      "quantity": 2.5,
+      "unit": "kg",
+      "unit_price": 18.32,
+      "total_price": 45.80
     }
   ]
 }
 
-RÈGLE ABSOLUE: Si tu vois 10 produits sur la facture, je dois avoir 10 produits dans le JSON.
+⚠️ CONTRÔLE QUALITÉ FINAL:
+- Compte le nombre de lignes produits sur l'image
+- Vérifie que ton JSON a le même nombre de produits
+- Si il y a 10 produits visibles, il DOIT y avoir 10 entrées dans le JSON
 
-IMPORTANT: Réponds UNIQUEMENT avec le JSON complet, pas d'autre texte."""
+IMPORTANT: Réponds UNIQUEMENT avec le JSON complet contenant TOUS les produits."""
             }
         
         except Exception as e:
@@ -650,12 +691,21 @@ Si tu ne vois pas clairement le nom, réponds "GENERIC"."""
             supplier = response.content[0].text.strip().upper()
             logger.info(f"🏪 Fournisseur brut détecté: {supplier}")
             
-            # Nettoyer et normaliser la réponse
-            if supplier in ['GENERIC', 'N/A', 'INCONNU', 'UNKNOWN', '']:
+            # Normaliser les réponses
+            if 'METRO' in supplier or 'MAKRO' in supplier:
+                return 'METRO'
+            elif 'TRANSGOURMET' in supplier:
+                return 'TRANSGOURMET'
+            elif 'BRAKE' in supplier:
+                return 'BRAKE'
+            elif 'PROMOCASH' in supplier:
+                return 'PROMOCASH'
+            elif 'SYSCO' in supplier:
+                return 'SYSCO'
+            elif 'MVA' in supplier:
+                return 'MVA'
+            else:
                 return 'GENERIC'
-            
-            # Retourner le nom exact du fournisseur détecté
-            return supplier
                 
         except Exception as e:
             logger.warning(f"Erreur détection fournisseur: {e}")

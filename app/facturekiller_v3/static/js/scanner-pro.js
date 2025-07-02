@@ -82,11 +82,17 @@ class ScannerPro {
 
     init() {
         this.setupEventListeners();
-        this.loadOrders();
-        this.updateHistoryBadge();
         this.checkCameraSupport();
         this.setupServiceWorker();
+        this.setupTouchGestures();
+        this.setupKeyboardShortcuts();
+        this.handleModeChange();
         this.fixModalAccessibility();
+        this.setupRestaurantChangeListener();
+        
+        // Définir window.scanner pour l'accès global
+        window.scanner = this;
+        console.log('✅ Scanner Pro initialisé et accessible globalement');
     }
 
     setupEventListeners() {
@@ -1860,7 +1866,15 @@ class ScannerPro {
     }
 
     isAutoAnalyzeEnabled() {
-        return localStorage.getItem('autoAnalyze') === 'true';
+        // Vérifier le paramètre d'analyse automatique
+        const autoAnalysisCheckbox = document.getElementById('autoAnalysis');
+        if (autoAnalysisCheckbox) {
+            return autoAnalysisCheckbox.checked;
+        }
+        
+        // Fallback sur localStorage
+        const stored = localStorage.getItem('autoAnalyze');
+        return stored === 'true' || stored === null; // Par défaut activé
     }
 
     isHapticEnabled() {
