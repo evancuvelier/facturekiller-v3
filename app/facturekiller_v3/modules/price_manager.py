@@ -996,6 +996,19 @@ class PriceManager:
             # Filtrer les valeurs vides
             all_suppliers = [s for s in all_suppliers if s and str(s).strip()]
             
+            # 🔥 NOUVEAU: Exclure les fournisseurs supprimés
+            try:
+                from modules.supplier_manager import SupplierManager
+                supplier_manager = SupplierManager()
+                deleted_suppliers = supplier_manager._get_deleted_suppliers()
+                
+                # Filtrer les fournisseurs supprimés
+                all_suppliers = [s for s in all_suppliers if s not in deleted_suppliers]
+                
+                logger.info(f"Fournisseurs filtrés: {len(deleted_suppliers)} supprimés exclus")
+            except Exception as e:
+                logger.warning(f"Impossible de filtrer les fournisseurs supprimés: {e}")
+            
             return all_suppliers
             
         except Exception as e:
