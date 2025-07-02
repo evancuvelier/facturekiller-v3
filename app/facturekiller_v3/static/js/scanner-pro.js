@@ -41,6 +41,7 @@ class ScannerPro {
         this.isSaved = false; // Pour les rappels de sauvegarde
         this.cameras = [];
         this.currentCameraIndex = 0;
+        this.hasRetried = false; // Flag pour éviter les re-scans infinis
         
         // Touch gestures
         this.touchStartY = 0;
@@ -48,6 +49,9 @@ class ScannerPro {
         
         // Auto-focus
         this.focusTimeouts = new Set();
+        
+        // Re-scan management
+        this.hasRetried = false;
         
         this.init();
     }
@@ -528,7 +532,17 @@ class ScannerPro {
     }
 
     async analyzeInvoice(forceRescan = false) {
-        if (!this.currentFile || this.isProcessing) return;
+        if (this.isProcessing) {
+            this.showNotification('Analyse déjà en cours...', 'warning');
+            return;
+        }
+        
+        // Reset du flag de re-scan pour chaque nouvelle analyse
+        if (!forceRescan) {
+            this.hasRetried = false;
+        }
+
+        const imageFile = this.currentFile;
         
         // Empêcher le re-scan automatique si déjà analysé
         // SAUF si c'est un re-scan forcé pour correction d'incohérences
@@ -548,7 +562,7 @@ class ScannerPro {
         
         try {
             const formData = new FormData();
-            formData.append('file', this.currentFile);
+            formData.append('file', imageFile);
             
             // Mode de scan
             const scanMode = document.querySelector('input[name="scanMode"]:checked').value;
@@ -761,197 +775,55 @@ class ScannerPro {
 
     async handleIncoherentResults(data, coherenceIssues) {
         /**
-         * 🔄 GESTION DES RÉSULTATS INCOHÉRENTS
-         * Propose/déclenche automatiquement un re-scan
+         * 🔄 RE-SCAN AUTOMATIQUE SILENCIEUX
+         * 1 tentative max, invisible pour l'utilisateur
          */
-        console.log('⚠️ Résultats incohérents détectés, gestion automatique...');
+        console.log('⚠️ Incohérences détectées, re-scan automatique...');
         
-        // Masquer les résultats partiels
-        const resultsElement = document.getElementById('analysisResults') || document.getElementById('scanResults');
-        if (resultsElement) {
-            resultsElement.style.display = 'none';
+        // Vérifier si on a déjà fait un re-scan pour éviter la boucle
+        if (this.hasRetried) {
+            console.log('🔄 Re-scan déjà effectué, acceptation des résultats');
+            // Afficher les résultats même avec incohérences après 1 tentative
+            data.accepted_with_issues = true;
+            return this.displayResults(data);
         }
         
-        // Afficher le modal d'incohérence avec options
-        this.showCoherenceModal(data, coherenceIssues);
+        // Marquer qu'on fait un re-scan
+        this.hasRetried = true;
+        
+        // Re-scan automatique silencieux
+        this.showNotification('Optimisation en cours...', 'info');
+        this.showProgress('Re-scan automatique pour améliorer la précision...');
+        
+        try {
+            // Petit délai pour que l'utilisateur voie la notification
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Relancer l'analyse
+            await this.analyzeInvoice(true); // Force rescan
+            
+        } catch (error) {
+            console.error('❌ Erreur re-scan automatique:', error);
+            // En cas d'erreur, afficher les résultats originaux
+            data.accepted_with_issues = true;
+            this.displayResults(data);
+        }
     }
 
     showCoherenceModal(data, coherenceIssues) {
-        /**
-         * 📋 MODAL DE GESTION DES INCOHÉRENCES
-         * Permet à l'utilisateur de choisir l'action à prendre
-         */
-        const modal = document.createElement('div');
-        modal.className = 'modal fade';
-        modal.innerHTML = `
-            <div class="modal-dialog modal-lg modal-dialog-centered">
-                <div class="modal-content">
-                    <div class="modal-header bg-warning text-dark">
-                        <h5 class="modal-title">
-                            <i class="bi bi-exclamation-triangle me-2"></i>Incohérences Détectées
-                        </h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="alert alert-warning">
-                            <h6><i class="bi bi-robot me-2"></i>Analyse Intelligente</h6>
-                            <p class="mb-2">L'IA a détecté des incohérences qui suggèrent que l'analyse n'est pas complète ou correcte :</p>
-                        </div>
-                        
-                        ${coherenceIssues.criticalIssues.length > 0 ? `
-                            <div class="mb-3">
-                                <h6 class="text-danger"><i class="bi bi-x-circle me-2"></i>Problèmes Critiques :</h6>
-                                <ul class="list-unstyled">
-                                    ${coherenceIssues.criticalIssues.map(issue => `
-                                        <li class="text-danger mb-1">• ${issue}</li>
-                                    `).join('')}
-                                </ul>
-                            </div>
-                        ` : ''}
-                        
-                        ${coherenceIssues.warnings.length > 0 ? `
-                            <div class="mb-3">
-                                <h6 class="text-warning"><i class="bi bi-exclamation-triangle me-2"></i>Avertissements :</h6>
-                                <ul class="list-unstyled">
-                                    ${coherenceIssues.warnings.map(warning => `
-                                        <li class="text-warning mb-1">• ${warning}</li>
-                                    `).join('')}
-                                </ul>
-                            </div>
-                        ` : ''}
-                        
-                        <div class="mb-3">
-                            <div class="d-flex align-items-center justify-content-between mb-2">
-                                <span>Niveau de confiance :</span>
-                                <span class="badge ${coherenceIssues.confidence > 0.7 ? 'bg-success' : coherenceIssues.confidence > 0.4 ? 'bg-warning' : 'bg-danger'}">
-                                    ${Math.round(coherenceIssues.confidence * 100)}%
-                                </span>
-                            </div>
-                            <div class="progress">
-                                <div class="progress-bar ${coherenceIssues.confidence > 0.7 ? 'bg-success' : coherenceIssues.confidence > 0.4 ? 'bg-warning' : 'bg-danger'}" 
-                                     style="width: ${coherenceIssues.confidence * 100}%"></div>
-                            </div>
-                        </div>
-                        
-                        <div class="alert alert-info">
-                            <h6><i class="bi bi-lightbulb me-2"></i>Recommandations :</h6>
-                            <p class="mb-2">Pour améliorer la précision :</p>
-                            <ul class="mb-0">
-                                <li>Assurez-vous que la facture est bien éclairée et nette</li>
-                                <li>Vérifiez que tous les produits sont visibles</li>
-                                <li>Évitez les reflets ou les ombres sur le document</li>
-                            </ul>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <div class="d-flex justify-content-between w-100">
-                            <div>
-                                <button type="button" class="btn btn-outline-primary" onclick="scanner.acceptPartialResults()">
-                                    <i class="bi bi-check me-2"></i>Accepter malgré tout
-                                </button>
-                            </div>
-                            <div>
-                                <button type="button" class="btn btn-warning me-2" onclick="scanner.retryAutomaticScan()">
-                                    <i class="bi bi-arrow-repeat me-2"></i>Re-scanner automatiquement
-                                </button>
-                                <button type="button" class="btn btn-primary" onclick="scanner.retakePhoto()">
-                                    <i class="bi bi-camera me-2"></i>Reprendre la photo
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(modal);
-        const bsModal = new bootstrap.Modal(modal);
-        bsModal.show();
-        
-        // Stocker les données pour les actions
-        this.partialResults = data;
-        this.coherenceIssues = coherenceIssues;
-        
-        modal.addEventListener('hidden.bs.modal', () => {
-            document.body.removeChild(modal);
-        });
+        // SUPPRIMÉ - Re-scan automatique invisible maintenant
     }
 
     async retryAutomaticScan() {
-        /**
-         * 🔄 RE-SCAN AUTOMATIQUE
-         * Relance l'analyse avec des paramètres optimisés
-         */
-        console.log('🔄 Démarrage du re-scan automatique...');
-        
-        // Fermer le modal
-        const modal = document.querySelector('.modal.show');
-        if (modal) {
-            const bsModal = bootstrap.Modal.getInstance(modal);
-            bsModal.hide();
-        }
-        
-        this.showNotification('Re-scan automatique en cours...', 'info');
-        this.showProgress('Re-scan intelligent avec paramètres optimisés...');
-        
-        try {
-            // Relancer l'analyse avec l'image existante
-            if (this.currentFile || this.currentImageData) {
-                await this.analyzeInvoice(true); // true = force rescan
-            } else {
-                this.showNotification('Image non disponible pour le re-scan', 'error');
-                this.hideProgress();
-            }
-        } catch (error) {
-            console.error('❌ Erreur re-scan automatique:', error);
-            this.showNotification('Erreur lors du re-scan automatique', 'error');
-            this.hideProgress();
-        }
+        // SUPPRIMÉ - Logique intégrée dans handleIncoherentResults
     }
 
     acceptPartialResults() {
-        /**
-         * ✅ ACCEPTER LES RÉSULTATS PARTIELS
-         * Affiche les résultats malgré les incohérences
-         */
-        console.log('✅ Acceptation des résultats partiels...');
-        
-        // Fermer le modal
-        const modal = document.querySelector('.modal.show');
-        if (modal) {
-            const bsModal = bootstrap.Modal.getInstance(modal);
-            bsModal.hide();
-        }
-        
-        // Marquer les résultats comme acceptés malgré les problèmes
-        if (this.partialResults) {
-            this.partialResults.accepted_with_issues = true;
-            this.partialResults.coherence_override = true;
-            
-            // Afficher les résultats normalement
-            this.displayResults(this.partialResults);
-            
-            this.showNotification('Résultats acceptés - Vérifiez et corrigez si nécessaire', 'warning');
-        }
+        // SUPPRIMÉ - Plus de modal, acceptation automatique après 1 re-scan
     }
 
     retakePhoto() {
-        /**
-         * 📸 REPRENDRE LA PHOTO
-         * Remet le scanner en mode capture
-         */
-        console.log('📸 Reprise de photo demandée...');
-        
-        // Fermer le modal
-        const modal = document.querySelector('.modal.show');
-        if (modal) {
-            const bsModal = bootstrap.Modal.getInstance(modal);
-            bsModal.hide();
-        }
-        
-        // Reset complet du scanner
-        this.resetScanner();
-        this.showNotification('Reprenez une photo de meilleure qualité', 'info');
+        // SUPPRIMÉ - Plus de modal, re-scan automatique
     }
 
     formatResultsHTML(data) {
@@ -3796,4 +3668,5 @@ ScannerPro.prototype.prepareNextScan = function() {
 
 // Nouvelles fonctions globales pour multi-pages
 
+// ... existing code ...
 // ... existing code ...
