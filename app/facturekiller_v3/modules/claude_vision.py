@@ -68,7 +68,7 @@ RÈGLES STRICTES METRO:
 - IGNORE les lignes de TVA, totaux, codes client
 - Prix en euros avec virgule décimale
 
-STRUCTURE JSON ATTENDUE:
+STRUCTURE JSON OBLIGATOIRE - RESPECTE EXACTEMENT CE FORMAT:
 {
   "supplier": "METRO",
   "invoice_number": "numéro de bon",
@@ -85,7 +85,7 @@ STRUCTURE JSON ATTENDUE:
   ]
 }
 
-Réponds UNIQUEMENT avec le JSON, pas d'autre texte.""",
+IMPORTANT: Réponds UNIQUEMENT avec ce JSON exact, rien d'autre.""",
 
                 'TRANSGOURMET': """Tu es un expert en analyse de factures TRANSGOURMET.
 Analyse cette facture et extrait UNIQUEMENT les produits alimentaires réels.
@@ -96,18 +96,77 @@ RÈGLES STRICTES TRANSGOURMET:
 - IGNORE les mentions techniques de conditionnement
 - Focus sur: viandes, poissons, légumes, épicerie, produits laitiers
 
-Réponds UNIQUEMENT avec le JSON de structure identique.""",
+STRUCTURE JSON OBLIGATOIRE - RESPECTE EXACTEMENT CE FORMAT:
+{
+  "supplier": "TRANSGOURMET",
+  "invoice_number": "numero facture",
+  "date": "YYYY-MM-DD",
+  "total_amount": 156.78,
+  "products": [
+    {
+      "name": "nom du produit",
+      "quantity": 2,
+      "unit": "kg",
+      "unit_price": 12.50,
+      "total_price": 25.00
+    }
+  ]
+}
+
+IMPORTANT: Réponds UNIQUEMENT avec ce JSON exact, rien d'autre.""",
 
                 'GENERIC': """Tu es un expert en analyse de factures alimentaires.
-Analyse cette facture et extrait UNIQUEMENT les produits alimentaires réels.
+Analyse cette facture et extrait TOUS les produits alimentaires avec leurs prix.
 
 RÈGLES STRICTES:
-- IGNORE tous les codes techniques, références, numéros
-- GARDE SEULEMENT les noms de produits alimentaires
-- Simplifie les noms (ex: "FILET DE BOEUF 1KG SOUS VIDE" → "Filet de bœuf")
-- IGNORE: TVA, totaux, frais, codes client, mentions techniques
+- Identifie le fournisseur (METRO, TRANSGOURMET, BRAKE, PROMOCASH ou autre)
+- Extrait TOUS les produits alimentaires avec quantités et prix
+- IGNORE: TVA, totaux, frais de livraison, codes techniques
+- Simplifie les noms de produits
 
-Réponds UNIQUEMENT avec le JSON."""
+STRUCTURE JSON OBLIGATOIRE - RESPECTE EXACTEMENT CE FORMAT:
+{
+  "supplier": "nom du fournisseur",
+  "invoice_number": "numero de la facture",
+  "date": "YYYY-MM-DD",
+  "total_amount": 123.45,
+  "products": [
+    {
+      "name": "nom du produit alimentaire",
+      "quantity": 1,
+      "unit": "pièce",
+      "unit_price": 15.90,
+      "total_price": 15.90
+    },
+    {
+      "name": "autre produit",
+      "quantity": 2,
+      "unit": "kg", 
+      "unit_price": 8.50,
+      "total_price": 17.00
+    }
+  ]
+}
+
+EXEMPLE CONCRET:
+Si tu vois "FILET BOEUF 500G - 25.90€", tu dois retourner:
+{
+  "supplier": "METRO",
+  "invoice_number": "12345",
+  "date": "2025-07-02",
+  "total_amount": 25.90,
+  "products": [
+    {
+      "name": "Filet de bœuf",
+      "quantity": 1,
+      "unit": "pièce",
+      "unit_price": 25.90,
+      "total_price": 25.90
+    }
+  ]
+}
+
+IMPORTANT: Réponds UNIQUEMENT avec le JSON dans ce format exact, pas d'autre texte."""
             }
         
         except Exception as e:
