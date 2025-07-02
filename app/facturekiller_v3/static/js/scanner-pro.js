@@ -458,17 +458,10 @@ class ScannerPro {
         // Afficher les boutons d'action
         document.getElementById('actionButtons').style.display = 'block';
         
-        // Auto-analyse SEULEMENT si explicitement activée dans les paramètres
-        // ET pas déjà en cours de traitement
-        if (this.isAutoAnalyzeEnabled() && !this.isProcessing && !this.analysisResult) {
-            console.log('🤖 Auto-analyse activée, lancement dans 1 seconde...');
-            setTimeout(() => this.analyzeInvoice(), 1000);
-        } else {
-            console.log('🔸 Auto-analyse désactivée ou conditions non remplies');
-            console.log('   - isAutoAnalyzeEnabled:', this.isAutoAnalyzeEnabled());
-            console.log('   - isProcessing:', this.isProcessing);
-            console.log('   - analysisResult:', !!this.analysisResult);
-        }
+        // 🚫 SCAN AUTOMATIQUE COMPLÈTEMENT DÉSACTIVÉ
+        // L'utilisateur doit toujours cliquer sur le bouton "Analyser"
+        console.log('📸 Image sélectionnée, cliquez sur "Analyser" pour scanner');
+        this.showNotification('📸 Image prête ! Cliquez sur "Analyser cette facture"', 'info');
     }
 
     validateFile(file) {
@@ -670,27 +663,18 @@ class ScannerPro {
             
 
             
-            console.log('📊 DEBUG: Début du remplissage - MAIS REDIRECTION IMMÉDIATE');
+            console.log('📊 DEBUG: Remplissage des informations...');
             
-            // 🚀 REDIRECTION IMMÉDIATE VERS VALIDATION
-            // On sauvegarde les données et on redirige tout de suite
-            sessionStorage.setItem('lastScanResult', JSON.stringify(data));
-            sessionStorage.setItem('lastScanImage', this.currentImageData);
+            // Remplir les informations de facture
+            this.fillInvoiceInfo(data);
             
-            // Sauvegarder dans l'historique avant de partir
-            this.saveToHistory(data);
+            // Remplir la liste des produits
+            await this.fillProductsList(data);
             
-            // Notification et redirection
-            this.showNotification('✅ Analyse terminée ! Redirection vers la validation...', 'success');
+            // Afficher les statistiques rapides
+            this.fillQuickStats(data);
             
-            // Redirection immédiate
-            setTimeout(() => {
-                console.log('🚀 REDIRECTION VERS SCANNER-EDITION');
-                window.location.href = '/scanner-edition';
-            }, 1500);
-            
-            // On arrête ici - pas besoin d'afficher les résultats puisqu'on redirige
-            return;
+            console.log('🔍 DEBUG: Recherche de l\'élément analysisResults...');
             
             // Animer l'affichage des résultats
             const resultsElement = document.getElementById('analysisResults') || document.getElementById('scanResults');
@@ -739,6 +723,19 @@ class ScannerPro {
             this.saveToHistory(data);
             
             console.log('✅ DEBUG: Résultats affichés avec succès');
+            
+            // 🎯 REDIRECTION VERS PAGE D'ÉDITION APRÈS SCAN RÉUSSI
+            setTimeout(() => {
+                // Sauvegarder les données dans sessionStorage pour la page d'édition
+                sessionStorage.setItem('scanResults', JSON.stringify(data));
+                sessionStorage.setItem('scanTimestamp', new Date().toISOString());
+                
+                console.log('🔄 Redirection vers page d\'édition...');
+                this.showNotification('✅ Scan réussi ! Redirection...', 'success');
+                
+                // Rediriger vers la page d'édition
+                window.location.href = '/demo-ia-suggestions';
+            }, 1500);
             
         } catch (error) {
             console.error('❌ DEBUG: Erreur affichage résultats:', error);
@@ -2184,12 +2181,6 @@ class ScannerPro {
                     </div>
                     <div class="modal-body">
                         <div class="form-check form-switch mb-3">
-                            <input class="form-check-input" type="checkbox" id="autoAnalyze" ${this.isAutoAnalyzeEnabled() ? 'checked' : ''}>
-                            <label class="form-check-label" for="autoAnalyze">
-                                Analyse automatique
-                            </label>
-                        </div>
-                        <div class="form-check form-switch mb-3">
                             <input class="form-check-input" type="checkbox" id="hapticFeedback" ${this.isHapticEnabled() ? 'checked' : ''}>
                             <label class="form-check-label" for="hapticFeedback">
                                 Vibrations
@@ -2227,20 +2218,12 @@ class ScannerPro {
         const saveBtn = modal.querySelector('#saveSettingsBtn');
         saveBtn.addEventListener('click', () => {
             // Sauvegarder tous les paramètres
-            const autoAnalyze = modal.querySelector('#autoAnalyze').checked;
             const hapticFeedback = modal.querySelector('#hapticFeedback').checked;
             const imageQuality = modal.querySelector('#imageQuality').value;
             
-            // FIX: Correction de la double ligne et sauvegarde correcte
-            localStorage.setItem('autoAnalyze', String(autoAnalyze));
+            // Sauvegarde des paramètres
             localStorage.setItem('hapticFeedback', String(hapticFeedback));
             localStorage.setItem('imageQuality', imageQuality);
-            
-            // Sauvegarder aussi dans la checkbox principale si elle existe
-            const autoAnalysisCheckbox = document.getElementById('autoAnalysis');
-            if (autoAnalysisCheckbox) {
-                autoAnalysisCheckbox.checked = autoAnalyze;
-            }
             
             // Notifier l'utilisateur
             this.showNotification('✅ Paramètres sauvegardés !', 'success');
@@ -2255,23 +2238,7 @@ class ScannerPro {
     }
 
     isAutoAnalyzeEnabled() {
-        // Vérifier d'abord dans localStorage
-        const storedValue = localStorage.getItem('autoAnalyze');
-        console.log('🔍 DEBUG isAutoAnalyzeEnabled - localStorage:', storedValue);
-        
-        if (storedValue !== null) {
-            return storedValue === 'true';
-        }
-        
-        // Sinon vérifier le paramètre d'analyse automatique dans le DOM
-        const autoAnalysisCheckbox = document.getElementById('autoAnalysis');
-        if (autoAnalysisCheckbox) {
-            console.log('🔍 DEBUG isAutoAnalyzeEnabled - checkbox:', autoAnalysisCheckbox.checked);
-            return autoAnalysisCheckbox.checked;
-        }
-        
-        // Par défaut DÉSACTIVÉ pour éviter les scans non voulus
-        console.log('🔍 DEBUG isAutoAnalyzeEnabled - défaut: false');
+        // 🚫 FONCTION DÉSACTIVÉE - Le scan automatique est supprimé
         return false;
     }
 

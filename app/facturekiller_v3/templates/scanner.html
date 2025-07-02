@@ -548,12 +548,7 @@
                         <i class="bi bi-arrow-repeat me-2"></i>🔄 Nouveau
                     </button>
                 </div>
-                <!-- TEMPORAIRE: Bouton de test -->
-                <div class="col-12 mt-2">
-                    <button class="btn btn-warning w-100" onclick="testRedirection()">
-                        🧪 TESTER REDIRECTION
-                    </button>
-                </div>
+
             </div>
         </div>
     </div>
@@ -934,14 +929,7 @@
                         <option value="1.0">Maximum</option>
                     </select>
                 </div>
-                <div class="mb-3">
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="autoAnalysis" checked>
-                        <label class="form-check-label" for="autoAnalysis">
-                            Analyse automatique
-                        </label>
-                    </div>
-                </div>
+
             </div>
         </div>
     </div>
@@ -965,30 +953,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Bouton de test temporaire pour la redirection
-window.testRedirection = function() {
-    console.log('🧪 TEST: Redirection vers scanner-validation');
-    // Données de test
-    const testData = {
-        supplier: 'TEST FOURNISSEUR',
-        invoice_number: 'TEST-001',
-        total_amount: 123.45,
-        products: [
-            { name: 'Produit Test 1', quantity: 1, unit_price: 10 },
-            { name: 'Produit Test 2', quantity: 2, unit_price: 20 }
-        ]
-    };
-    sessionStorage.setItem('lastScanResult', JSON.stringify(testData));
-    sessionStorage.setItem('lastScanImage', 'data:image/png;base64,test');
-    
-    if (window.scanner) {
-        window.scanner.showNotification('🧪 Test redirection...', 'info');
-    }
-    
-    setTimeout(() => {
-        window.location.href = '/scanner-edition';
-    }, 1000);
-};
+
 
 // Patch pour éviter les erreurs JavaScript
 document.addEventListener('DOMContentLoaded', function() {
