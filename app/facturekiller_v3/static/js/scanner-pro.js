@@ -724,18 +724,9 @@ class ScannerPro {
             
             console.log('✅ DEBUG: Résultats affichés avec succès');
             
-            // 🎯 REDIRECTION VERS PAGE D'ÉDITION APRÈS SCAN RÉUSSI
-            setTimeout(() => {
-                // Sauvegarder les données dans sessionStorage pour la page d'édition
-                sessionStorage.setItem('scanResults', JSON.stringify(data));
-                sessionStorage.setItem('scanTimestamp', new Date().toISOString());
-                
-                console.log('🔄 Redirection vers page d\'édition...');
-                this.showNotification('✅ Scan réussi ! Redirection...', 'success');
-                
-                // Rediriger vers la page d'édition
-                window.location.href = '/demo-ia-suggestions';
-            }, 1500);
+            // 🎯 SAUVEGARDER LES DONNÉES POUR L'ÉDITION (SANS REDIRECTION AUTO)
+            sessionStorage.setItem('scanResults', JSON.stringify(data));
+            sessionStorage.setItem('scanTimestamp', new Date().toISOString());
             
         } catch (error) {
             console.error('❌ DEBUG: Erreur affichage résultats:', error);

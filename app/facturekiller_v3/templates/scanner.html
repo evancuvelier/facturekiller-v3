@@ -664,8 +664,8 @@
                         </button>
                     </div>
                     <div class="col-6">
-                        <button class="btn btn-outline-primary w-100" onclick="showEditModal()">
-                            <i class="bi bi-pencil me-2"></i>✏️ Éditer
+                        <button class="btn btn-primary w-100" onclick="goToEditPage()">
+                            <i class="bi bi-pencil-square me-2"></i>✏️ Éditer Facture
                         </button>
                     </div>
                     <div class="col-6">
@@ -1565,6 +1565,12 @@ setTimeout(() => {
         console.warn('⚠️ window.scanner pas encore disponible');
     }
 }, 2000);
+
+// Fonction pour aller à la page d'édition
+function goToEditPage() {
+    console.log('🔄 Redirection vers page d\'édition...');
+    window.location.href = '/demo-ia-suggestions';
+}
 </script>
 
 <!-- 🎯 SECTION QUEUE DES FACTURES - NOUVEAU SYSTÈME MULTI-FACTURES -->
