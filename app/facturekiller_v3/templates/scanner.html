@@ -1227,27 +1227,334 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('✅ Scanner patches appliqués');
 });
 
-// Ajouter les event listeners pour le calcul automatique
-document.addEventListener('DOMContentLoaded', function() {
-    const receivedQuantityInput = document.getElementById('receivedQuantity');
-    const orderedQuantityInput = document.getElementById('orderedQuantity');
-    
-    if (receivedQuantityInput) {
-        receivedQuantityInput.addEventListener('input', calculateQuantityDifference);
+// 🔧 CORRECTIONS URGENTES POUR LES 3 PROBLÈMES
+setTimeout(() => {
+    if (window.scanner) {
+        console.log('🔧 Application des corrections...');
+        
+        // Fix 2: Réglages - Override showSettings avec sauvegarde forcée
+        window.scanner.showSettings = function() {
+            const modal = document.createElement('div');
+            modal.className = 'modal fade';
+            modal.innerHTML = `
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">
+                                <i class="bi bi-gear me-2"></i>⚙️ Paramètres Scanner
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="autoAnalyze" ${this.isAutoAnalyzeEnabled() ? 'checked' : ''}>
+                                <label class="form-check-label" for="autoAnalyze">
+                                    <strong>Analyse automatique</strong><br>
+                                    <small class="text-muted">Analyser directement après sélection d'image</small>
+                                </label>
+                            </div>
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="hapticFeedback" ${this.isHapticEnabled() ? 'checked' : ''}>
+                                <label class="form-check-label" for="hapticFeedback">
+                                    <strong>Vibrations</strong>
+                                </label>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label"><strong>Qualité d'image</strong></label>
+                                <select class="form-select" id="imageQuality">
+                                    <option value="0.6">Économique</option>
+                                    <option value="0.8" selected>Standard</option>
+                                    <option value="0.95">Haute qualité</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                            <button type="button" class="btn btn-primary" id="saveSettingsBtn">
+                                <i class="bi bi-check-lg me-2"></i>Confirmer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            const bsModal = new bootstrap.Modal(modal);
+            bsModal.show();
+            
+            // CORRECTION FORCÉE: Sauvegarde complète
+            modal.querySelector('#saveSettingsBtn').addEventListener('click', () => {
+                const autoAnalyze = modal.querySelector('#autoAnalyze').checked;
+                const hapticFeedback = modal.querySelector('#hapticFeedback').checked;
+                const imageQuality = modal.querySelector('#imageQuality').value;
+                
+                localStorage.setItem('autoAnalyze', String(autoAnalyze));
+                localStorage.setItem('hapticFeedback', String(hapticFeedback));
+                localStorage.setItem('imageQuality', imageQuality);
+                
+                console.log('🔧 Paramètres FORCÉS:', { autoAnalyze, hapticFeedback, imageQuality });
+                
+                this.showNotification('✅ Paramètres sauvegardés !', 'success');
+                bsModal.hide();
+            });
+            
+            modal.addEventListener('hidden.bs.modal', () => {
+                document.body.removeChild(modal);
+            });
+        };
+        
+        // Fix 3: Affichage résultats - Override avec forçage
+        const originalDisplayResults = window.scanner.displayResults;
+        window.scanner.displayResults = async function(data) {
+            console.log('🔧 FIX displayResults appelé:', data);
+            
+            try {
+                this.hideProgress();
+                this.analysisResult = data;
+                
+                // Éviter re-scan infinis
+                if (data.coherence_check && !this.hasRetried && !data.accepted_with_issues) {
+                    const coherenceIssues = this.checkResultCoherence(data);
+                    if (coherenceIssues.needsRescan) {
+                        return this.handleIncoherentResults(data, coherenceIssues);
+                    }
+                }
+                
+                // Remplir les données
+                this.fillInvoiceInfo(data);
+                await this.fillProductsList(data);
+                this.fillQuickStats(data);
+                
+                // FORCER l'affichage
+                const uploadZone = document.getElementById('uploadZone');
+                const imagePreview = document.getElementById('imagePreview');
+                const actionButtons = document.getElementById('actionButtons');
+                let resultsElement = document.getElementById('analysisResults');
+                
+                // Masquer upload/preview
+                if (uploadZone) uploadZone.style.display = 'none';
+                if (imagePreview) imagePreview.style.display = 'none';
+                if (actionButtons) actionButtons.style.display = 'none';
+                
+                // Créer résultats si nécessaire
+                if (!resultsElement) {
+                    this.createResultsContainer();
+                    resultsElement = document.getElementById('analysisResults');
+                }
+                
+                // AFFICHER FORCÉ
+                if (resultsElement) {
+                    resultsElement.style.display = 'block';
+                    resultsElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    console.log('✅ FIX: Résultats affichés !');
+                }
+                
+                this.startSaveReminder();
+                this.saveToHistory(data);
+                
+            } catch (error) {
+                console.error('❌ FIX displayResults error:', error);
+                this.showNotification('Erreur: ' + error.message, 'error');
+            }
+        };
+        
+        console.log('✅ CORRECTIONS APPLIQUÉES !');
     }
-    
-    if (orderedQuantityInput) {
-        orderedQuantityInput.addEventListener('input', calculateQuantityDifference);
+}, 2000);
+
+// 🔧 CORRECTIONS URGENTES POUR LES 3 PROBLÈMES
+setTimeout(() => {
+    if (window.scanner) {
+        console.log('🔧 Application des corrections...');
+        
+        // Fix 1: Historique - Le modal existe, mais il faut fix loadHistoryList
+        const originalLoadHistoryList = window.scanner.loadHistoryList;
+        window.scanner.loadHistoryList = function() {
+            const historyList = document.getElementById('historyList');
+            if (!historyList) {
+                console.warn('❌ historyList element not found');
+                const historyContent = document.getElementById('historyContent');
+                if (historyContent) {
+                    historyContent.innerHTML = '<div id="historyList"><p class="text-muted text-center">Historique non disponible</p></div>';
+                }
+                return;
+            }
+            
+            return originalLoadHistoryList.call(this);
+        };
+        
+        // Fix 2: Réglages - Override showSettings avec sauvegarde forcée
+        window.scanner.showSettings = function() {
+            const modal = document.createElement('div');
+            modal.className = 'modal fade';
+            modal.innerHTML = `
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">
+                                <i class="bi bi-gear me-2"></i>⚙️ Paramètres Scanner
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="autoAnalyze" ${this.isAutoAnalyzeEnabled() ? 'checked' : ''}>
+                                <label class="form-check-label" for="autoAnalyze">
+                                    <strong>Analyse automatique</strong><br>
+                                    <small class="text-muted">Analyser directement après sélection d'image</small>
+                                </label>
+                            </div>
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="hapticFeedback" ${this.isHapticEnabled() ? 'checked' : ''}>
+                                <label class="form-check-label" for="hapticFeedback">
+                                    <strong>Vibrations</strong><br>
+                                    <small class="text-muted">Feedback haptique pour les notifications</small>
+                                </label>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label"><strong>Qualité d'image</strong></label>
+                                <select class="form-select" id="imageQuality">
+                                    <option value="0.6">Économique (rapide)</option>
+                                    <option value="0.8" selected>Standard (recommandé)</option>
+                                    <option value="0.95">Haute qualité (lent)</option>
+                                </select>
+                            </div>
+                            <hr>
+                            <div class="d-grid">
+                                <button class="btn btn-danger" onclick="if(confirm('Vraiment vider l\\'historique ?')) scanner.clearHistory()">
+                                    <i class="bi bi-trash me-2"></i>Vider l'historique
+                                </button>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                            <button type="button" class="btn btn-primary" id="saveSettingsBtn">
+                                <i class="bi bi-check-lg me-2"></i>Confirmer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            const bsModal = new bootstrap.Modal(modal);
+            bsModal.show();
+            
+            // CORRECTION FORCÉE: Sauvegarde complète des paramètres
+            modal.querySelector('#saveSettingsBtn').addEventListener('click', () => {
+                const autoAnalyze = modal.querySelector('#autoAnalyze').checked;
+                const hapticFeedback = modal.querySelector('#hapticFeedback').checked;
+                const imageQuality = modal.querySelector('#imageQuality').value;
+                
+                // FORCER la sauvegarde dans localStorage
+                localStorage.setItem('autoAnalyze', String(autoAnalyze));
+                localStorage.setItem('hapticFeedback', String(hapticFeedback));
+                localStorage.setItem('imageQuality', imageQuality);
+                
+                console.log('🔧 Paramètres FORCÉS:', { autoAnalyze, hapticFeedback, imageQuality });
+                console.log('🔧 Vérification localStorage:', {
+                    autoAnalyze: localStorage.getItem('autoAnalyze'),
+                    hapticFeedback: localStorage.getItem('hapticFeedback'),
+                    imageQuality: localStorage.getItem('imageQuality')
+                });
+                
+                this.showNotification('✅ Paramètres sauvegardés !', 'success');
+                bsModal.hide();
+            });
+            
+            modal.addEventListener('hidden.bs.modal', () => {
+                document.body.removeChild(modal);
+            });
+        };
+        
+        // Fix 3: Affichage résultats - Override displayResults avec forçage
+        const originalDisplayResults = window.scanner.displayResults;
+        window.scanner.displayResults = async function(data) {
+            console.log('🔧 FIX displayResults appelé:', data);
+            
+            try {
+                this.hideProgress();
+                this.analysisResult = data;
+                
+                // Éviter re-scan infinis (condition stricte)
+                if (data.coherence_check && !this.hasRetried && !data.accepted_with_issues) {
+                    const coherenceIssues = this.checkResultCoherence(data);
+                    if (coherenceIssues.needsRescan) {
+                        console.log('🔄 FIX: Re-scan nécessaire');
+                        return this.handleIncoherentResults(data, coherenceIssues);
+                    }
+                }
+                
+                // Remplir les données
+                this.fillInvoiceInfo(data);
+                await this.fillProductsList(data);
+                this.fillQuickStats(data);
+                
+                // FORCER l'affichage des résultats
+                const uploadZone = document.getElementById('uploadZone');
+                const imagePreview = document.getElementById('imagePreview');
+                const actionButtons = document.getElementById('actionButtons');
+                let resultsElement = document.getElementById('analysisResults');
+                
+                console.log('🔧 FIX: Éléments trouvés:', {
+                    uploadZone: !!uploadZone,
+                    imagePreview: !!imagePreview,
+                    actionButtons: !!actionButtons,
+                    resultsElement: !!resultsElement
+                });
+                
+                // Masquer upload/preview FORCÉ
+                if (uploadZone) {
+                    uploadZone.style.display = 'none';
+                    console.log('🔧 Upload zone masquée');
+                }
+                if (imagePreview) {
+                    imagePreview.style.display = 'none';
+                    console.log('🔧 Preview masquée');
+                }
+                if (actionButtons) {
+                    actionButtons.style.display = 'none';
+                    console.log('🔧 Action buttons masqués');
+                }
+                
+                // Créer ou trouver les résultats
+                if (!resultsElement) {
+                    console.log('🔧 FIX: Création container résultats...');
+                    this.createResultsContainer();
+                    resultsElement = document.getElementById('analysisResults');
+                }
+                
+                // AFFICHER FORCÉ les résultats
+                if (resultsElement) {
+                    resultsElement.style.display = 'block';
+                    resultsElement.style.visibility = 'visible';
+                    resultsElement.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'start' 
+                    });
+                    console.log('✅ FIX: Résultats FORCÉS à s\\'afficher !');
+                } else {
+                    console.error('❌ FIX: Impossible de créer/afficher les résultats');
+                    this.showNotification('Erreur: Impossible d\\'afficher les résultats', 'error');
+                }
+                
+                // Démarrer les rappels
+                this.startSaveReminder();
+                this.saveToHistory(data);
+                
+                console.log('✅ FIX: displayResults terminé avec SUCCÈS');
+                
+            } catch (error) {
+                console.error('❌ FIX: Erreur displayResults:', error);
+                this.showNotification('Erreur affichage: ' + error.message, 'error');
+            }
+        };
+        
+        console.log('✅ TOUTES LES CORRECTIONS APPLIQUÉES !');
+    } else {
+        console.warn('⚠️ window.scanner pas encore disponible');
     }
-    
-    // Charger le script multi-pages
-    const script = document.createElement('script');
-    script.src = '/static/js/scanner-multi-pages.js';
-    script.onload = function() {
-        console.log('📄 Scanner Multi-Pages chargé et intégré');
-    };
-    document.head.appendChild(script);
-});
+}, 2000);
 </script>
 
 <!-- 🎯 SECTION QUEUE DES FACTURES - NOUVEAU SYSTÈME MULTI-FACTURES -->

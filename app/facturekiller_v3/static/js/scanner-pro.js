@@ -651,7 +651,8 @@ class ScannerPro {
             this.analysisResult = data;
             
             // 🧠 VÉRIFICATION INTELLIGENTE D'INCOHÉRENCES
-            if (data.coherence_check) {
+            // Ne faire le re-scan QUE si on n'a pas encore réessayé
+            if (data.coherence_check && !this.hasRetried && !data.accepted_with_issues) {
                 const coherenceIssues = this.checkResultCoherence(data);
                 if (coherenceIssues.needsRescan) {
                     console.log('🔄 DEBUG: Re-scan nécessaire, redirection...');
@@ -678,6 +679,17 @@ class ScannerPro {
             
             if (resultsElement) {
                 console.log('✅ DEBUG: Affichage de l\'élément résultats');
+                
+                // Masquer les zones d'upload et preview
+                const uploadZone = document.getElementById('uploadZone');
+                const imagePreview = document.getElementById('imagePreview');
+                const actionButtons = document.getElementById('actionButtons');
+                
+                if (uploadZone) uploadZone.style.display = 'none';
+                if (imagePreview) imagePreview.style.display = 'none';
+                if (actionButtons) actionButtons.style.display = 'none';
+                
+                // Afficher les résultats
                 resultsElement.style.display = 'block';
                 resultsElement.scrollIntoView({ 
                     behavior: 'smooth', 
@@ -1706,9 +1718,35 @@ class ScannerPro {
     }
 
     showHistory() {
-        const modal = new bootstrap.Modal(document.getElementById('historyModal'));
+        // Créer le modal d'historique dynamiquement s'il n'existe pas
+        let modal = document.getElementById('historyModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.className = 'modal fade';
+            modal.id = 'historyModal';
+            modal.innerHTML = `
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">
+                                <i class="bi bi-clock-history me-2"></i>📚 Historique des Scans
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div id="historyContent">
+                                <!-- History will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+        
+        const bsModal = new bootstrap.Modal(modal);
         this.loadHistoryList();
-        modal.show();
+        bsModal.show();
     }
 
     loadHistoryList() {
@@ -2174,6 +2212,7 @@ class ScannerPro {
             const hapticFeedback = modal.querySelector('#hapticFeedback').checked;
             const imageQuality = modal.querySelector('#imageQuality').value;
             
+            localStorage.setItem('autoAnalyze', autoAnalyze);
             localStorage.setItem('autoAnalyze', autoAnalyze);
             localStorage.setItem('hapticFeedback', hapticFeedback);
             localStorage.setItem('imageQuality', imageQuality);
