@@ -372,22 +372,18 @@
         </div>
     </div>
 
-    <!-- Mode Selector -->
+    <!-- Mode Selector - Scan Rapide Uniquement -->
     <div class="mode-selector p-3">
-        <div class="row g-2">
-            <div class="col-6">
-                <input type="radio" class="btn-check" name="scanMode" id="quickScan" value="quick" checked>
-                <label class="btn btn-outline-primary w-100 py-3" for="quickScan">
-                    <i class="bi bi-lightning-fill d-block fs-4 mb-1"></i>
-                    <small class="fw-bold">Scan Rapide</small>
-                </label>
-            </div>
-            <div class="col-6">
-                <input type="radio" class="btn-check" name="scanMode" id="orderScan" value="order">
-                <label class="btn btn-outline-success w-100 py-3" for="orderScan">
-                    <i class="bi bi-cart-check-fill d-block fs-4 mb-1"></i>
-                    <small class="fw-bold">Vérif. Commande</small>
-                </label>
+        <div class="d-flex justify-content-center">
+            <div class="scan-mode-card bg-gradient-primary text-white rounded-4 p-4 text-center shadow-lg" style="background: linear-gradient(135deg, #0d6efd 0%, #3b82f6 100%); max-width: 300px; width: 100%;">
+                <div class="mode-icon mb-2">
+                    <i class="bi bi-lightning-fill" style="font-size: 3rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));"></i>
+                </div>
+                <h5 class="fw-bold mb-2">⚡ Scan Intelligent</h5>
+                <p class="mb-0 opacity-90">
+                    <small>Analyse automatique avec IA • Vision Claude • Reconnaissance OCR</small>
+                </p>
+                <input type="hidden" name="scanMode" value="quick">
             </div>
         </div>
     </div>
@@ -414,41 +410,60 @@
             </div>
         </div>
 
-        <!-- Upload Zone -->
+        <!-- Upload Zone - Design Moderne -->
         <div class="upload-zone" id="uploadZone">
-            <div class="upload-content text-center p-5">
-                <div class="upload-icon mb-3">
-                    <i class="bi bi-camera-fill text-primary" style="font-size: 4rem;"></i>
+            <div class="upload-content text-center p-4">
+                <!-- Icône principale avec animation -->
+                <div class="upload-icon mb-4 position-relative">
+                    <div class="icon-circle bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 100px; height: 100px;">
+                        <i class="bi bi-camera-fill text-primary" style="font-size: 2.5rem;"></i>
+                    </div>
                 </div>
-                <h5 class="fw-bold mb-2">📸 Scanner une facture</h5>
-                <p class="text-muted mb-4">Prenez plusieurs photos si la facture fait plusieurs pages</p>
                 
-                <!-- Camera Buttons -->
-                <div class="camera-buttons mb-4">
-                    <button class="btn btn-primary btn-lg" onclick="document.getElementById('fileInput').click()">
-                        <i class="bi bi-camera me-2"></i>Scanner une facture
+                <!-- Titre principal -->
+                <h4 class="fw-bold text-primary mb-2">📸 Scanner une Facture</h4>
+                <p class="text-muted mb-4 px-2">Analyse intelligente avec IA • Reconnaissance automatique des données</p>
+                
+                <!-- Bouton principal stylé -->
+                <div class="main-scan-button mb-4">
+                    <button class="btn btn-primary btn-lg px-5 py-3 rounded-pill shadow-lg position-relative overflow-hidden" onclick="document.getElementById('fileInput').click()" style="background: linear-gradient(135deg, #0d6efd 0%, #3b82f6 100%); border: none; transition: all 0.3s ease;">
+                        <i class="bi bi-camera-fill me-2"></i>
+                        <span class="fw-bold">Prendre une Photo</span>
                     </button>
                 </div>
 
                 <!-- File Input -->
                 <input type="file" id="fileInput" class="d-none" accept="image/*,.pdf,.heic,.heif" capture="environment" multiple>
                 
-                <!-- Multi-page Info -->
-                <div class="multi-page-info mb-3">
-                    <div class="alert alert-info border-0" style="background: rgba(13, 202, 240, 0.1);">
-                        <i class="bi bi-info-circle me-2"></i>
-                        <strong>Facture multi-pages ?</strong><br>
-                        <small>Ajoutez plusieurs photos - elles seront analysées ensemble</small>
+                <!-- Fonctionnalités -->
+                <div class="features-grid mb-4">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <div class="feature-card bg-light rounded-3 p-3 h-100">
+                                <i class="bi bi-collection text-info mb-2 d-block" style="font-size: 1.5rem;"></i>
+                                <small class="fw-bold d-block">Multi-pages</small>
+                                <small class="text-muted">Factures longues</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="feature-card bg-light rounded-3 p-3 h-100">
+                                <i class="bi bi-robot text-success mb-2 d-block" style="font-size: 1.5rem;"></i>
+                                <small class="fw-bold d-block">IA Vision</small>
+                                <small class="text-muted">Claude AI</small>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
-                <!-- Supported Formats -->
+                <!-- Formats supportés -->
                 <div class="supported-formats">
-                    <small class="text-muted">
-                        <i class="bi bi-check-circle text-success me-1"></i>JPG, PNG, PDF, HEIC
-                        <span class="mx-2">•</span>
-                        <i class="bi bi-shield-check text-success me-1"></i>Max 10MB par image
-                    </small>
+                    <div class="bg-success bg-opacity-10 rounded-pill px-3 py-2 d-inline-block">
+                        <small class="text-success fw-bold">
+                            <i class="bi bi-check-circle me-1"></i>JPG • PNG • PDF • HEIC
+                            <span class="mx-2">•</span>
+                            Max 10MB
+                        </small>
+                    </div>
                 </div>
             </div>
         </div>
@@ -525,30 +540,53 @@
         </div>
     </div>
 
-    <!-- Action Buttons - Quand image sélectionnée -->
+    <!-- Action Buttons - Design Moderne -->
     <div class="action-buttons" id="actionButtons" style="display: none;">
-        <div class="d-grid gap-2 p-3">
-            <button class="btn btn-warning btn-lg fw-bold" onclick="analyzeInvoice()">
-                <i class="bi bi-robot me-2"></i>🤖 Analyser cette facture
-            </button>
+        <div class="p-4">
+            <!-- Bouton principal d'analyse -->
+            <div class="text-center mb-4">
+                <button class="btn btn-warning btn-lg px-5 py-3 rounded-pill shadow-lg fw-bold position-relative overflow-hidden" onclick="analyzeInvoice()" style="background: linear-gradient(135deg, #ffc107 0%, #ff8c00 100%); border: none; transition: all 0.3s ease; transform: scale(1);">
+                    <i class="bi bi-robot me-2" style="font-size: 1.2rem;"></i>
+                    <span>🤖 Analyser cette Facture</span>
+                </button>
+            </div>
+            
+            <!-- Actions secondaires -->
+            <div class="secondary-actions">
+                <div class="row g-2">
+                    <div class="col-6">
+                        <button class="btn btn-outline-primary w-100 rounded-pill" onclick="document.getElementById('fileInput').click()">
+                            <i class="bi bi-plus-circle me-1"></i>
+                            <small>Autre Photo</small>
+                        </button>
+                    </div>
+                    <div class="col-6">
+                        <button class="btn btn-outline-secondary w-100 rounded-pill" onclick="resetScanner()">
+                            <i class="bi bi-arrow-repeat me-1"></i>
+                            <small>Recommencer</small>
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Final Actions - Navigation principale -->
+    <!-- Final Actions - Navigation Moderne -->
     <div class="final-actions p-3">
-        <div class="d-grid gap-2">            
+        <div class="d-grid gap-3">            
             <div class="row g-2">
                 <div class="col-6">
-                    <button class="btn btn-primary w-100" onclick="document.getElementById('fileInput').click()">
-                        <i class="bi bi-plus-circle me-2"></i>➕ Ajouter Photo
+                    <button class="btn btn-primary w-100 rounded-pill py-2 shadow-sm" onclick="document.getElementById('fileInput').click()" style="background: linear-gradient(135deg, #0d6efd 0%, #3b82f6 100%); border: none;">
+                        <i class="bi bi-plus-circle me-2"></i>
+                        <span class="fw-bold">➕ Nouveau Scan</span>
                     </button>
                 </div>
                 <div class="col-6">
-                    <button class="btn btn-outline-secondary w-100" onclick="resetScanner()">
-                        <i class="bi bi-arrow-repeat me-2"></i>🔄 Nouveau
+                    <button class="btn btn-outline-secondary w-100 rounded-pill py-2" onclick="resetScanner()">
+                        <i class="bi bi-arrow-repeat me-2"></i>
+                        <span class="fw-bold">🔄 Recommencer</span>
                     </button>
                 </div>
-
             </div>
         </div>
     </div>
@@ -1302,9 +1340,9 @@ setTimeout(() => {
                 localStorage.setItem('hapticFeedback', String(hapticFeedback));
                 localStorage.setItem('imageQuality', imageQuality);
                 
-                console.log('🔧 Paramètres FORCÉS:', { autoAnalyze, hapticFeedback, imageQuality });
+                console.log('Parametres sauvegardes:', { autoAnalyze, hapticFeedback, imageQuality });
                 
-                this.showNotification('✅ Paramètres sauvegardés !', 'success');
+                this.showNotification('Parametres sauvegardes avec succes!', 'success');
                 bsModal.hide();
             });
             

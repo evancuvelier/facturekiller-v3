@@ -563,13 +563,9 @@ class ScannerPro {
             const formData = new FormData();
             formData.append('file', imageFile);
             
-            // Mode de scan
-            const scanMode = document.querySelector('input[name="scanMode"]:checked').value;
+            // Mode de scan - Toujours rapide maintenant
+            const scanMode = 'quick';
             formData.append('mode', scanMode);
-            
-            if (scanMode === 'order' && this.selectedOrderId) {
-                formData.append('order_id', this.selectedOrderId);
-            }
             
             // Métadonnées
             formData.append('timestamp', Date.now());
@@ -3297,14 +3293,10 @@ class ScannerPro {
                 formData.append(`pages`, page.file);
             });
             
-            // Ajouter le mode de scan
-            const scanMode = document.querySelector('input[name="scanMode"]:checked')?.value || 'quick';
+            // Ajouter le mode de scan - Toujours rapide maintenant  
+            const scanMode = 'quick';
             formData.append('mode', scanMode);
             formData.append('multipage', 'true');
-            
-            if (scanMode === 'order' && this.selectedOrderId) {
-                formData.append('order_id', this.selectedOrderId);
-            }
             
             // Envoyer à l'API
             const response = await fetch('/api/invoices/analyze', {
