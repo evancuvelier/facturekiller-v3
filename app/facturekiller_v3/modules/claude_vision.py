@@ -12,10 +12,17 @@ import logging
 from datetime import datetime
 import anthropic
 from PIL import Image
-import pillow_heif
 
-# Enregistrer le support HEIF
-pillow_heif.register_heif_opener()
+# Support HEIF/HEIC avec gestion d'erreur
+try:
+    import pillow_heif
+    # Enregistrer le support HEIF
+    pillow_heif.register_heif_opener()
+    HEIF_SUPPORT = True
+    print("✅ Support HEIF/HEIC activé")
+except ImportError as e:
+    HEIF_SUPPORT = False
+    print(f"⚠️ Support HEIF/HEIC non disponible: {e}")
 
 logger = logging.getLogger(__name__)
 
@@ -213,33 +220,72 @@ Réponds UNIQUEMENT avec le JSON."""
     def _image_to_base64(self, image_path: str) -> Optional[str]:
         """Convertir une image en base64"""
         try:
-            # Ouvrir l'image avec PIL (support HEIC)
+            logger.info(f"🔄 Conversion image: {image_path}")
+            
+            # Vérifier l'existence du fichier
+            if not os.path.exists(image_path):
+                logger.error(f"❌ Fichier introuvable: {image_path}")
+                return None
+            
+            # Obtenir l'extension du fichier
+            file_ext = os.path.splitext(image_path)[1].lower()
+            logger.info(f"📄 Extension détectée: {file_ext}")
+            
+            # Pour les fichiers HEIC/HEIF, s'assurer que le plugin est enregistré
+            if file_ext in ['.heic', '.heif']:
+                try:
+                    import pillow_heif
+                    pillow_heif.register_heif_opener()
+                    logger.info("✅ Plugin HEIF enregistré")
+                except ImportError:
+                    logger.error("❌ pillow_heif non disponible")
+                    return None
+            
+            # Ouvrir l'image avec PIL
+            logger.info("🔄 Ouverture de l'image avec PIL...")
             with Image.open(image_path) as img:
+                logger.info(f"📊 Image ouverte: {img.size}, mode: {img.mode}")
+                
                 # Convertir en RGB si nécessaire
                 if img.mode != 'RGB':
+                    logger.info(f"🔄 Conversion {img.mode} -> RGB")
                     img = img.convert('RGB')
                 
                 # Redimensionner si trop grande (max 1600px)
                 max_size = 1600
                 if max(img.size) > max_size:
+                    logger.info(f"🔄 Redimensionnement de {img.size} vers max {max_size}px")
                     img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
                 
-                # Sauvegarder temporairement en JPEG
-                temp_path = image_path + "_temp.jpg"
-                img.save(temp_path, 'JPEG', quality=85)
+                # Créer un nom de fichier temporaire unique
+                import tempfile
+                with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as temp_file:
+                    temp_path = temp_file.name
+                
+                logger.info(f"💾 Sauvegarde temporaire: {temp_path}")
+                # Sauvegarder en JPEG
+                img.save(temp_path, 'JPEG', quality=85, optimize=True)
                 
                 # Lire et encoder en base64
+                logger.info("🔢 Encodage en base64...")
                 with open(temp_path, 'rb') as f:
                     image_data = f.read()
                     base64_data = base64.b64encode(image_data).decode('utf-8')
                 
                 # Supprimer le fichier temporaire
-                os.remove(temp_path)
+                try:
+                    os.remove(temp_path)
+                    logger.info("🗑️ Fichier temporaire supprimé")
+                except:
+                    pass  # Pas grave si on ne peut pas supprimer
                 
+                logger.info(f"✅ Conversion réussie: {len(base64_data)} caractères")
                 return base64_data
                 
         except Exception as e:
-            logger.error(f"Erreur conversion image: {e}")
+            logger.error(f"❌ Erreur conversion image: {e}")
+            import traceback
+            logger.error(f"📍 Traceback: {traceback.format_exc()}")
             return None
     
     def _validate_and_enrich_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
