@@ -1229,10 +1229,7 @@ class ScannerPro {
                     this.showNewProductsNotification(newProductsInfo);
                 } else {
                     this.showNotification('✅ Facture sauvegardée avec succès!', 'success');
-                    // REDIRECTION AUTOMATIQUE vers la page factures après 2 secondes
-                    setTimeout(() => {
-                        window.location.href = '/factures';
-                    }, 2000);
+                    // PAS DE REDIRECTION - L'utilisateur reste sur la page pour voir les résultats détaillés
                 }
                 
                 // Marquer la sauvegarde comme effectuée visuellement
