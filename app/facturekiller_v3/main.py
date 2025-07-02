@@ -3546,6 +3546,34 @@ def disable_sync(restaurant_id):
             'error': str(e)
         }), 500
 
+@app.route('/api/sync/exclude-supplier', methods=['POST'])
+@login_required  
+def exclude_supplier_from_sync():
+    """Exclure un fournisseur de la synchronisation pour un restaurant"""
+    try:
+        data = request.json
+        restaurant_id = data.get('restaurant_id')
+        supplier_name = data.get('supplier_name')
+        
+        if not restaurant_id or not supplier_name:
+            return jsonify({
+                'success': False,
+                'error': 'Paramètres manquants: restaurant_id, supplier_name'
+            }), 400
+            
+        from modules.sync_manager import SyncManager
+        sync_manager = SyncManager()
+        
+        result = sync_manager.exclude_supplier_from_sync(restaurant_id, supplier_name)
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Erreur API exclude supplier: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/sync/available-restaurants/<client_id>', methods=['GET'])
 @login_required
 @role_required('master_admin')

@@ -107,7 +107,7 @@ class SyncManager:
             
             sync_settings = source_restaurant.get('sync_settings', {})
             if not sync_settings.get('sync_enabled') or not sync_settings.get('sync_suppliers'):
-                return {'success': True, 'message': 'Synchronisation désactivée', 'synced_count': 0}
+                return {'success': True, 'message': 'Synchronisation fournisseurs désactivée', 'synced_count': 0}
             
             sync_group = sync_settings.get('sync_group')
             if not sync_group:
@@ -122,6 +122,12 @@ class SyncManager:
             
             for restaurant in group_restaurants:
                 if restaurant['id'] != source_restaurant_id:  # Ne pas se synchroniser soi-même
+                    # 🚫 VÉRIFIER LA LISTE D'EXCLUSION
+                    excluded_suppliers = restaurant.get('excluded_suppliers', [])
+                    if new_supplier in excluded_suppliers:
+                        logger.info(f"Fournisseur '{new_supplier}' exclu de la synchronisation pour {restaurant['name']}")
+                        continue
+                    
                     # Ajouter le fournisseur s'il n'existe pas déjà
                     if 'suppliers' not in restaurant:
                         restaurant['suppliers'] = []
@@ -298,6 +304,51 @@ class SyncManager:
             'sync_group': None,
             'sync_master': False
         })
+    
+    def exclude_supplier_from_sync(self, restaurant_id: str, supplier_name: str) -> Dict[str, Any]:
+        """Exclure un fournisseur de la synchronisation pour un restaurant spécifique"""
+        try:
+            restaurants = self.get_restaurants()
+            restaurant = next((r for r in restaurants if r['id'] == restaurant_id), None)
+            
+            if not restaurant:
+                return {'success': False, 'error': 'Restaurant non trouvé'}
+            
+            # Initialiser la liste d'exclusion si elle n'existe pas
+            if 'excluded_suppliers' not in restaurant:
+                restaurant['excluded_suppliers'] = []
+            
+            # Ajouter le fournisseur à la liste d'exclusion s'il n'y est pas déjà
+            if supplier_name not in restaurant['excluded_suppliers']:
+                restaurant['excluded_suppliers'].append(supplier_name)
+                
+                # Retirer le fournisseur de la liste des fournisseurs actifs
+                if 'suppliers' in restaurant and supplier_name in restaurant['suppliers']:
+                    restaurant['suppliers'].remove(supplier_name)
+                
+                # Mettre à jour la liste des restaurants
+                for i, r in enumerate(restaurants):
+                    if r['id'] == restaurant_id:
+                        restaurants[i] = restaurant
+                        break
+                
+                # Sauvegarder
+                if self.save_restaurants(restaurants):
+                    return {
+                        'success': True,
+                        'message': f"Fournisseur '{supplier_name}' exclu de la synchronisation pour {restaurant['name']}"
+                    }
+                else:
+                    return {'success': False, 'error': 'Erreur de sauvegarde'}
+            else:
+                return {
+                    'success': True,
+                    'message': f"Fournisseur '{supplier_name}' déjà exclu pour {restaurant['name']}"
+                }
+                
+        except Exception as e:
+            logger.error(f"Erreur exclusion fournisseur: {e}")
+            return {'success': False, 'error': str(e)}
     
     def get_available_restaurants_for_sync(self, client_id: str) -> List[Dict]:
         """Récupérer les restaurants disponibles pour la synchronisation (même client)"""

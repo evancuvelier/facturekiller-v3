@@ -718,6 +718,23 @@ class ScannerPro {
             // Sauvegarder automatiquement dans l'historique
             this.saveToHistory(data);
             
+            // 🔔 DÉCLENCHER L'ÉVÉNEMENT DE SCAN TERMINÉ POUR ACTUALISER LES AUTRES PAGES
+            const newProductsCount = data.price_comparison?.new_products || 0;
+            const newSupplierCreated = data.new_supplier_created || false;
+            
+            if (newProductsCount > 0 || newSupplierCreated) {
+                const event = new CustomEvent('invoiceScanCompleted', {
+                    detail: {
+                        newProductsCount: newProductsCount,
+                        newSupplierCreated: newSupplierCreated,
+                        supplier: data.supplier || data.invoice_info?.supplier,
+                        timestamp: new Date().toISOString()
+                    }
+                });
+                window.dispatchEvent(event);
+                console.log(`🔔 Événement 'invoiceScanCompleted' déclenché: ${newProductsCount} nouveaux produits, nouveau fournisseur: ${newSupplierCreated}`);
+            }
+            
             console.log('✅ DEBUG: Résultats affichés avec succès');
             
             // 🎯 SAUVEGARDER LES DONNÉES POUR L'ÉDITION (SANS REDIRECTION AUTO)
