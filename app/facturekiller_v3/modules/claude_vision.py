@@ -383,7 +383,71 @@ Réponds UNIQUEMENT avec le JSON."""
                         
                 except Exception as e2:
                     logger.error(f"❌ Erreur méthode fallback: {e2}")
-                    return None
+                    
+                    # Méthode 3: Conversion brute avec lecture directe des bytes
+                    try:
+                        logger.info("🔄 Tentative méthode 3: conversion brute...")
+                        import pillow_heif
+                        
+                        # Ouvrir le fichier HEIF avec paramètres relaxés
+                        heif_file = pillow_heif.open_heif(image_path, convert_hdr_to_8bit=True)
+                        
+                        # Obtenir la première image (principal)
+                        if hasattr(heif_file, 'primary'):
+                            primary_image = heif_file.primary
+                        else:
+                            primary_image = heif_file[0] if len(heif_file) > 0 else heif_file
+                        
+                        # Convertir en PIL Image avec numpy si nécessaire
+                        import numpy as np
+                        
+                        # Obtenir les données brutes
+                        if hasattr(primary_image, 'to_bytes'):
+                            raw_data = primary_image.to_bytes()
+                            width, height = primary_image.size
+                            mode = primary_image.mode or 'RGB'
+                        else:
+                            # Fallback
+                            raw_data = primary_image.data
+                            width, height = primary_image.size
+                            mode = primary_image.mode or 'RGB'
+                        
+                        # Créer l'image PIL
+                        img = Image.frombytes(mode, (width, height), raw_data)
+                        
+                        logger.info(f"📊 Image HEIC convertie (méthode 3): {img.size}, mode: {img.mode}")
+                        
+                        # Convertir en RGB
+                        if img.mode != 'RGB':
+                            img = img.convert('RGB')
+                        
+                        # Redimensionner
+                        max_size = 1600
+                        if max(img.size) > max_size:
+                            img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+                        
+                        # Sauvegarder et encoder
+                        import tempfile
+                        with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as temp_file:
+                            temp_path = temp_file.name
+                        
+                        img.save(temp_path, 'JPEG', quality=85, optimize=True)
+                        
+                        with open(temp_path, 'rb') as f:
+                            image_data = f.read()
+                            base64_data = base64.b64encode(image_data).decode('utf-8')
+                        
+                        try:
+                            os.remove(temp_path)
+                        except:
+                            pass
+                        
+                        logger.info(f"✅ Conversion HEIC réussie (méthode 3): {len(base64_data)} caractères")
+                        return base64_data
+                        
+                    except Exception as e3:
+                        logger.error(f"❌ Erreur méthode 3: {e3}")
+                        return None
                     
         except Exception as e:
             logger.error(f"❌ Erreur critique conversion HEIC: {e}")
