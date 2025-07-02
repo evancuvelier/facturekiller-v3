@@ -13,4 +13,5 @@ anthropic==0.34.0
 pillow-heif==0.13.0
 pytesseract==0.3.10
 opencv-python-headless==4.8.1.78
-numpy==1.24.3 
+numpy==1.24.3
+# Force rebuild cache 2025-01-02 
