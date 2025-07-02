@@ -948,6 +948,17 @@
 
 <!-- Patch corrections d'erreurs -->
 <script>
+// Synchroniser la checkbox autoAnalysis avec localStorage au chargement
+document.addEventListener('DOMContentLoaded', function() {
+    const autoAnalysisCheckbox = document.getElementById('autoAnalysis');
+    if (autoAnalysisCheckbox) {
+        const savedValue = localStorage.getItem('autoAnalyze');
+        if (savedValue !== null) {
+            autoAnalysisCheckbox.checked = savedValue === 'true';
+        }
+    }
+});
+
 // Patch pour éviter les erreurs JavaScript
 document.addEventListener('DOMContentLoaded', function() {
     // Vérifications des éléments Bootstrap modal

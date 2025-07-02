@@ -461,7 +461,13 @@ class ScannerPro {
         // Auto-analyse SEULEMENT si explicitement activée dans les paramètres
         // ET pas déjà en cours de traitement
         if (this.isAutoAnalyzeEnabled() && !this.isProcessing && !this.analysisResult) {
+            console.log('🤖 Auto-analyse activée, lancement dans 1 seconde...');
             setTimeout(() => this.analyzeInvoice(), 1000);
+        } else {
+            console.log('🔸 Auto-analyse désactivée ou conditions non remplies');
+            console.log('   - isAutoAnalyzeEnabled:', this.isAutoAnalyzeEnabled());
+            console.log('   - isProcessing:', this.isProcessing);
+            console.log('   - analysisResult:', !!this.analysisResult);
         }
     }
 
@@ -660,21 +666,7 @@ class ScannerPro {
                 }
             }
             
-            // 🚀 NOUVELLE LOGIQUE: Redirection automatique vers scanner-validation
-            // Sauvegarder d'abord les données dans le sessionStorage
-            sessionStorage.setItem('lastScanResult', JSON.stringify(data));
-            sessionStorage.setItem('lastScanImage', this.currentImageData);
-            
-            // Notification de succès
-            this.showNotification('✅ Analyse terminée ! Redirection vers la validation...', 'success');
-            
-            // Redirection après un court délai pour laisser voir la notification
-            setTimeout(() => {
-                window.location.href = '/scanner-validation';
-            }, 1500);
-            
-            // Le reste du code original ne sera pas exécuté à cause de la redirection
-            return;
+
             
             console.log('📊 DEBUG: Remplissage des informations...');
             
@@ -736,6 +728,19 @@ class ScannerPro {
             this.saveToHistory(data);
             
             console.log('✅ DEBUG: Résultats affichés avec succès');
+            
+            // 🚀 NOUVELLE LOGIQUE: Redirection automatique vers scanner-validation
+            // Sauvegarder d'abord les données dans le sessionStorage
+            sessionStorage.setItem('lastScanResult', JSON.stringify(data));
+            sessionStorage.setItem('lastScanImage', this.currentImageData);
+            
+            // Notification de succès et redirection
+            this.showNotification('✅ Analyse terminée ! Redirection vers la validation...', 'success');
+            
+            // Redirection après un court délai pour laisser voir la notification
+            setTimeout(() => {
+                window.location.href = '/scanner-validation';
+            }, 2000);
             
         } catch (error) {
             console.error('❌ DEBUG: Erreur affichage résultats:', error);
