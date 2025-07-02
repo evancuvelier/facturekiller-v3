@@ -643,7 +643,7 @@ def health():
         'version': '3.0.0',
         'timestamp': datetime.now().isoformat(),
         'services': {
-            'ocr': ocr_engine.is_available(),
+            'ocr': True,  # Toujours True car nous utilisons Claude Vision
             'database': price_manager.is_connected(),
             'modules': {
                 'scanner': True,

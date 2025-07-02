@@ -231,17 +231,12 @@ Réponds UNIQUEMENT avec le JSON."""
             file_ext = os.path.splitext(image_path)[1].lower()
             logger.info(f"📄 Extension détectée: {file_ext}")
             
-            # Pour les fichiers HEIC/HEIF, s'assurer que le plugin est enregistré
+            # Pour les fichiers HEIC/HEIF, utiliser une approche spéciale
             if file_ext in ['.heic', '.heif']:
-                try:
-                    import pillow_heif
-                    pillow_heif.register_heif_opener()
-                    logger.info("✅ Plugin HEIF enregistré")
-                except ImportError:
-                    logger.error("❌ pillow_heif non disponible")
-                    return None
+                logger.info("🔄 Traitement spécial pour fichier HEIC/HEIF")
+                return self._convert_heic_to_base64(image_path)
             
-            # Ouvrir l'image avec PIL
+            # Pour les autres formats, utiliser PIL standard
             logger.info("🔄 Ouverture de l'image avec PIL...")
             with Image.open(image_path) as img:
                 logger.info(f"📊 Image ouverte: {img.size}, mode: {img.mode}")
@@ -286,6 +281,112 @@ Réponds UNIQUEMENT avec le JSON."""
             logger.error(f"❌ Erreur conversion image: {e}")
             import traceback
             logger.error(f"📍 Traceback: {traceback.format_exc()}")
+            return None
+    
+    def _convert_heic_to_base64(self, image_path: str) -> Optional[str]:
+        """Convertir un fichier HEIC/HEIF en base64 avec méthode alternative"""
+        try:
+            logger.info("🔄 Conversion HEIC avec pillow_heif...")
+            
+            # Méthode 1: Utiliser pillow_heif directement
+            try:
+                import pillow_heif
+                
+                # Lire le fichier HEIF
+                heif_file = pillow_heif.read_heif(image_path)
+                
+                # Convertir en image PIL
+                img = Image.frombytes(
+                    heif_file.mode,
+                    heif_file.size,
+                    heif_file.data,
+                    "raw",
+                    heif_file.mode,
+                    heif_file.stride
+                )
+                
+                logger.info(f"📊 Image HEIC convertie: {img.size}, mode: {img.mode}")
+                
+                # Convertir en RGB si nécessaire
+                if img.mode != 'RGB':
+                    logger.info(f"🔄 Conversion {img.mode} -> RGB")
+                    img = img.convert('RGB')
+                
+                # Redimensionner si trop grande
+                max_size = 1600
+                if max(img.size) > max_size:
+                    logger.info(f"🔄 Redimensionnement de {img.size} vers max {max_size}px")
+                    img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+                
+                # Sauvegarder en JPEG temporaire
+                import tempfile
+                with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as temp_file:
+                    temp_path = temp_file.name
+                
+                logger.info(f"💾 Sauvegarde HEIC->JPEG: {temp_path}")
+                img.save(temp_path, 'JPEG', quality=85, optimize=True)
+                
+                # Encoder en base64
+                with open(temp_path, 'rb') as f:
+                    image_data = f.read()
+                    base64_data = base64.b64encode(image_data).decode('utf-8')
+                
+                # Supprimer le fichier temporaire
+                try:
+                    os.remove(temp_path)
+                    logger.info("🗑️ Fichier temporaire HEIC supprimé")
+                except:
+                    pass
+                
+                logger.info(f"✅ Conversion HEIC réussie: {len(base64_data)} caractères")
+                return base64_data
+                
+            except Exception as e:
+                logger.error(f"❌ Erreur méthode pillow_heif directe: {e}")
+                
+                # Méthode 2: Fallback avec PIL après enregistrement du plugin
+                try:
+                    import pillow_heif
+                    pillow_heif.register_heif_opener()
+                    
+                    # Forcer le rechargement du plugin
+                    from PIL import ImageFile
+                    ImageFile.LOAD_TRUNCATED_IMAGES = True
+                    
+                    with Image.open(image_path) as img:
+                        logger.info(f"📊 Image HEIC ouverte (fallback): {img.size}, mode: {img.mode}")
+                        
+                        if img.mode != 'RGB':
+                            img = img.convert('RGB')
+                        
+                        max_size = 1600
+                        if max(img.size) > max_size:
+                            img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+                        
+                        import tempfile
+                        with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as temp_file:
+                            temp_path = temp_file.name
+                        
+                        img.save(temp_path, 'JPEG', quality=85, optimize=True)
+                        
+                        with open(temp_path, 'rb') as f:
+                            image_data = f.read()
+                            base64_data = base64.b64encode(image_data).decode('utf-8')
+                        
+                        try:
+                            os.remove(temp_path)
+                        except:
+                            pass
+                        
+                        logger.info(f"✅ Conversion HEIC réussie (fallback): {len(base64_data)} caractères")
+                        return base64_data
+                        
+                except Exception as e2:
+                    logger.error(f"❌ Erreur méthode fallback: {e2}")
+                    return None
+                    
+        except Exception as e:
+            logger.error(f"❌ Erreur critique conversion HEIC: {e}")
             return None
     
     def _validate_and_enrich_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
