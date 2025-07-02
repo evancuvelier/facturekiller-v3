@@ -646,6 +646,7 @@ class ScannerPro {
 
     async displayResults(data) {
         try {
+            console.log('🔍 DEBUG: displayResults appelé avec data:', data);
             this.hideProgress();
             this.analysisResult = data;
             
@@ -653,9 +654,12 @@ class ScannerPro {
             if (data.coherence_check) {
                 const coherenceIssues = this.checkResultCoherence(data);
                 if (coherenceIssues.needsRescan) {
+                    console.log('🔄 DEBUG: Re-scan nécessaire, redirection...');
                     return this.handleIncoherentResults(data, coherenceIssues);
                 }
             }
+            
+            console.log('📊 DEBUG: Remplissage des informations...');
             
             // Remplir les informations de facture
             this.fillInvoiceInfo(data);
@@ -666,18 +670,35 @@ class ScannerPro {
             // Afficher les statistiques rapides
             this.fillQuickStats(data);
             
+            console.log('🔍 DEBUG: Recherche de l\'élément analysisResults...');
+            
             // Animer l'affichage des résultats
             const resultsElement = document.getElementById('analysisResults') || document.getElementById('scanResults');
+            console.log('📍 DEBUG: Element trouvé:', resultsElement);
+            
             if (resultsElement) {
+                console.log('✅ DEBUG: Affichage de l\'élément résultats');
                 resultsElement.style.display = 'block';
                 resultsElement.scrollIntoView({ 
                     behavior: 'smooth', 
                     block: 'start' 
                 });
             } else {
-                console.warn('⚠️ Élément de résultats non trouvé');
+                console.warn('⚠️ DEBUG: Élément de résultats non trouvé, création...');
                 // Créer un container de résultats temporaire si nécessaire
                 this.createResultsContainer();
+                
+                // Réessayer après création
+                const newResultsElement = document.getElementById('analysisResults');
+                console.log('🆕 DEBUG: Nouvel élément créé:', newResultsElement);
+                
+                if (newResultsElement) {
+                    newResultsElement.style.display = 'block';
+                    newResultsElement.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'start' 
+                    });
+                }
             }
             
             // Démarrer le rappel de sauvegarde après 30 secondes
@@ -686,10 +707,10 @@ class ScannerPro {
             // Sauvegarder automatiquement dans l'historique
             this.saveToHistory(data);
             
-            console.log('✅ Résultats affichés avec succès');
+            console.log('✅ DEBUG: Résultats affichés avec succès');
             
         } catch (error) {
-            console.error('❌ Erreur affichage résultats:', error);
+            console.error('❌ DEBUG: Erreur affichage résultats:', error);
             this.showNotification('Erreur lors de l\'affichage des résultats', 'error');
         }
     }
