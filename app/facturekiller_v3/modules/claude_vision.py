@@ -50,7 +50,7 @@ class ClaudeVision:
             self.client = anthropic.Anthropic(
                 api_key=api_key
             )
-            self.model = "claude-3-haiku-20240307"  # Modèle plus stable et moins cher
+            self.model = "claude-3-5-sonnet-20241022"  # Modèle plus puissant pour une meilleure lecture d'image
             
             print(f"✅ Claude Vision initialisé avec succès")
             
@@ -224,7 +224,17 @@ IMPORTANT: Réponds UNIQUEMENT avec le JSON dans ce format exact, pas d'autre te
                     },
                     {
                         "type": "text",
-                        "text": f"Analyse cette facture {supplier} et extrait les produits alimentaires selon les règles spécifiques."
+                        "text": f"""ATTENTION: Tu dois analyser EXACTEMENT ce qui est écrit sur cette image de facture.
+
+INSTRUCTIONS STRICTES:
+1. LIS VRAIMENT le texte visible sur l'image - ne devine pas, n'invente pas
+2. IDENTIFIE le vrai nom du fournisseur écrit en haut de la facture
+3. EXTRAIT seulement les produits alimentaires RÉELLEMENT listés avec leurs prix
+4. Si tu ne vois pas clairement quelque chose, mets "N/A" plutôt que d'inventer
+
+Analyse cette facture {supplier} et extrait UNIQUEMENT les informations VISIBLES sur l'image.
+
+RÉPONDS UNIQUEMENT avec le JSON dans le format exact demandé."""
                     }
                 ]
             }
@@ -312,8 +322,8 @@ IMPORTANT: Réponds UNIQUEMENT avec le JSON dans ce format exact, pas d'autre te
                     logger.info(f"🔄 Conversion {img.mode} -> RGB")
                     img = img.convert('RGB')
                 
-                # Redimensionner si trop grande (max 1600px)
-                max_size = 1600
+                # Redimensionner si trop grande (max 2048px pour meilleure qualité)
+                max_size = 2048
                 if max(img.size) > max_size:
                     logger.info(f"🔄 Redimensionnement de {img.size} vers max {max_size}px")
                     img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
@@ -324,8 +334,8 @@ IMPORTANT: Réponds UNIQUEMENT avec le JSON dans ce format exact, pas d'autre te
                     temp_path = temp_file.name
                 
                 logger.info(f"💾 Sauvegarde temporaire: {temp_path}")
-                # Sauvegarder en JPEG
-                img.save(temp_path, 'JPEG', quality=85, optimize=True)
+                # Sauvegarder en JPEG avec qualité maximale
+                img.save(temp_path, 'JPEG', quality=95, optimize=True)
                 
                 # Lire et encoder en base64
                 logger.info("🔢 Encodage en base64...")
@@ -618,7 +628,7 @@ IMPORTANT: Réponds UNIQUEMENT avec le JSON dans ce format exact, pas d'autre te
     def _detect_supplier_from_image(self, image_base64: str) -> str:
         """Détecter le fournisseur depuis l'image"""
         try:
-            # Prompt simple pour détecter le fournisseur
+            # Prompt générique pour détecter n'importe quel fournisseur
             detection_message = {
                 "role": "user",
                 "content": [
@@ -632,30 +642,30 @@ IMPORTANT: Réponds UNIQUEMENT avec le JSON dans ce format exact, pas d'autre te
                     },
                     {
                         "type": "text",
-                        "text": "Quel est le fournisseur de cette facture ? Réponds par un seul mot: METRO, TRANSGOURMET, BRAKE, PROMOCASH, MAKRO ou AUTRE"
+                        "text": """Regarde attentivement cette facture et identifie le nom du fournisseur/entreprise.
+
+Réponds UNIQUEMENT avec le nom exact du fournisseur tel qu'il apparaît sur la facture (par exemple: METRO, SYSCO, TRANSGOURMET, BRAKE, etc.).
+
+Si tu ne vois pas clairement le nom, réponds "GENERIC"."""
                     }
                 ]
             }
             
             response = self.client.messages.create(
-                model="claude-3-haiku-20240307",  # Modèle plus rapide pour la détection
-                max_tokens=10,
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=20,
                 messages=[detection_message]
             )
             
             supplier = response.content[0].text.strip().upper()
+            logger.info(f"🏪 Fournisseur brut détecté: {supplier}")
             
-            # Normaliser les réponses
-            if 'METRO' in supplier or 'MAKRO' in supplier:
-                return 'METRO'
-            elif 'TRANSGOURMET' in supplier:
-                return 'TRANSGOURMET'
-            elif 'BRAKE' in supplier:
-                return 'BRAKE'
-            elif 'PROMOCASH' in supplier:
-                return 'PROMOCASH'
-            else:
+            # Nettoyer et normaliser la réponse
+            if supplier in ['GENERIC', 'N/A', 'INCONNU', 'UNKNOWN', '']:
                 return 'GENERIC'
+            
+            # Retourner le nom exact du fournisseur détecté
+            return supplier
                 
         except Exception as e:
             logger.warning(f"Erreur détection fournisseur: {e}")
@@ -666,7 +676,7 @@ IMPORTANT: Réponds UNIQUEMENT avec le JSON dans ce format exact, pas d'autre te
         try:
             # Test simple avec un message texte
             response = self.client.messages.create(
-                model="claude-3-haiku-20240307",  # Modèle moins cher pour le test
+                model="claude-3-5-sonnet-20241022",  # Modèle moins cher pour le test
                 max_tokens=10,
                 messages=[{
                     "role": "user",
