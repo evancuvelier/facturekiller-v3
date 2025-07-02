@@ -65,6 +65,17 @@ async function loadOrders(page = 1) {
         if (result.success) {
             let allOrders = result.data || [];
             
+            // 🎯 FILTRER LES COMMANDES LIVRÉES (ne pas les afficher dans la liste des commandes)
+            const originalCount = allOrders.length;
+            allOrders = allOrders.filter(order => {
+                return order.status !== 'delivered' && order.status !== 'delivered_with_issues';
+            });
+            
+            const deliveredCount = originalCount - allOrders.length;
+            if (deliveredCount > 0) {
+                console.log(`✅ ${deliveredCount} commandes livrées filtrées (disponibles dans Factures)`);
+            }
+            
             // Appliquer les filtres côté client
             const supplier = document.getElementById('supplierFilter')?.value || '';
             const status = document.getElementById('statusFilter')?.value || '';
