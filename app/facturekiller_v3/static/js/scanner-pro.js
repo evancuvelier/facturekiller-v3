@@ -660,6 +660,22 @@ class ScannerPro {
                 }
             }
             
+            // 🚀 NOUVELLE LOGIQUE: Redirection automatique vers scanner-validation
+            // Sauvegarder d'abord les données dans le sessionStorage
+            sessionStorage.setItem('lastScanResult', JSON.stringify(data));
+            sessionStorage.setItem('lastScanImage', this.currentImageData);
+            
+            // Notification de succès
+            this.showNotification('✅ Analyse terminée ! Redirection vers la validation...', 'success');
+            
+            // Redirection après un court délai pour laisser voir la notification
+            setTimeout(() => {
+                window.location.href = '/scanner-validation';
+            }, 1500);
+            
+            // Le reste du code original ne sera pas exécuté à cause de la redirection
+            return;
+            
             console.log('📊 DEBUG: Remplissage des informations...');
             
             // Remplir les informations de facture
@@ -2212,13 +2228,19 @@ class ScannerPro {
             const hapticFeedback = modal.querySelector('#hapticFeedback').checked;
             const imageQuality = modal.querySelector('#imageQuality').value;
             
-            localStorage.setItem('autoAnalyze', autoAnalyze);
-            localStorage.setItem('autoAnalyze', autoAnalyze);
-            localStorage.setItem('hapticFeedback', hapticFeedback);
+            // FIX: Correction de la double ligne et sauvegarde correcte
+            localStorage.setItem('autoAnalyze', String(autoAnalyze));
+            localStorage.setItem('hapticFeedback', String(hapticFeedback));
             localStorage.setItem('imageQuality', imageQuality);
             
+            // Sauvegarder aussi dans la checkbox principale si elle existe
+            const autoAnalysisCheckbox = document.getElementById('autoAnalysis');
+            if (autoAnalysisCheckbox) {
+                autoAnalysisCheckbox.checked = autoAnalyze;
+            }
+            
             // Notifier l'utilisateur
-            this.showNotification('Paramètres sauvegardés !', 'success');
+            this.showNotification('✅ Paramètres sauvegardés !', 'success');
             
             // Fermer le modal
             bsModal.hide();
@@ -2230,15 +2252,20 @@ class ScannerPro {
     }
 
     isAutoAnalyzeEnabled() {
-        // Vérifier le paramètre d'analyse automatique
+        // Vérifier d'abord dans localStorage
+        const storedValue = localStorage.getItem('autoAnalyze');
+        if (storedValue !== null) {
+            return storedValue === 'true';
+        }
+        
+        // Sinon vérifier le paramètre d'analyse automatique dans le DOM
         const autoAnalysisCheckbox = document.getElementById('autoAnalysis');
         if (autoAnalysisCheckbox) {
             return autoAnalysisCheckbox.checked;
         }
         
-        // Fallback sur localStorage
-        const stored = localStorage.getItem('autoAnalyze');
-        return stored === 'true' || stored === null; // Par défaut activé
+        // Par défaut activé
+        return true;
     }
 
     isHapticEnabled() {
@@ -3449,6 +3476,26 @@ function showHistory() {
 
 function showSettings() {
     window.scanner.showSettings();
+}
+
+function addMoreScans() {
+    // Fonction pour ajouter plusieurs scans
+    if (window.scanner) {
+        window.scanner.showNotification('📸 Mode multi-factures activé', 'info');
+        
+        // Réinitialiser pour un nouveau scan
+        window.scanner.resetScanner();
+        
+        // Activer le mode multi-factures
+        window.scanner.isMultiInvoiceMode = true;
+        
+        // Afficher la liste des factures scannées si elle existe
+        const scannedList = document.getElementById('scannedInvoicesList');
+        if (scannedList) {
+            scannedList.style.display = 'block';
+            window.scanner.updateScannedInvoicesDisplay();
+        }
+    }
 }
 
 function toggleProductsView() {

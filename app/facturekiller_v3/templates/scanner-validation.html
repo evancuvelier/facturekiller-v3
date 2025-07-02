@@ -174,12 +174,70 @@
 
         // Vérifier si on est en mode vérification des commandes
         document.addEventListener('DOMContentLoaded', function() {
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('mode') === 'verify-orders' || window.location.pathname === '/scanner-validation') {
-                verificationMode = true;
-                loadTodayOrdersForVerification();
+            // 🚀 NOUVEAU: Récupérer les données du scan depuis sessionStorage
+            const lastScanResult = sessionStorage.getItem('lastScanResult');
+            const lastScanImage = sessionStorage.getItem('lastScanImage');
+            
+            if (lastScanResult) {
+                try {
+                    const scanData = JSON.parse(lastScanResult);
+                    console.log('📊 Données du scan récupérées:', scanData);
+                    
+                    // Stocker les données
+                    currentInvoiceData = scanData;
+                    if (lastScanImage) {
+                        currentInvoiceData.image_path = lastScanImage;
+                    }
+                    
+                    // Afficher les données de la facture
+                    displayScannedInvoiceData(scanData);
+                    
+                    // Passer directement à l'étape 2 - sélection de commande
+                    nextStep(2);
+                    
+                    // Notification
+                    showToast('Succès', '✅ Facture chargée ! Sélectionnez maintenant la commande correspondante.', 'success');
+                    
+                    // Nettoyer sessionStorage
+                    sessionStorage.removeItem('lastScanResult');
+                    sessionStorage.removeItem('lastScanImage');
+                    
+                } catch (error) {
+                    console.error('Erreur chargement scan:', error);
+                    showToast('Erreur', '❌ Erreur lors du chargement du scan', 'error');
+                }
+            } else {
+                // Mode normal
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('mode') === 'verify-orders' || window.location.pathname === '/scanner-validation') {
+                    verificationMode = true;
+                    loadTodayOrdersForVerification();
+                }
             }
         });
+        
+        // Fonction pour afficher les données de la facture scannée
+        function displayScannedInvoiceData(scanData) {
+            // Créer un résumé de la facture scannée
+            const summaryHtml = `
+                <div class="alert alert-info mb-3">
+                    <h6 class="mb-2"><i class="fas fa-receipt me-2"></i>Facture scannée</h6>
+                    <strong>Fournisseur:</strong> ${scanData.supplier || scanData.fournisseur || 'Non détecté'}<br>
+                    <strong>N° Facture:</strong> ${scanData.invoice_number || scanData.numero_facture || 'Non détecté'}<br>
+                    <strong>Total:</strong> ${(scanData.total_amount || scanData.montant_total || 0).toFixed(2)} €<br>
+                    <strong>Produits:</strong> ${(scanData.products || scanData.produits || []).length} détectés
+                </div>
+            `;
+            
+            // Ajouter le résumé en haut de la page
+            const container = document.querySelector('.container');
+            const existingSummary = container.querySelector('.alert-info');
+            if (existingSummary) {
+                existingSummary.outerHTML = summaryHtml;
+            } else {
+                container.insertAdjacentHTML('afterbegin', summaryHtml);
+            }
+        }
 
         // Nouvelle fonction pour charger les commandes du jour à vérifier
         function loadTodayOrdersForVerification() {
@@ -440,6 +498,43 @@
             html += '</div>';
             
             container.innerHTML = html;
+        }
+        
+        // Fonction showToast pour les notifications
+        function showToast(title, message, type = 'info') {
+            // Créer le toast
+            const toastHtml = `
+                <div class="toast align-items-center text-white bg-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            <strong>${title}:</strong> ${message}
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                </div>
+            `;
+            
+            // Container pour les toasts
+            let toastContainer = document.getElementById('toast-container');
+            if (!toastContainer) {
+                toastContainer = document.createElement('div');
+                toastContainer.id = 'toast-container';
+                toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+                document.body.appendChild(toastContainer);
+            }
+            
+            // Ajouter le toast
+            toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+            
+            // Initialiser et afficher le toast
+            const toastElement = toastContainer.lastElementChild;
+            const toast = new bootstrap.Toast(toastElement);
+            toast.show();
+            
+            // Supprimer le toast après fermeture
+            toastElement.addEventListener('hidden.bs.toast', () => {
+                toastElement.remove();
+            });
         }
 
         function selectOrder(orderId) {
