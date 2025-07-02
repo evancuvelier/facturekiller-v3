@@ -24,11 +24,22 @@ class ClaudeVision:
     
     def __init__(self):
         try:
-            # Compatible avec anthropic 0.34.0+
+            # Debug: vérifier les variables d'environnement
+            print("🔍 Debug: Vérification des variables d'environnement...")
             api_key = os.getenv('ANTHROPIC_API_KEY')
+            print(f"🔍 API Key trouvée: {api_key is not None}")
+            if api_key:
+                print(f"🔍 API Key commence par: {api_key[:10]}...")
+            else:
+                print("❌ ANTHROPIC_API_KEY est None ou vide")
+                # Essayer d'autres noms possibles
+                alt_key = os.getenv('ANTHROPIC_KEY')
+                print(f"🔍 ANTHROPIC_KEY alternative: {alt_key is not None}")
+            
             if not api_key:
                 raise ValueError("ANTHROPIC_API_KEY non trouvée dans les variables d'environnement")
             
+            print("🔄 Création du client Anthropic...")
             self.client = anthropic.Anthropic(
                 api_key=api_key
             )
@@ -93,7 +104,9 @@ Réponds UNIQUEMENT avec le JSON."""
             }
         
         except Exception as e:
-            print(f"❌ Erreur initialisation Claude Vision: {e}")
+            print(f"❌ ERREUR DÉTAILLÉE initialisation Claude Vision: {type(e).__name__}: {e}")
+            import traceback
+            print(f"❌ Traceback: {traceback.format_exc()}")
             self.client = None
             self.model = None
     
