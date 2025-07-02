@@ -181,33 +181,40 @@ Réponds UNIQUEMENT avec le JSON."""
             
             # Extraire le texte de la réponse
             response_text = response.content[0].text.strip()
-            logger.info(f"📝 Réponse Claude: {response_text[:200]}...")
+            logger.info(f"📝 Réponse Claude BRUTE (premiers 500 chars): {response_text[:500]}")
+            logger.info(f"📝 Réponse Claude COMPLÈTE: {response_text}")
             
             # Parser le JSON
             try:
                 # Nettoyer la réponse
+                original_text = response_text
                 if response_text.startswith('```json'):
                     response_text = response_text[7:]
                 if response_text.endswith('```'):
                     response_text = response_text[:-3]
                 
+                logger.info(f"🧹 Texte nettoyé: {response_text}")
+                
                 analysis_data = json.loads(response_text.strip())
+                logger.info(f"✅ JSON parsé avec succès: {analysis_data}")
                 
                 # Valider et enrichir les données
                 analysis_data = self._validate_and_enrich_data(analysis_data)
+                logger.info(f"🔍 Données enrichies: {analysis_data}")
                 
                 return {
                     'success': True,
                     'data': analysis_data,
-                    'raw_response': response_text
+                    'raw_response': original_text
                 }
                 
             except json.JSONDecodeError as e:
-                logger.error(f"Erreur parsing JSON: {e}")
+                logger.error(f"❌ Erreur parsing JSON: {e}")
+                logger.error(f"📄 Texte qui a causé l'erreur: '{response_text}'")
                 return {
                     'success': False,
                     'error': f'Réponse JSON invalide: {str(e)}',
-                    'raw_response': response_text
+                    'raw_response': original_text
                 }
                 
         except Exception as e:
