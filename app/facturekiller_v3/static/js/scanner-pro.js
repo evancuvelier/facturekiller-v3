@@ -653,11 +653,18 @@ class ScannerPro {
             this.fillQuickStats(data);
             
             // Animer l'affichage des résultats
-            document.getElementById('scanResults').style.display = 'block';
-            document.getElementById('scanResults').scrollIntoView({ 
-                behavior: 'smooth', 
-                block: 'start' 
-            });
+            const resultsElement = document.getElementById('analysisResults') || document.getElementById('scanResults');
+            if (resultsElement) {
+                resultsElement.style.display = 'block';
+                resultsElement.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'start' 
+                });
+            } else {
+                console.warn('⚠️ Élément de résultats non trouvé');
+                // Créer un container de résultats temporaire si nécessaire
+                this.createResultsContainer();
+            }
             
             // Démarrer le rappel de sauvegarde après 30 secondes
             this.startSaveReminder();
@@ -759,11 +766,11 @@ class ScannerPro {
          */
         console.log('⚠️ Résultats incohérents détectés, gestion automatique...');
         
-        // Afficher une notification d'incohérence
-        this.showNotification('Incohérences détectées dans l\'analyse - Vérification automatique...', 'warning');
-        
         // Masquer les résultats partiels
-        document.getElementById('scanResults').style.display = 'none';
+        const resultsElement = document.getElementById('analysisResults') || document.getElementById('scanResults');
+        if (resultsElement) {
+            resultsElement.style.display = 'none';
+        }
         
         // Afficher le modal d'incohérence avec options
         this.showCoherenceModal(data, coherenceIssues);
@@ -3404,6 +3411,48 @@ class ScannerPro {
             this.isProcessing = false;
             this.hideProgress();
         }
+    }
+
+    createResultsContainer() {
+        /**
+         * 🔧 CRÉER LE CONTAINER DE RÉSULTATS SI ABSENT
+         * Fallback au cas où l'élément n'existe pas dans le DOM
+         */
+        const existingContainer = document.getElementById('analysisResults');
+        if (existingContainer) return;
+        
+        const container = document.createElement('div');
+        container.id = 'analysisResults';
+        container.className = 'analysis-results';
+        container.style.display = 'none';
+        container.innerHTML = `
+            <div class="results-container">
+                <div class="results-header">
+                    <div class="d-flex align-items-center justify-content-between p-3 bg-success text-white">
+                        <h5 class="mb-0">
+                            <i class="bi bi-check-circle me-2"></i>🎉 Facture analysée !
+                        </h5>
+                        <button class="btn btn-outline-light btn-sm" onclick="resetScanner()">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="results-content p-3" id="resultsContent">
+                    <!-- Le contenu sera rempli dynamiquement -->
+                </div>
+            </div>
+        `;
+        
+        // Insérer après l'upload zone
+        const uploadZone = document.getElementById('uploadZone');
+        if (uploadZone && uploadZone.parentNode) {
+            uploadZone.parentNode.insertBefore(container, uploadZone.nextSibling);
+        } else {
+            // Fallback: ajouter à la fin du body
+            document.body.appendChild(container);
+        }
+        
+        console.log('✅ Container de résultats créé');
     }
 }
 
