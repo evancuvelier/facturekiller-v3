@@ -721,18 +721,31 @@ class ScannerPro {
             // 🔔 DÉCLENCHER L'ÉVÉNEMENT DE SCAN TERMINÉ POUR ACTUALISER LES AUTRES PAGES
             const newProductsCount = data.price_comparison?.new_products || 0;
             const newSupplierCreated = data.new_supplier_created || false;
+            const supplierSynced = data.supplier_synced || false;
+            const syncCount = data.sync_count || 0;
             
             if (newProductsCount > 0 || newSupplierCreated) {
                 const event = new CustomEvent('invoiceScanCompleted', {
                     detail: {
                         newProductsCount: newProductsCount,
                         newSupplierCreated: newSupplierCreated,
+                        supplierSynced: supplierSynced,
+                        syncCount: syncCount,
+                        syncRestaurants: data.sync_restaurants || [],
                         supplier: data.supplier || data.invoice_info?.supplier,
                         timestamp: new Date().toISOString()
                     }
                 });
                 window.dispatchEvent(event);
-                console.log(`🔔 Événement 'invoiceScanCompleted' déclenché: ${newProductsCount} nouveaux produits, nouveau fournisseur: ${newSupplierCreated}`);
+                console.log(`🔔 Événement 'invoiceScanCompleted' déclenché: ${newProductsCount} nouveaux produits, nouveau fournisseur: ${newSupplierCreated}, synchronisé: ${supplierSynced}`);
+                
+                // 🔄 NOTIFICATION DE SYNCHRONISATION MULTI-RESTAURANT
+                if (supplierSynced && syncCount > 0) {
+                    this.showNotification(
+                        `🔄 Fournisseur synchronisé vers ${syncCount} restaurant(s) couplé(s) !`,
+                        'info'
+                    );
+                }
             }
             
             console.log('✅ DEBUG: Résultats affichés avec succès');

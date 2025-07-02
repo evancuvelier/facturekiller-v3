@@ -857,6 +857,20 @@ def process_invoice_analysis(analysis_data, filepath):
                     print(f"✅ Fournisseur '{supplier_name}' créé automatiquement pour le restaurant '{current_restaurant.get('name')}'")
                     analysis_data['new_supplier_created'] = True
                     analysis_data['supplier_message'] = f"Nouveau fournisseur '{supplier_name}' créé automatiquement"
+                    
+                    # 🔄 SYNCHRONISER LE NOUVEAU FOURNISSEUR VERS LES AUTRES RESTAURANTS DU GROUPE
+                    try:
+                        from modules.sync_manager import SyncManager
+                        sync_manager = SyncManager()
+                        sync_result = sync_manager.sync_suppliers_to_group(current_restaurant['id'], supplier_name)
+                        if sync_result.get('synced_count', 0) > 0:
+                            print(f"✅ Fournisseur '{supplier_name}' synchronisé vers {sync_result['synced_count']} restaurant(s) : {sync_result.get('synced_restaurants', [])}")
+                            analysis_data['supplier_synced'] = True
+                            analysis_data['sync_count'] = sync_result['synced_count']
+                            analysis_data['sync_restaurants'] = sync_result.get('synced_restaurants', [])
+                    except Exception as sync_error:
+                        logger.warning(f"Erreur synchronisation nouveau fournisseur: {sync_error}")
+                        # Ne pas faire échouer l'analyse si la sync échoue
         
         # Étape 2: Comparaison des prix avec filtrage par restaurant
         if analysis_data.get('products'):
@@ -1313,11 +1327,49 @@ def get_pending_products():
 
 @app.route('/api/prices/pending/<int:pending_id>/validate', methods=['POST'])
 def validate_pending_product(pending_id):
-    """Valider un produit en attente"""
+    """Valider un produit en attente et synchroniser vers le groupe"""
     try:
+        # Récupérer le contexte utilisateur pour la synchronisation
+        user_context = auth_manager.get_user_context()
+        current_restaurant = user_context.get('restaurant')
+        
+        # Récupérer les détails du produit avant validation
+        pending_products = price_manager.get_pending_products()
+        product_to_validate = next((p for p in pending_products if p.get('id') == pending_id), None)
+        
         success = price_manager.validate_pending_product(pending_id)
         
         if success:
+            # 🔄 SYNCHRONISER LE NOUVEAU PRIX VERS LES AUTRES RESTAURANTS DU GROUPE
+            if current_restaurant and product_to_validate:
+                try:
+                    from modules.sync_manager import SyncManager
+                    sync_manager = SyncManager()
+                    
+                    # Préparer les données du produit pour la synchronisation
+                    product_data = {
+                        'produit': product_to_validate.get('produit'),
+                        'prix': product_to_validate.get('prix'),
+                        'unite': product_to_validate.get('unite'),
+                        'fournisseur': product_to_validate.get('fournisseur'),
+                        'categorie': product_to_validate.get('categorie', 'Auto'),
+                        'restaurant': current_restaurant.get('name')
+                    }
+                    
+                    sync_result = sync_manager.sync_prices_to_group(current_restaurant.get('name'), product_data)
+                    if sync_result.get('synced_count', 0) > 0:
+                        print(f"✅ Prix validé et synchronisé vers {sync_result['synced_count']} restaurant(s)")
+                        
+                        return jsonify({
+                            'success': True,
+                            'message': f'Produit validé et synchronisé vers {sync_result["synced_count"]} restaurant(s)',
+                            'sync_count': sync_result['synced_count'],
+                            'sync_restaurants': sync_result.get('synced_restaurants', [])
+                        })
+                except Exception as sync_error:
+                    logger.warning(f"Erreur synchronisation prix validé: {sync_error}")
+                    # Ne pas faire échouer la validation si la sync échoue
+            
             return jsonify({
                 'success': True,
                 'message': 'Produit validé et ajouté aux prix de référence'
@@ -3546,10 +3598,10 @@ def disable_sync(restaurant_id):
             'error': str(e)
         }), 500
 
-@app.route('/api/sync/exclude-supplier', methods=['POST'])
+@app.route('/api/sync/remove-supplier', methods=['POST'])
 @login_required  
-def exclude_supplier_from_sync():
-    """Exclure un fournisseur de la synchronisation pour un restaurant"""
+def sync_remove_supplier():
+    """Synchroniser la suppression d'un fournisseur dans le groupe"""
     try:
         data = request.json
         restaurant_id = data.get('restaurant_id')
@@ -3564,11 +3616,38 @@ def exclude_supplier_from_sync():
         from modules.sync_manager import SyncManager
         sync_manager = SyncManager()
         
-        result = sync_manager.exclude_supplier_from_sync(restaurant_id, supplier_name)
+        result = sync_manager.sync_supplier_removal_to_group(restaurant_id, supplier_name)
         return jsonify(result)
         
     except Exception as e:
-        logger.error(f"Erreur API exclude supplier: {e}")
+        logger.error(f"Erreur API sync remove supplier: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/sync/full-suppliers', methods=['POST'])
+@login_required  
+def sync_full_suppliers():
+    """Synchroniser la liste complète des fournisseurs dans le groupe"""
+    try:
+        data = request.json
+        restaurant_id = data.get('restaurant_id')
+        
+        if not restaurant_id:
+            return jsonify({
+                'success': False,
+                'error': 'Paramètre manquant: restaurant_id'
+            }), 400
+            
+        from modules.sync_manager import SyncManager
+        sync_manager = SyncManager()
+        
+        result = sync_manager.sync_full_suppliers_list_to_group(restaurant_id)
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Erreur API sync full suppliers: {e}")
         return jsonify({
             'success': False,
             'error': str(e)

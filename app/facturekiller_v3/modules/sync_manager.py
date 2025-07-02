@@ -122,12 +122,6 @@ class SyncManager:
             
             for restaurant in group_restaurants:
                 if restaurant['id'] != source_restaurant_id:  # Ne pas se synchroniser soi-même
-                    # 🚫 VÉRIFIER LA LISTE D'EXCLUSION
-                    excluded_suppliers = restaurant.get('excluded_suppliers', [])
-                    if new_supplier in excluded_suppliers:
-                        logger.info(f"Fournisseur '{new_supplier}' exclu de la synchronisation pour {restaurant['name']}")
-                        continue
-                    
                     # Ajouter le fournisseur s'il n'existe pas déjà
                     if 'suppliers' not in restaurant:
                         restaurant['suppliers'] = []
@@ -305,49 +299,128 @@ class SyncManager:
             'sync_master': False
         })
     
-    def exclude_supplier_from_sync(self, restaurant_id: str, supplier_name: str) -> Dict[str, Any]:
-        """Exclure un fournisseur de la synchronisation pour un restaurant spécifique"""
+    def sync_supplier_removal_to_group(self, source_restaurant_id: str, removed_supplier: str) -> Dict[str, Any]:
+        """Synchroniser la suppression d'un fournisseur vers tous les restaurants du groupe"""
         try:
+            source_restaurant = self.get_restaurant_by_id(source_restaurant_id)
+            if not source_restaurant:
+                return {'success': False, 'error': 'Restaurant source non trouvé'}
+            
+            sync_settings = source_restaurant.get('sync_settings', {})
+            if not sync_settings.get('sync_enabled') or not sync_settings.get('sync_suppliers'):
+                return {'success': True, 'message': 'Synchronisation fournisseurs désactivée', 'synced_count': 0}
+            
+            sync_group = sync_settings.get('sync_group')
+            if not sync_group:
+                return {'success': True, 'message': 'Aucun groupe de synchronisation', 'synced_count': 0}
+            
+            # Récupérer tous les restaurants du groupe
+            group_restaurants = self.get_restaurants_in_sync_group(sync_group)
+            synced_count = 0
+            synced_restaurants = []
+            
             restaurants = self.get_restaurants()
-            restaurant = next((r for r in restaurants if r['id'] == restaurant_id), None)
             
-            if not restaurant:
-                return {'success': False, 'error': 'Restaurant non trouvé'}
+            for restaurant in group_restaurants:
+                if restaurant['id'] != source_restaurant_id:  # Ne pas se synchroniser soi-même
+                    # Supprimer le fournisseur s'il existe
+                    if 'suppliers' in restaurant and removed_supplier in restaurant['suppliers']:
+                        restaurant['suppliers'].remove(removed_supplier)
+                        synced_count += 1
+                        synced_restaurants.append(restaurant['name'])
+                        
+                        # Mettre à jour dans la liste principale
+                        for i, r in enumerate(restaurants):
+                            if r['id'] == restaurant['id']:
+                                restaurants[i] = restaurant
+                                break
             
-            # Initialiser la liste d'exclusion si elle n'existe pas
-            if 'excluded_suppliers' not in restaurant:
-                restaurant['excluded_suppliers'] = []
-            
-            # Ajouter le fournisseur à la liste d'exclusion s'il n'y est pas déjà
-            if supplier_name not in restaurant['excluded_suppliers']:
-                restaurant['excluded_suppliers'].append(supplier_name)
-                
-                # Retirer le fournisseur de la liste des fournisseurs actifs
-                if 'suppliers' in restaurant and supplier_name in restaurant['suppliers']:
-                    restaurant['suppliers'].remove(supplier_name)
-                
-                # Mettre à jour la liste des restaurants
-                for i, r in enumerate(restaurants):
-                    if r['id'] == restaurant_id:
-                        restaurants[i] = restaurant
-                        break
-                
-                # Sauvegarder
+            # Sauvegarder les modifications
+            if synced_count > 0:
                 if self.save_restaurants(restaurants):
                     return {
                         'success': True,
-                        'message': f"Fournisseur '{supplier_name}' exclu de la synchronisation pour {restaurant['name']}"
+                        'message': f'Fournisseur {removed_supplier} supprimé de {synced_count} restaurant(s)',
+                        'synced_count': synced_count,
+                        'synced_restaurants': synced_restaurants,
+                        'sync_group': sync_group
                     }
                 else:
                     return {'success': False, 'error': 'Erreur de sauvegarde'}
             else:
                 return {
                     'success': True,
-                    'message': f"Fournisseur '{supplier_name}' déjà exclu pour {restaurant['name']}"
+                    'message': 'Fournisseur déjà absent dans tous les restaurants du groupe',
+                    'synced_count': 0
                 }
                 
         except Exception as e:
-            logger.error(f"Erreur exclusion fournisseur: {e}")
+            logger.error(f"Erreur synchronisation suppression fournisseur: {e}")
+            return {'success': False, 'error': str(e)}
+    
+    def sync_full_suppliers_list_to_group(self, source_restaurant_id: str) -> Dict[str, Any]:
+        """Synchroniser la liste complète des fournisseurs vers tous les restaurants du groupe"""
+        try:
+            source_restaurant = self.get_restaurant_by_id(source_restaurant_id)
+            if not source_restaurant:
+                return {'success': False, 'error': 'Restaurant source non trouvé'}
+            
+            sync_settings = source_restaurant.get('sync_settings', {})
+            if not sync_settings.get('sync_enabled') or not sync_settings.get('sync_suppliers'):
+                return {'success': True, 'message': 'Synchronisation fournisseurs désactivée', 'synced_count': 0}
+            
+            sync_group = sync_settings.get('sync_group')
+            if not sync_group:
+                return {'success': True, 'message': 'Aucun groupe de synchronisation', 'synced_count': 0}
+            
+            # Liste des fournisseurs du restaurant source
+            source_suppliers = source_restaurant.get('suppliers', [])
+            
+            # Récupérer tous les restaurants du groupe
+            group_restaurants = self.get_restaurants_in_sync_group(sync_group)
+            synced_count = 0
+            synced_restaurants = []
+            
+            restaurants = self.get_restaurants()
+            
+            for restaurant in group_restaurants:
+                if restaurant['id'] != source_restaurant_id:  # Ne pas se synchroniser soi-même
+                    # Remplacer complètement la liste des fournisseurs
+                    old_suppliers = restaurant.get('suppliers', [])
+                    restaurant['suppliers'] = source_suppliers.copy()
+                    
+                    if old_suppliers != restaurant['suppliers']:
+                        synced_count += 1
+                        synced_restaurants.append(restaurant['name'])
+                        
+                        # Mettre à jour dans la liste principale
+                        for i, r in enumerate(restaurants):
+                            if r['id'] == restaurant['id']:
+                                restaurants[i] = restaurant
+                                break
+            
+            # Sauvegarder les modifications
+            if synced_count > 0:
+                if self.save_restaurants(restaurants):
+                    return {
+                        'success': True,
+                        'message': f'Liste des fournisseurs synchronisée vers {synced_count} restaurant(s)',
+                        'synced_count': synced_count,
+                        'synced_restaurants': synced_restaurants,
+                        'sync_group': sync_group,
+                        'suppliers_list': source_suppliers
+                    }
+                else:
+                    return {'success': False, 'error': 'Erreur de sauvegarde'}
+            else:
+                return {
+                    'success': True,
+                    'message': 'Tous les restaurants ont déjà la même liste de fournisseurs',
+                    'synced_count': 0
+                }
+                
+        except Exception as e:
+            logger.error(f"Erreur synchronisation complète fournisseurs: {e}")
             return {'success': False, 'error': str(e)}
     
     def get_available_restaurants_for_sync(self, client_id: str) -> List[Dict]:
