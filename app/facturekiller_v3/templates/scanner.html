@@ -424,26 +424,11 @@
                 <h4 class="fw-bold text-primary mb-2">📸 Scanner une Facture</h4>
                 <p class="text-muted mb-4 px-2">Analyse intelligente avec IA • Reconnaissance automatique des données</p>
 
-                <!-- Ajout du scan simple -->
-                <div class="mb-3">
-                  <label for="scanInput" class="form-label fw-bold">Scanner une facture (photo ou scan)</label>
-                  <input type="file" accept="image/*" capture="environment" class="form-control" id="scanInput" onchange="previewScanImage(event)">
-                </div>
+                <!-- Aperçu de l'image sélectionnée -->
                 <div id="scanPreview" class="mb-3" style="display:none;">
                   <label class="form-label">Aperçu :</label>
                   <img id="scanPreviewImg" src="#" alt="Aperçu du scan" style="max-width:100%; border:1px solid #ccc; border-radius:8px;">
                 </div>
-                
-                <!-- Bouton principal stylé -->
-                <div class="main-scan-button mb-4">
-                    <button class="btn btn-primary btn-lg px-5 py-3 rounded-pill shadow-lg position-relative overflow-hidden" onclick="document.getElementById('fileInput').click()" style="background: linear-gradient(135deg, #0d6efd 0%, #3b82f6 100%); border: none; transition: all 0.3s ease;">
-                        <i class="bi bi-camera-fill me-2"></i>
-                        <span class="fw-bold">Prendre une Photo</span>
-                    </button>
-                </div>
-
-                <!-- File Input -->
-                <input type="file" id="fileInput" class="d-none" accept="image/*,.pdf,.heic,.heif" capture="environment" multiple>
                 
                 <!-- Fonctionnalités -->
                 <div class="features-grid mb-4">
@@ -565,7 +550,7 @@
             <div class="secondary-actions">
                 <div class="row g-2">
                     <div class="col-6">
-                        <button class="btn btn-outline-primary w-100 rounded-pill" onclick="document.getElementById('fileInput').click()">
+                        <button class="btn btn-outline-primary w-100 rounded-pill" onclick="document.getElementById('scanInput').click()">
                             <i class="bi bi-plus-circle me-1"></i>
                             <small>Autre Photo</small>
                         </button>
@@ -586,7 +571,7 @@
         <div class="d-grid gap-3">            
             <div class="row g-2">
                 <div class="col-6">
-                    <button class="btn btn-primary w-100 rounded-pill py-2 shadow-sm" onclick="document.getElementById('fileInput').click()" style="background: linear-gradient(135deg, #0d6efd 0%, #3b82f6 100%); border: none;">
+                    <button class="btn btn-primary w-100 rounded-pill py-2 shadow-sm" onclick="document.getElementById('scanInput').click()" style="background: linear-gradient(135deg, #0d6efd 0%, #3b82f6 100%); border: none;">
                         <i class="bi bi-plus-circle me-2"></i>
                         <span class="fw-bold">➕ Nouveau Scan</span>
                     </button>
@@ -1695,15 +1680,95 @@ function goToEditPage() {
     </button>
 </div>
 
-<!-- Ajout du bouton de scan simple -->
-<div class="mb-3">
-  <label for="scanInput" class="form-label fw-bold">Scanner une facture (photo ou scan)</label>
-  <input type="file" accept="image/*" capture="environment" class="form-control" id="scanInput" onchange="previewScanImage(event)">
+<!-- En bas de la page, bouton unique pour scanner -->
+<div class="d-grid gap-3 mt-4">
+  <input type="file" accept="image/*,.pdf,.heic,.heif" class="d-none" id="scanInput" onchange="previewScanImage(event)">
+  <button class="btn btn-primary btn-lg px-5 py-3 rounded-pill shadow-lg fw-bold" onclick="document.getElementById('scanInput').click()">
+    <i class="bi bi-camera-fill me-2"></i> Scanner la facture
+  </button>
 </div>
-<!-- Aperçu de l'image sélectionnée -->
-<div id="scanPreview" class="mb-3" style="display:none;">
-  <label class="form-label">Aperçu :</label>
-  <img id="scanPreviewImg" src="#" alt="Aperçu du scan" style="max-width:100%; border:1px solid #ccc; border-radius:8px;">
+
+<!-- 5 zones de scan parallèles -->
+<div class="container my-4">
+  <div class="row" id="multiScanSlots">
+    {% for i in range(5) %}
+    <div class="col-12 col-md-6 col-lg-4 mb-3">
+      <div class="card scan-slot" id="scanSlot{{i}}" onclick="onScanSlotClick({{i}})" style="cursor:pointer; min-height: 120px;">
+        <div class="card-body d-flex flex-column align-items-center justify-content-center">
+          <div id="scanSlotContent{{i}}">
+            <!-- JS remplit ici : bouton, chargement, ou succès -->
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
 </div>
+
+<script>
+// État des 5 slots : 'empty', 'loading', 'done', 'error'
+let scanSlots = [
+  { state: 'empty', file: null, result: null },
+  { state: 'empty', file: null, result: null },
+  { state: 'empty', file: null, result: null },
+  { state: 'empty', file: null, result: null },
+  { state: 'empty', file: null, result: null }
+];
+
+function renderScanSlots() {
+  for (let i = 0; i < 5; i++) {
+    const slot = scanSlots[i];
+    const content = document.getElementById('scanSlotContent'+i);
+    const card = document.getElementById('scanSlot'+i);
+    if (slot.state === 'empty') {
+      card.className = 'card scan-slot';
+      content.innerHTML = `<button class='btn btn-primary w-100' onclick='event.stopPropagation(); selectScanFile(${i})'><i class='bi bi-camera-fill me-2'></i>Scanner la facture</button>
+      <input type='file' accept='image/*,.pdf,.heic,.heif' class='d-none' id='scanInputSlot${i}' onchange='onScanFileSelected(event,${i})'>`;
+    } else if (slot.state === 'loading') {
+      card.className = 'card scan-slot border-warning';
+      content.innerHTML = `<div class='spinner-border text-warning mb-2'></div><div>Analyse en cours...</div>`;
+    } else if (slot.state === 'done') {
+      card.className = 'card scan-slot border-success bg-success bg-opacity-10';
+      content.innerHTML = `<i class='bi bi-check-circle-fill text-success fs-2 mb-2'></i><div class='fw-bold text-success'>Facture scannée !</div><div class='small text-muted'>Cliquez pour voir le récap</div>`;
+    } else if (slot.state === 'error') {
+      card.className = 'card scan-slot border-danger';
+      content.innerHTML = `<i class='bi bi-x-circle-fill text-danger fs-2 mb-2'></i><div class='fw-bold text-danger'>Erreur</div><button class='btn btn-outline-danger btn-sm mt-2' onclick='event.stopPropagation(); selectScanFile(${i})'>Réessayer</button>`;
+    }
+  }
+}
+
+function selectScanFile(i) {
+  document.getElementById('scanInputSlot'+i).click();
+}
+
+function onScanFileSelected(event, i) {
+  const file = event.target.files[0];
+  if (!file) return;
+  scanSlots[i].state = 'loading';
+  scanSlots[i].file = file;
+  renderScanSlots();
+  // Simuler l'analyse (remplace par ton vrai workflow d'analyse)
+  setTimeout(() => {
+    scanSlots[i].state = 'done';
+    scanSlots[i].result = { /* ... */ };
+    renderScanSlots();
+  }, 3000);
+}
+
+function onScanSlotClick(i) {
+  if (scanSlots[i].state === 'done') {
+    // Afficher le récap/édition de la facture scannée (à intégrer avec ton code existant)
+    showRecapForScanSlot(i);
+  }
+}
+
+function showRecapForScanSlot(i) {
+  // À intégrer : ouvrir le récapitulatif/édition pour la facture du slot i
+  alert('Ouvre le récap pour la facture du slot '+(i+1));
+}
+
+// Initialiser l'affichage
+window.addEventListener('DOMContentLoaded', renderScanSlots);
+</script>
 
 {% endblock %}
