@@ -703,6 +703,8 @@ function showNotification(message, type = 'info') {
 // Valider un produit en attente
 async function validatePendingProduct(supplierName, pendingId) {
     try {
+        console.log(`🔄 Validation produit ${pendingId} pour ${supplierName}`);
+        
         const response = await fetch(`/api/suppliers/${encodeURIComponent(supplierName)}/pending-products/${pendingId}/validate`, {
             method: 'POST'
         });
@@ -711,6 +713,23 @@ async function validatePendingProduct(supplierName, pendingId) {
         
         if (result.success) {
             showNotification(result.message, 'success');
+            
+            // 🔄 NOTIFICATION DE SYNCHRONISATION si applicable
+            if (result.sync_result && result.sync_result.success && result.sync_count > 0) {
+                const syncRestaurants = result.sync_result.synced_restaurants || [];
+                const restaurantNames = syncRestaurants.join(', ');
+                
+                setTimeout(() => {
+                    showNotification(
+                        `🔄 Prix synchronisé automatiquement vers ${result.sync_count} restaurant(s) couplé(s): ${restaurantNames}`,
+                        'info',
+                        5000
+                    );
+                }, 1000);
+                
+                console.log(`🔄 SYNC: Produit synchronisé vers: ${restaurantNames}`);
+            }
+            
             // Recharger les données
             loadSuppliers();
         } else {

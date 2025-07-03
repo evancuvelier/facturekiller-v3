@@ -11,7 +11,8 @@
     "suppliers": [
       "PROMOCASH",
       "test1",
-      "MVA"
+      "MVA",
+      "SYSCO"
     ],
     "sync_settings": {
       "sync_enabled": true,
@@ -57,7 +58,8 @@
     "active": true,
     "suppliers": [
       "test1",
-      "MVA"
+      "MVA",
+      "SYSCO"
     ],
     "sync_settings": {
       "sync_enabled": true,

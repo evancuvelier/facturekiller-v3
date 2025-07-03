@@ -55,3 +55,9 @@ id,code,produit,fournisseur,prix,unite,categorie,date_ajout,source,restaurant
 57,PMVAINT0627,INTERBEV bovin SS/OS,MVA,0.002,kg,Non classé,2025-06-27 19:40:24,scanner_auto,Général
 58,PMVACVO0627,CVO ATM bœuf S/OS > 8 mois,MVA,0.103,kg,Non classé,2025-06-27 19:40:24,scanner_auto,Au Bureau St Amand 
 59,PMVAINT0627,INTERBEV bovin SS/OS,MVA,0.002,kg,Non classé,2025-06-27 19:40:24,scanner_auto,Au Bureau St Amand 
+60,PSYSSTE0627,Steak de bœuf premium,SYSCO,25.50,kg,Viandes,2025-06-27 21:00:00,scanner_auto,Au Bureau St Amand 
+61,PSYSPOU0627,Poulet fermier,SYSCO,18.90,kg,Volailles,2025-06-27 21:01:00,scanner_auto,Au Bureau St Amand 
+62,PSYSSAL0627,Salade iceberg,SYSCO,2.80,pièce,Légumes,2025-06-27 21:02:00,scanner_auto,Au Bureau St Amand 
+63,PSYSSTE0627,Steak de bœuf premium,SYSCO,25.50,kg,Viandes,2025-06-27 21:03:00,scanner_auto,Au Bureau Valenciennes
+64,PSYSPOU0627,Poulet fermier,SYSCO,18.90,kg,Volailles,2025-06-27 21:04:00,scanner_auto,Au Bureau Valenciennes
+65,PSYSSAL0627,Salade iceberg,SYSCO,2.80,pièce,Légumes,2025-06-27 21:05:00,scanner_auto,Au Bureau Valenciennes

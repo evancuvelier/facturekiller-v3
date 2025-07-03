@@ -4801,14 +4801,22 @@ def get_supplier_pending_products(supplier_name):
         user_context = auth_manager.get_user_context()
         current_restaurant = user_context.get('restaurant')
         
+        print(f"🔍 DEBUG: Récupération produits en attente pour fournisseur '{supplier_name}'")
+        print(f"🏪 DEBUG: Restaurant actuel: {current_restaurant.get('name') if current_restaurant else 'None'}")
+        
         # Récupérer tous les produits en attente
         all_pending = price_manager.get_pending_products()
+        print(f"📋 DEBUG: Total produits en attente dans le système: {len(all_pending)}")
         
         # Filtrer par fournisseur et restaurant
         supplier_pending = []
+        debug_filtered_out = []
+        
         for product in all_pending:
             # Vérifier fournisseur
-            if product.get('fournisseur', '').lower() != supplier_name.lower():
+            product_supplier = product.get('fournisseur', '').lower()
+            if product_supplier != supplier_name.lower():
+                debug_filtered_out.append(f"Fournisseur différent: {product_supplier} != {supplier_name.lower()}")
                 continue
                 
             # Vérifier restaurant si un restaurant est sélectionné
@@ -4818,19 +4826,33 @@ def get_supplier_pending_products(supplier_name):
                 if (product_restaurant != restaurant_name and 
                     product_restaurant != 'Général' and 
                     product_restaurant is not None):
+                    debug_filtered_out.append(f"Restaurant différent: {product_restaurant} != {restaurant_name}")
                     continue
             
             supplier_pending.append(product)
+        
+        print(f"✅ DEBUG: Produits trouvés pour {supplier_name}: {len(supplier_pending)}")
+        if len(debug_filtered_out) > 0:
+            print(f"❌ DEBUG: Produits filtrés (premiers 5): {debug_filtered_out[:5]}")
+        
+        # Afficher les détails des produits trouvés
+        for i, product in enumerate(supplier_pending[:3]):  # Afficher les 3 premiers
+            print(f"   📦 {i+1}. {product.get('produit')} - {product.get('prix')}€ - Restaurant: {product.get('restaurant')}")
         
         return jsonify({
             'success': True,
             'data': supplier_pending,
             'count': len(supplier_pending),
             'supplier': supplier_name,
-            'restaurant_filter': current_restaurant.get('name') if current_restaurant else None
+            'restaurant_filter': current_restaurant.get('name') if current_restaurant else None,
+            'debug_info': {
+                'total_pending': len(all_pending),
+                'filtered_count': len(debug_filtered_out)
+            }
         })
         
     except Exception as e:
+        print(f"❌ DEBUG: Erreur récupération produits en attente: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -4839,8 +4861,14 @@ def get_supplier_pending_products(supplier_name):
 @app.route('/api/suppliers/<supplier_name>/pending-products/<int:pending_id>/validate', methods=['POST'])
 @login_required
 def validate_supplier_pending_product(supplier_name, pending_id):
-    """Valider un produit en attente pour un fournisseur et l'ajouter à son catalogue"""
+    """Valider un produit en attente pour un fournisseur et l'ajouter à son catalogue + SYNCHRONISATION AUTO"""
     try:
+        print(f"🔄 VALIDATION: Produit {pending_id} pour fournisseur {supplier_name}")
+        
+        # Récupérer le contexte utilisateur pour le restaurant
+        user_context = auth_manager.get_user_context()
+        current_restaurant = user_context.get('restaurant')
+        
         # Récupérer le produit en attente
         all_pending = price_manager.get_pending_products()
         pending_product = next((p for p in all_pending if p.get('id') == pending_id), None)
@@ -4862,9 +4890,33 @@ def validate_supplier_pending_product(supplier_name, pending_id):
         success = price_manager.validate_pending_product(pending_id)
         
         if success:
+            print(f"✅ VALIDATION: Produit validé avec succès")
+            
+            # 🔄 SYNCHRONISATION AUTOMATIQUE si restaurant multi-restaurant
+            sync_result = None
+            if current_restaurant:
+                from modules.sync_manager import sync_manager
+                
+                # Vérifier si ce restaurant a la synchronisation activée
+                restaurant_config = sync_manager.get_restaurant_sync_settings(current_restaurant.get('id'))
+                if restaurant_config and restaurant_config.get('sync_enabled') and restaurant_config.get('sync_prices'):
+                    print(f"🔄 SYNC: Déclenchement synchronisation prix pour {supplier_name}")
+                    
+                    # Synchroniser vers les restaurants du même groupe
+                    sync_result = sync_manager.sync_supplier_prices_to_group(
+                        current_restaurant.get('id'),
+                        supplier_name
+                    )
+                    
+                    if sync_result and sync_result.get('success'):
+                        sync_count = len(sync_result.get('synced_restaurants', []))
+                        print(f"🔄 SYNC: Prix synchronisés vers {sync_count} restaurant(s)")
+            
             return jsonify({
                 'success': True,
-                'message': f'Produit "{pending_product.get("produit")}" validé et ajouté au catalogue de {supplier_name}'
+                'message': f'Produit "{pending_product.get("produit")}" validé et ajouté au catalogue de {supplier_name}',
+                'sync_result': sync_result,
+                'sync_count': len(sync_result.get('synced_restaurants', [])) if sync_result else 0
             })
         else:
             return jsonify({
@@ -4873,6 +4925,7 @@ def validate_supplier_pending_product(supplier_name, pending_id):
             }), 500
             
     except Exception as e:
+        print(f"❌ VALIDATION: Erreur lors de la validation: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
