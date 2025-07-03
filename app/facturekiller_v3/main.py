@@ -974,6 +974,15 @@ def manage_suppliers():
             # Filtrer les fournisseurs selon le restaurant
             filtered_suppliers = [s for s in all_suppliers if s['name'] in restaurant_suppliers]
             
+            # ✅ CORRECTION : S'assurer que les produits en attente sont inclus
+            for supplier in filtered_suppliers:
+                # Les produits en attente sont déjà dans supplier['pending_products'] 
+                # grâce à _get_supplier_stats() dans get_all_suppliers()
+                if 'pending_products' not in supplier:
+                    supplier['pending_products'] = []
+                if 'validated_products' not in supplier:
+                    supplier['validated_products'] = []
+            
             return jsonify({
                 'success': True,
                 'data': filtered_suppliers,

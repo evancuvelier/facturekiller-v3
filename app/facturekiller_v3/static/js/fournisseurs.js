@@ -994,4 +994,43 @@ window.debugCheckWorkflow = async function() {
     } catch (error) {
         console.error('🔧 DEBUG: Erreur vérification:', error);
     }
-}; 
+};
+
+// 🔧 DEBUG: Forcer le rechargement avec produits en attente
+async function debugForceRefreshWithPending() {
+    console.log('🔧 DEBUG: Forçage rechargement avec produits en attente...');
+    
+    try {
+        const response = await fetch('/api/suppliers');
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('📊 Fournisseurs chargés:', data.data.length);
+            
+            // Vérifier les produits en attente
+            let totalPending = 0;
+            data.data.forEach(supplier => {
+                const pendingCount = supplier.pending_products ? supplier.pending_products.length : 0;
+                if (pendingCount > 0) {
+                    console.log(`✅ ${supplier.name}: ${pendingCount} produits en attente`);
+                    totalPending += pendingCount;
+                }
+            });
+            
+            console.log(`📈 Total produits en attente: ${totalPending}`);
+            
+            // Forcer le rechargement de l'interface
+            suppliers = data.data;
+            filteredSuppliers = data.data;
+            renderSuppliers();
+            
+            // Afficher notification
+            showNotification(`Rechargement forcé: ${totalPending} produits en attente trouvés`, 'success');
+            
+        } else {
+            console.error('❌ Erreur API:', data.error);
+        }
+    } catch (error) {
+        console.error('❌ Erreur rechargement:', error);
+    }
+} 
