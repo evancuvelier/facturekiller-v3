@@ -971,8 +971,19 @@ def manage_suppliers():
             restaurant_suppliers = current_restaurant.get('suppliers', [])
             all_suppliers = supplier_manager.get_all_suppliers()
             
-            # Filtrer les fournisseurs selon le restaurant
-            filtered_suppliers = [s for s in all_suppliers if s['name'] in restaurant_suppliers]
+            # ✅ CORRECTION : Inclure TOUS les fournisseurs qui ont des produits pour ce restaurant
+            # Pas seulement ceux dans la liste restaurant_suppliers
+            filtered_suppliers = []
+            
+            for supplier in all_suppliers:
+                # Inclure si :
+                # 1. Fournisseur dans la liste du restaurant OU
+                # 2. Fournisseur a des produits (validés ou en attente)
+                has_products = (supplier.get('products_count', 0) > 0 or 
+                              supplier.get('pending_count', 0) > 0)
+                
+                if supplier['name'] in restaurant_suppliers or has_products:
+                    filtered_suppliers.append(supplier)
             
             # ✅ CORRECTION : S'assurer que les produits en attente sont inclus
             for supplier in filtered_suppliers:
