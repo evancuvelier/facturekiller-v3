@@ -5033,6 +5033,106 @@ def fix_invoices_restaurant():
             'error': str(e)
         })
 
+@app.route('/api/debug/add-test-pending', methods=['POST'])
+@login_required
+def debug_add_test_pending():
+    """🔧 DEBUG: Ajouter un produit test en attente pour vérifier le workflow"""
+    try:
+        # Récupérer le contexte utilisateur
+        user_context = auth_manager.get_user_context()
+        current_restaurant = user_context.get('restaurant')
+        
+        if not current_restaurant:
+            return jsonify({
+                'success': False,
+                'error': 'Aucun restaurant sélectionné'
+            })
+        
+        restaurant_name = current_restaurant.get('name')
+        
+        # Créer un produit test
+        test_product = {
+            'code': f'PTEST{int(datetime.now().timestamp())}',
+            'produit': 'Produit Test Debug',
+            'prix': 15.50,
+            'unite': 'kg',
+            'fournisseur': 'SYSCO',
+            'categorie': 'Test',
+            'restaurant': restaurant_name,
+            'source': 'debug_manual',
+            'date_ajout': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        
+        print(f"🔧 DEBUG: Ajout produit test pour {restaurant_name}")
+        print(f"🔧 DEBUG: Données produit: {test_product}")
+        
+        # Tenter l'ajout
+        success = price_manager.add_pending_product(test_product)
+        
+        print(f"🔧 DEBUG: Résultat ajout: {'✅ Succès' if success else '❌ Échec'}")
+        
+        return jsonify({
+            'success': success,
+            'message': f'Produit test {"ajouté" if success else "non ajouté"} pour {restaurant_name}',
+            'product': test_product
+        })
+        
+    except Exception as e:
+        print(f"❌ DEBUG: Erreur ajout produit test: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/debug/check-pending-workflow', methods=['GET'])
+@login_required
+def debug_check_pending_workflow():
+    """🔧 DEBUG: Vérifier le workflow complet des produits en attente"""
+    try:
+        # Récupérer le contexte utilisateur
+        user_context = auth_manager.get_user_context()
+        current_restaurant = user_context.get('restaurant')
+        
+        # 1. Vérifier les produits en attente totaux
+        all_pending = price_manager.get_pending_products()
+        
+        # 2. Filtrer par restaurant si applicable
+        restaurant_pending = []
+        if current_restaurant:
+            restaurant_name = current_restaurant.get('name')
+            for product in all_pending:
+                product_restaurant = product.get('restaurant', 'Général')
+                if (product_restaurant == restaurant_name or 
+                    product_restaurant == 'Général' or 
+                    product_restaurant is None):
+                    restaurant_pending.append(product)
+        
+        # 3. Grouper par fournisseur
+        suppliers_with_pending = {}
+        for product in restaurant_pending:
+            supplier = product.get('fournisseur', 'UNKNOWN')
+            if supplier not in suppliers_with_pending:
+                suppliers_with_pending[supplier] = []
+            suppliers_with_pending[supplier].append(product)
+        
+        return jsonify({
+            'success': True,
+            'current_restaurant': current_restaurant.get('name') if current_restaurant else None,
+            'total_pending_system': len(all_pending),
+            'total_pending_restaurant': len(restaurant_pending),
+            'suppliers_with_pending': suppliers_with_pending,
+            'debug_info': {
+                'sample_pending': all_pending[:3],  # 3 premiers pour debug
+                'restaurant_filter_active': current_restaurant is not None
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 if __name__ == '__main__':
     print("🚀 FactureKiller V3 Pro - Démarrage")
     print("📊 Interface: http://localhost:5003")

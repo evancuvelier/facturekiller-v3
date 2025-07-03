@@ -937,4 +937,61 @@ window.addEventListener('invoiceScanCompleted', function(event) {
             forceRefreshSuppliers();
         }, 1000);
     }
-}); 
+});
+
+// 🔧 FONCTION DE TEST POUR DEBUG RAPIDE
+window.debugAddTestPending = async function() {
+    try {
+        console.log('🔧 DEBUG: Test ajout produit en attente...');
+        
+        const response = await fetch('/api/debug/add-test-pending', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showNotification(`✅ Produit test ajouté avec succès !`, 'success');
+            console.log('🔧 DEBUG: Succès:', result);
+            
+            // Recharger les fournisseurs
+            setTimeout(() => {
+                loadSuppliers();
+            }, 1000);
+        } else {
+            showNotification(`❌ Échec ajout produit test: ${result.error}`, 'error');
+            console.error('🔧 DEBUG: Échec:', result);
+        }
+    } catch (error) {
+        console.error('🔧 DEBUG: Erreur:', error);
+        showNotification('❌ Erreur lors du test', 'error');
+    }
+};
+
+window.debugCheckWorkflow = async function() {
+    try {
+        console.log('🔧 DEBUG: Vérification workflow...');
+        
+        const response = await fetch('/api/debug/check-pending-workflow');
+        const result = await response.json();
+        
+        console.log('🔧 DEBUG: Workflow Status:', result);
+        
+        if (result.success) {
+            const message = `
+📊 WORKFLOW STATUS:
+• Restaurant: ${result.current_restaurant}
+• Produits en attente système: ${result.total_pending_system}
+• Produits en attente restaurant: ${result.total_pending_restaurant}
+• Fournisseurs avec produits: ${Object.keys(result.suppliers_with_pending).join(', ')}
+            `;
+            
+            showNotification(message, 'info', 8000);
+        }
+    } catch (error) {
+        console.error('🔧 DEBUG: Erreur vérification:', error);
+    }
+}; 
