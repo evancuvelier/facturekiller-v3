@@ -384,14 +384,11 @@
             <h4 class="fw-bold text-primary mb-3 text-center">📸 Scanner une Facture</h4>
             <p class="text-muted mb-4 text-center">Analyse intelligente avec IA • Reconnaissance automatique des données</p>
             <div class="mb-3 text-center">
-              <input type="file" accept="image/*,.pdf,.heic,.heif" class="form-control w-auto mx-auto" id="scanInput" onchange="previewScanImage(event)" style="max-width:300px;">
+              <input type="file" accept="image/*,.pdf,.heic,.heif" class="form-control w-auto mx-auto" id="scanInput" onchange="if(this.files[0]) window.scanner.handleFileSelect(this.files[0])" style="max-width:300px;">
             </div>
-            <div id="scanPreview" class="mb-3 text-center" style="display:none;">
-              <label class="form-label">Aperçu :</label><br>
-              <img id="scanPreviewImg" src="#" alt="Aperçu du scan" style="max-width:100%; border:1px solid #ccc; border-radius:8px;">
-            </div>
+            <!-- L'aperçu et le bouton d'analyse sont gérés par ScannerPro -->
             <div class="d-grid gap-2 mt-4">
-              <button class="btn btn-warning btn-lg px-5 py-3 rounded-pill fw-bold" onclick="analyzeInvoice()">
+              <button class="btn btn-warning btn-lg px-5 py-3 rounded-pill fw-bold" onclick="window.scanner.analyzeInvoice()">
                 <i class="bi bi-robot me-2"></i> Lancer le scan
               </button>
             </div>
@@ -400,21 +397,5 @@
       </div>
     </div>
 </div>
-
-<script>
-function previewScanImage(event) {
-  const input = event.target;
-  if (input.files && input.files[0]) {
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      document.getElementById('scanPreviewImg').src = e.target.result;
-      document.getElementById('scanPreview').style.display = 'block';
-    };
-    reader.readAsDataURL(input.files[0]);
-  } else {
-    document.getElementById('scanPreview').style.display = 'none';
-  }
-}
-</script>
 
 {% endblock %}
