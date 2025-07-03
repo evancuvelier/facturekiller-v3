@@ -371,8 +371,8 @@
         </div>
     </div>
 
-    <!-- Interface épurée -->
-    <div class="container my-4">
+    <!-- Upload Zone -->
+    <div id="uploadZone" class="container my-4">
       <div class="row justify-content-center">
         <div class="col-12 col-md-8 col-lg-6">
           <div class="card p-4 shadow-lg">
@@ -386,15 +386,21 @@
             <div class="mb-3 text-center">
               <input type="file" accept="image/*,.pdf,.heic,.heif" class="form-control w-auto mx-auto" id="scanInput" onchange="if(this.files[0]) window.scanner.handleFileSelect(this.files[0])" style="max-width:300px;">
             </div>
-            <!-- L'aperçu et le bouton d'analyse sont gérés par ScannerPro -->
-            <div class="d-grid gap-2 mt-4">
-              <button class="btn btn-warning btn-lg px-5 py-3 rounded-pill fw-bold" onclick="window.scanner.analyzeInvoice()">
-                <i class="bi bi-robot me-2"></i> Lancer le scan
-              </button>
-            </div>
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Aperçu de l'image -->
+    <div id="imagePreview" class="text-center my-3" style="display:none;">
+      <img id="previewImg" src="#" alt="Aperçu du scan" style="max-width:90%; border:1px solid #ccc; border-radius:8px;">
+    </div>
+
+    <!-- Bouton d'action -->
+    <div id="actionButtons" class="text-center my-3" style="display:none;">
+      <button class="btn btn-warning btn-lg px-5 py-3 rounded-pill fw-bold" onclick="window.scanner.analyzeInvoice()">
+        <i class="bi bi-robot me-2"></i> Lancer le scan
+      </button>
     </div>
 </div>
 
