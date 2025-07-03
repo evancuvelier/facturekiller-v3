@@ -6,6 +6,7 @@ let currentSupplier = null;
 let cart = [];
 let currentPage = 1;
 let totalPages = 1;
+let currentScanFile = null; // Stocke le fichier sélectionné pour la vérification
 
 // Initialisation
 document.addEventListener('DOMContentLoaded', function() {
@@ -533,6 +534,7 @@ function renderOrderCard(order) {
                             <button class="btn btn-sm btn-outline-primary" onclick="showOrderDetails('${order.id}')">
                                 <i class="bi bi-eye"></i> Voir
                             </button>
+                            ${order.invoice_id ? `<a href="/scanner/pro?invoice_id=${order.invoice_id}" class="btn btn-sm btn-outline-secondary" title="Ouvrir la facture"><i class="bi bi-file-text"></i> Facture</a>` : ''}
                             <button class="btn btn-sm btn-outline-success" onclick="sendOrderEmail('${order.id}', '${order.supplier}')" title="Envoyer par email au fournisseur">
                                 <i class="bi bi-envelope"></i> Email
                             </button>
@@ -1824,22 +1826,13 @@ function showScanVerificationModal(order) {
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
-                        <div class="alert alert-info">
-                            <i class="bi bi-info-circle me-2"></i>
-                            Scannez ou uploadez la facture de livraison pour vérification automatique
-                        </div>
-                        
-                        <div class="row">
+                        <div class="row g-4">
                             <div class="col-md-6">
-                                <h6>📋 Commande originale :</h6>
+                                <h6 class="mb-3">📋 Commande originale :</h6>
                                 <div class="table-responsive">
                                     <table class="table table-sm">
                                         <thead>
-                                            <tr>
-                                                <th>Produit</th>
-                                                <th>Qté</th>
-                                                <th>Prix</th>
-                                            </tr>
+                                            <tr><th>Produit</th><th>Qté</th><th>Prix</th></tr>
                                         </thead>
                                         <tbody>
                                             ${order.items.map(item => `
@@ -1856,41 +1849,37 @@ function showScanVerificationModal(order) {
                                     <strong>Total commandé :</strong> ${(order.total_amount || 0).toFixed(2)}€
                                 </div>
                             </div>
-                            
                             <div class="col-md-6">
-                                <h6>📷 Scanner la facture :</h6>
-                                <div class="border rounded p-3 text-center" style="min-height: 200px;">
-                                    <input type="file" id="invoiceFile" accept="image/*,.pdf" class="d-none">
-                                    <button type="button" class="btn btn-primary btn-lg" onclick="document.getElementById('invoiceFile').click()">
-                                        <i class="bi bi-cloud-upload me-2"></i>Choisir un fichier
-                                    </button>
-                                    <p class="text-muted mt-2">Formats acceptés: JPG, PNG, PDF</p>
-                                    
-                                    <div id="scanProgress" class="d-none mt-3">
-                                        <div class="spinner-border text-primary" role="status">
-                                            <span class="visually-hidden">Analyse en cours...</span>
+                                <h6 class="mb-3">📷 Scanner la facture :</h6>
+                                <!-- Zone Upload modernisée -->
+                                <div id="uploadZone" class="p-4 border rounded text-center">
+                                    <div class="upload-icon mb-3">
+                                        <div class="icon-circle bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center" style="width:80px;height:80px;">
+                                            <i class="bi bi-camera-fill text-primary" style="font-size:2rem;"></i>
                                         </div>
-                                        <p class="mt-2">Analyse de la facture en cours...</p>
                                     </div>
-                                    
-                                    <div id="scanResults" class="d-none mt-3">
-                                        <!-- Les résultats du scan apparaîtront ici -->
-                                    </div>
+                                    <input type="file" accept="image/*" id="scanFileInput" class="form-control w-auto mx-auto" style="max-width:300px;">
                                 </div>
+                                <div id="imagePreview" class="text-center my-3 d-none">
+                                    <img id="previewImg" src="#" alt="Aperçu" style="max-width:90%;border:1px solid #ccc;border-radius:8px;">
+                                </div>
+                                <div id="actionButtons" class="text-center my-3 d-none">
+                                    <button class="btn btn-warning btn-lg px-5 py-3 rounded-pill fw-bold" id="launchScanBtn">
+                                        <i class="bi bi-robot me-2"></i> Lancer le scan
+                                    </button>
+                                </div>
+                                <!-- Progress & résultats réutilisent les IDs existants -->
+                                <div id="scanProgress" class="d-none mt-3 text-center">
+                                    <div class="spinner-border text-primary" role="status"></div>
+                                    <p class="mt-2">Analyse de la facture en cours...</p>
+                                </div>
+                                <div id="scanResults" class="d-none mt-3"></div>
+                                <div id="comparisonResults" class="d-none mt-4"></div>
                             </div>
                         </div>
-                        
-                        <div id="comparisonResults" class="d-none mt-4">
-                            <h6>📊 Résultats de la comparaison :</h6>
-                            <div id="comparisonTable">
-                                <!-- Le tableau de comparaison apparaîtra ici -->
-                            </div>
-                        </div>
-                        
                         <div class="mt-3">
                             <label for="scanVerificationNotes" class="form-label">Notes de vérification :</label>
-                            <textarea class="form-control" id="scanVerificationNotes" rows="3" 
-                                      placeholder="Notes automatiques du scan ou commentaires supplémentaires..."></textarea>
+                            <textarea class="form-control" id="scanVerificationNotes" rows="3" placeholder="Notes automatiques du scan ou commentaires supplémentaires..."></textarea>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -1901,91 +1890,60 @@ function showScanVerificationModal(order) {
                     </div>
                 </div>
             </div>
-        </div>
-    `;
-    
-    // Supprimer le modal existant s'il y en a un
-    const existingModal = document.getElementById('scanVerificationModal');
-    if (existingModal) {
-        existingModal.remove();
-    }
-    
-    // Ajouter le nouveau modal
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-    
-    // Afficher le modal avec gestion d'accessibilité
-    const modalElement = document.getElementById('scanVerificationModal');
-    const modal = new bootstrap.Modal(modalElement);
-    
-    // Corriger les problèmes d'accessibilité
-    modalElement.addEventListener('shown.bs.modal', function () {
-        modalElement.removeAttribute('aria-hidden');
-    });
-    
-    modalElement.addEventListener('hidden.bs.modal', function () {
-        modalElement.setAttribute('aria-hidden', 'true');
-        // Nettoyer la modale du DOM
-        modalElement.remove();
-    });
-    
-    modal.show();
-    
-    // Ajouter l'event listener pour le fichier
-    document.getElementById('invoiceFile').addEventListener('change', (event) => {
-        handleInvoiceFileUpload(event, order);
-    });
+        </div>`;
+    // ... existing code ...
+    // après modal.show();
+    document.getElementById('scanFileInput').addEventListener('change', (e)=>handleScanFileSelect(e));
+    document.getElementById('launchScanBtn').addEventListener('click', ()=>analyzeScanInvoice(order));
+}
+// ... existing code ...
+function handleScanFileSelect(event){
+    const file = event.target.files[0];
+    if(!file) return;
+    currentScanFile = file;
+    // Aperçu
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+        document.getElementById('previewImg').src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+    document.getElementById('imagePreview').classList.remove('d-none');
+    document.getElementById('uploadZone').classList.add('d-none');
+    document.getElementById('actionButtons').classList.remove('d-none');
 }
 
-// Fonction pour gérer l'upload et l'analyse de la facture
-async function handleInvoiceFileUpload(event, order) {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    try {
-        // Afficher le progress
-        document.getElementById('scanProgress').classList.remove('d-none');
-        document.getElementById('scanResults').classList.add('d-none');
-        document.getElementById('comparisonResults').classList.add('d-none');
-        
-        // Créer FormData pour l'upload
+async function analyzeScanInvoice(order){
+    if(!currentScanFile){
+        showNotification('Veuillez sélectionner une image', 'warning');
+        return;
+    }
+    document.getElementById('scanProgress').classList.remove('d-none');
+    document.getElementById('actionButtons').classList.add('d-none');
+    try{
         const formData = new FormData();
-        formData.append('invoice', file);
+        formData.append('invoice', currentScanFile);
         formData.append('order_id', order.id);
-        
-        // Envoyer au serveur pour analyse
-        const response = await fetch('/api/orders/scan-verification', {
-            method: 'POST',
-            body: formData
-        });
-        
+        const response = await fetch('/api/orders/scan-verification', {method:'POST', body:formData});
         const result = await response.json();
-        
-        // Masquer le progress
         document.getElementById('scanProgress').classList.add('d-none');
-        
-        if (result.success) {
-            // Afficher les résultats du scan
+        if(result.success){
             displayScanResults(result.scan_data, order);
-            
-            // Afficher la comparaison
             displayComparisonResults(result.comparison, order);
-            
-            // Activer le bouton de validation
             document.getElementById('validateScanBtn').classList.remove('d-none');
-            
-            // Ajouter les notes automatiques
             document.getElementById('scanVerificationNotes').value = result.notes || '';
-            
-        } else {
-            showNotification('❌ Erreur lors de l\'analyse: ' + result.error, 'error');
+            document.getElementById('scanResults').classList.remove('d-none');
+        }else{
+            showNotification('Erreur analyse: '+result.error,'error');
+            document.getElementById('actionButtons').classList.remove('d-none');
         }
-        
-    } catch (error) {
-        console.error('Erreur upload facture:', error);
+    }catch(err){
+        console.error(err);
+        showNotification('Erreur lors de l\'analyse','error');
         document.getElementById('scanProgress').classList.add('d-none');
-        showNotification('❌ Erreur lors de l\'upload de la facture', 'error');
+        document.getElementById('actionButtons').classList.remove('d-none');
     }
 }
+// ... existing code ...
 
 // Fonction pour afficher les résultats du scan
 function displayScanResults(scanData, order) {
@@ -2118,15 +2076,14 @@ async function saveScanVerification(orderId) {
             const modal = bootstrap.Modal.getInstance(document.getElementById('scanVerificationModal'));
             modal.hide();
             
-            // Mettre à jour le statut de la commande
+            // Mettre à jour le statut de la commande (backend le fait déjà, mais on appelle pour l'historique)
             const newStatus = result.has_discrepancies ? 'delivered_with_issues' : 'delivered';
             await updateOrderStatus(orderId, newStatus, 'Vérification par scan effectuée');
             
-            showNotification('✅ Vérification par scan sauvegardée avec succès', 'success');
-            
-            // Recharger les commandes
+            // Recharger les commandes pour voir la facture attachée
             await loadOrders();
             
+            showNotification('✅ Vérification par scan sauvegardée. Facture créée.', 'success');
         } else {
             showNotification('❌ Erreur lors de la confirmation: ' + result.error, 'error');
         }

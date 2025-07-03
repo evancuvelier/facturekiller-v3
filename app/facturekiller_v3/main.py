@@ -923,12 +923,13 @@ def process_invoice_analysis(analysis_data, filepath):
                 analysis_data['quantity_comparison'] = quantity_comparison
         
         # Étape 3: Sauvegarde
-        user_context = auth_manager.get_user_context()
-        current_restaurant = user_context.get('restaurant')
+        user_context = auth_manager.get_user_context();
+        current_restaurant = user_context.get('restaurant');
         
-        restaurant_id = current_restaurant.get('id') if current_restaurant else None
-        restaurant_name = current_restaurant.get('name') if current_restaurant else None
+        restaurant_id = current_restaurant.get('id') if current_restaurant else None;
+        restaurant_name = current_restaurant.get('name') if current_restaurant else None;
         
+        # ▶️  3A. Sauvegarde via InvoiceAnalyzer (historique brut)
         invoice_id = invoice_analyzer.save_invoice(
             {'data': analysis_data}, 
             filepath,
@@ -936,6 +937,24 @@ def process_invoice_analysis(analysis_data, filepath):
             restaurant_name=restaurant_name
         )
         analysis_data['invoice_id'] = invoice_id
+
+        # ▶️  3B. Sauvegarde dans InvoiceManager pour lister dans /factures
+        try:
+            invoice_record = {
+                'supplier': supplier_name or 'Inconnu',
+                'invoice_number': analysis_data.get('invoice_number'),
+                'date': analysis_data.get('date'),
+                'total_amount': analysis_data.get('total_amount'),
+                'products': analysis_data.get('products', []),
+                'analysis': analysis_data,
+                'filename': os.path.basename(filepath),
+                'scan_date': datetime.now().isoformat(),
+                'restaurant_id': restaurant_id,
+                'restaurant_name': restaurant_name
+            }
+            invoice_manager.save_invoice(invoice_record)
+        except Exception as save_err:
+            logger.warning(f"⚠️ Impossible d'enregistrer la facture dans InvoiceManager: {save_err}")
         
         return jsonify({
             'success': True,
@@ -4202,11 +4221,45 @@ def confirm_scan_verification():
         
         # Nettoyer le fichier temporaire
         os.remove(temp_scan_file)
-        
+
+        # === NOUVEAUTÉ : créer la facture associée et mettre à jour la commande ===
+        try:
+            order = order_manager.get_order_by_id(order_id)
+            invoice_analysis = scan_data.get('scan_result', {}).get('data', {}) if scan_data.get('scan_result') else {}
+            # Fallback basique si analyse absente
+            if not invoice_analysis:
+                invoice_analysis = {
+                    'supplier': order.get('supplier') if order else 'Inconnu',
+                    'products': scan_data.get('scan_result', {}).get('items', []) if scan_data.get('scan_result') else [],
+                    'total_amount': scan_data.get('scan_result', {}).get('total', 0) if scan_data.get('scan_result') else 0
+                }
+            invoice_record = {
+                'supplier': invoice_analysis.get('supplier', order.get('supplier', 'Inconnu') if order else 'Inconnu'),
+                'invoice_number': invoice_analysis.get('invoice_number'),
+                'date': invoice_analysis.get('date'),
+                'total_amount': invoice_analysis.get('total_amount') or invoice_analysis.get('total', 0),
+                'products': invoice_analysis.get('products', []),
+                'analysis': invoice_analysis,
+                'filename': os.path.basename(scan_data.get('file_path')),
+                'scan_date': datetime.now().isoformat(),
+                'restaurant_id': order.get('restaurant_id') if order else None,
+                'restaurant_name': order.get('restaurant_name') if order else None
+            }
+            invoice_id_created = invoice_manager.save_invoice(invoice_record)
+            # Mettre à jour la commande avec le lien facture + statut livré
+            new_status = 'delivered_with_issues' if verification_data['has_discrepancies'] else 'delivered'
+            order_manager.update_order(order_id, {
+                'status': new_status,
+                'invoice_id': invoice_id_created
+            })
+        except Exception as link_err:
+            logger.warning(f"⚠️ Impossible de lier facture à la commande: {link_err}")
+
         return jsonify({
             'success': True,
             'verification_id': verification_data['id'],
-            'has_discrepancies': verification_data['has_discrepancies']
+            'has_discrepancies': verification_data['has_discrepancies'],
+            'invoice_id': invoice_id_created if 'invoice_id_created' in locals() else None
         })
         
     except Exception as e:
