@@ -470,10 +470,10 @@ class ScannerPro {
     }
 
     validateFile(file) {
-        const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif', 'application/pdf'];
+        const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif'];
         
-        if (!validTypes.includes(file.type) && !file.name.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp|heic|heif|pdf)$/)) {
-            this.showNotification('Type de fichier non supporté', 'error');
+        if (!validTypes.includes(file.type) && !file.name.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp|heic|heif)$/)) {
+            this.showNotification('Type de fichier non supporté (JPEG/PNG/WEBP/HEIC uniquement)', 'error');
             return false;
         }
         
