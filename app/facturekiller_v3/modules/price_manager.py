@@ -295,8 +295,8 @@ class PriceManager:
         }
 
         # Charger les prix existants
-        prices_data = self.get_all_prices(per_page=99999, restaurant_filter=restaurant_name)
-        existing_prices = prices_data.get('data', [])
+        prices_data = self.get_all_prices(per_page=99999, restaurant_name=restaurant_name)
+        existing_prices = prices_data.get('items', [])
         
         print(f"📋 COMPARE_PRICES: Prix existants chargés: {len(existing_prices)}")
 
