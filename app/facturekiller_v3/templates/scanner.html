@@ -347,41 +347,64 @@
 {% endblock %}
 
 {% block content %}
-<div class="container my-4">
-  <div class="row justify-content-center">
-    <div class="col-12 col-md-8 col-lg-6">
-      <div class="card p-4 shadow-lg">
-        <div class="upload-icon mb-4 position-relative text-center">
-          <div class="icon-circle bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 100px; height: 100px;">
-            <i class="bi bi-camera-fill text-primary" style="font-size: 2.5rem;"></i>
+<div class="scanner-container full-height">
+    <!-- Header Mobile -->
+    <div class="scanner-header">
+        <div class="d-flex align-items-center justify-content-between p-3">
+            <div>
+                <h1 class="h4 mb-0 fw-bold">
+                    <i class="bi bi-camera-fill text-primary"></i> Scanner Pro
+                </h1>
+                <small class="text-muted">IA Vision • Analyse instantanée</small>
+            </div>
+            <div class="scanner-actions">
+                <button class="btn btn-outline-primary btn-sm me-2" onclick="showHistory()">
+                    <i class="bi bi-clock-history"></i>
+                </button>
+                <button class="btn btn-outline-primary btn-sm me-2" onclick="addMoreScans()">
+                    <i class="bi bi-stack"></i>
+                </button>
+                <button class="btn btn-outline-primary btn-sm" onclick="showSettings()">
+                    <i class="bi bi-gear"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Interface épurée -->
+    <div class="container my-4">
+      <div class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-6">
+          <div class="card p-4 shadow-lg">
+            <div class="upload-icon mb-4 position-relative text-center">
+              <div class="icon-circle bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 100px; height: 100px;">
+                <i class="bi bi-camera-fill text-primary" style="font-size: 2.5rem;"></i>
+              </div>
+            </div>
+            <h4 class="fw-bold text-primary mb-3 text-center">📸 Scanner une Facture</h4>
+            <p class="text-muted mb-4 text-center">Analyse intelligente avec IA • Reconnaissance automatique des données</p>
+            <div class="mb-3 text-center">
+              <input type="file" accept="image/*,.pdf,.heic,.heif" class="form-control w-auto mx-auto" id="scanInput" onchange="previewScanImage(event)" style="max-width:300px;">
+            </div>
+            <div id="scanPreview" class="mb-3 text-center" style="display:none;">
+              <label class="form-label">Aperçu :</label><br>
+              <img id="scanPreviewImg" src="#" alt="Aperçu du scan" style="max-width:100%; border:1px solid #ccc; border-radius:8px;">
+            </div>
+            <div class="d-grid gap-2 mt-4">
+              <button class="btn btn-warning btn-lg px-5 py-3 rounded-pill fw-bold" onclick="analyzeInvoice()">
+                <i class="bi bi-robot me-2"></i> Lancer le scan
+              </button>
+            </div>
           </div>
-        </div>
-        <h4 class="fw-bold text-primary mb-3 text-center">📸 Scanner une Facture</h4>
-        <p class="text-muted mb-4 text-center">Analyse intelligente avec IA • Reconnaissance automatique des données</p>
-        <div class="mb-3 text-center">
-          <input type="file" accept="image/*,.pdf,.heic,.heif" class="form-control w-auto mx-auto" id="scanInput" onchange="previewScanImage(event)" style="max-width:300px;">
-        </div>
-        <div id="scanPreview" class="mb-3 text-center" style="display:none;">
-          <label class="form-label">Aperçu :</label><br>
-          <img id="scanPreviewImg" src="#" alt="Aperçu du scan" style="max-width:100%; border:1px solid #ccc; border-radius:8px;">
-        </div>
-        <div class="d-grid gap-2 mt-4">
-          <button class="btn btn-warning btn-lg px-5 py-3 rounded-pill fw-bold" onclick="launchSingleScan()">
-            <i class="bi bi-robot me-2"></i> Lancer le scan
-          </button>
         </div>
       </div>
     </div>
-  </div>
 </div>
 
 <script>
-let singleScanFile = null;
-
 function previewScanImage(event) {
   const input = event.target;
   if (input.files && input.files[0]) {
-    singleScanFile = input.files[0];
     const reader = new FileReader();
     reader.onload = function(e) {
       document.getElementById('scanPreviewImg').src = e.target.result;
@@ -390,24 +413,7 @@ function previewScanImage(event) {
     reader.readAsDataURL(input.files[0]);
   } else {
     document.getElementById('scanPreview').style.display = 'none';
-    singleScanFile = null;
   }
-}
-
-function launchSingleScan() {
-  if (!singleScanFile) {
-    alert('Merci de sélectionner une facture à scanner.');
-    return;
-  }
-  // Simuler l'analyse (remplace par ton vrai workflow d'analyse)
-  const btn = document.querySelector('.btn-warning');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Analyse en cours...';
-  setTimeout(() => {
-    btn.disabled = false;
-    btn.innerHTML = '<i class="bi bi-robot me-2"></i> Lancer le scan';
-    alert('Analyse terminée ! (À remplacer par ton récapitulatif/édition)');
-  }, 3000);
 }
 </script>
 
