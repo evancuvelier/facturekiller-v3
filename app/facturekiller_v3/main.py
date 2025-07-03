@@ -886,6 +886,11 @@ def process_invoice_analysis(analysis_data, filepath):
                 restaurant_name = current_restaurant.get('name')
                 print(f"🏪 PROCESS_INVOICE: Nom du restaurant: '{restaurant_name}'")
                 
+                # ✅ Correction : Forcer le nom du fournisseur sur chaque produit
+                if supplier_name and 'products' in analysis_data:
+                    for product in analysis_data['products']:
+                        product['supplier'] = supplier_name
+
                 # Passer le restaurant au price_manager
                 print(f"🔄 PROCESS_INVOICE: Appel compare_prices avec restaurant '{restaurant_name}'")
                 comparison = price_manager.compare_prices(
