@@ -273,177 +273,126 @@ class PriceManager:
     
     def compare_prices(self, products: List[Dict], restaurant_name: str = None) -> Dict[str, Any]:
         """
-        Comparer les prix des produits avec la base de référence
-        ET ajouter les nouveaux produits en attente de validation
-        FILTRÉS PAR RESTAURANT si restaurant_name est fourni
+        Comparer les prix des produits scannés avec la base de données existante
+        Ajoute automatiquement les nouveaux produits en attente
         """
-        comparison = {
-            'total_products': len(products),
-            'matched_products': 0,
-            'new_products': 0,
-            'price_variations': [],  # Format pour l'interface web
-            'price_alerts': [],
-            'products_details': [],
-            'summary': {
-                'products_with_better_prices': 0,
-                'products_with_higher_prices': 0,
-                'products_with_same_prices': 0
-            },
-            'restaurant_filter': restaurant_name  # Indiquer le restaurant utilisé
-        }
+        print(f"🔍 COMPARE_PRICES: Démarrage pour {len(products)} produits")
+        print(f"🏪 COMPARE_PRICES: Restaurant: {restaurant_name}")
         
-        # Filtrer les prix par restaurant si spécifié
-        prices_db_filtered = self.prices_db.copy()
-        if restaurant_name:
-            # Ajouter une colonne restaurant si elle n'existe pas
-            if 'restaurant' not in prices_db_filtered.columns:
-                prices_db_filtered['restaurant'] = 'Général'  # Valeur par défaut
-            
-            # Filtrer par restaurant OU prix généraux
-            mask = (
-                (prices_db_filtered['restaurant'] == restaurant_name) |
-                (prices_db_filtered['restaurant'] == 'Général') |
-                (prices_db_filtered['restaurant'].isna())
-            )
-            prices_db_filtered = prices_db_filtered[mask]
-            
-            comparison['debug_info'] = {
-                'total_prices_before_filter': len(self.prices_db),
-                'total_prices_after_filter': len(prices_db_filtered),
-                'restaurant_filter': restaurant_name
+        if not products:
+            return {
+                'total_savings': 0.0,
+                'items_analyzed': 0,
+                'new_products': 0,
+                'products_details': []
             }
+
+        comparison = {
+            'total_savings': 0.0,
+            'items_analyzed': len(products),
+            'new_products': 0,
+            'products_details': []
+        }
+
+        # Charger les prix existants
+        prices_data = self.get_all_prices(per_page=99999, restaurant_filter=restaurant_name)
+        existing_prices = prices_data.get('data', [])
         
-        for product in products:
-            product_name = product.get('name', '').lower()
-            product_code = product.get('code', '')
-            unit_price = float(product.get('unit_price', 0))  # FOCUS : Prix unitaire uniquement
-            quantity = float(product.get('quantity', 1))
-            supplier = product.get('supplier', 'UNKNOWN')
-            
-            # Chercher une correspondance dans la base de prix unitaires FILTRÉE
-            matched = False
-            ref_price_row = None
-            
-            # Recherche par code exact
-            if product_code:
-                code_match = prices_db_filtered[prices_db_filtered['code'].str.lower() == product_code.lower()]
-                if not code_match.empty:
-                    ref_price_row = code_match.iloc[0]
-            
-            # Si pas trouvé par code, chercher par nom
-            if ref_price_row is None and product_name:
-                # Recherche par nom exact d'abord
-                name_match = prices_db_filtered[prices_db_filtered['produit'].str.lower() == product_name]
-                if not name_match.empty:
-                    ref_price_row = name_match.iloc[0]
-                else:
-                    # Recherche partielle - ÉCHAPPER LES CARACTÈRES SPÉCIAUX REGEX
-                    try:
-                        escaped_name = re.escape(product_name)
-                        partial_match = prices_db_filtered[prices_db_filtered['produit'].str.lower().str.contains(escaped_name, na=False, regex=True)]
-                        if not partial_match.empty:
-                            ref_price_row = partial_match.iloc[0]
-                    except Exception as e:
-                        # En cas d'erreur regex, faire une recherche simple sans regex
-                        logger.warning(f"Erreur regex pour '{product_name}': {e}")
-                        # Fallback : recherche simple in
-                        for idx, row in prices_db_filtered.iterrows():
-                            if product_name in row['produit'].lower():
-                                ref_price_row = row
-                                break
-            
-            if ref_price_row is not None:
-                # PRODUIT EXISTANT : Comparaison prix unitaire vs prix unitaire
-                matched = True
-                comparison['matched_products'] += 1
+        print(f"📋 COMPARE_PRICES: Prix existants chargés: {len(existing_prices)}")
+
+        for i, product in enumerate(products):
+            try:
+                # Nettoyer le nom du produit
+                product_name = str(product.get('name', '')).strip()
+                if not product_name:
+                    print(f"⚠️ COMPARE_PRICES: Produit {i} sans nom, ignoré")
+                    continue
+
+                # Prix facturé
+                unit_price = float(product.get('unit_price', 0))
+                if unit_price <= 0:
+                    print(f"⚠️ COMPARE_PRICES: Produit {i} '{product_name}' sans prix valide, ignoré")
+                    continue
+
+                # Obtenir le fournisseur depuis le produit ou utiliser 'SCAN'
+                supplier = product.get('supplier', 'SCAN')
                 
-                ref_unit_price = float(ref_price_row.get('prix', ref_price_row.get('prix_unitaire', 0)))
-                price_difference = unit_price - ref_unit_price
-                percentage_diff = (price_difference / ref_unit_price * 100) if ref_unit_price > 0 else 0
+                print(f"🔍 COMPARE_PRICES: Produit {i+1}/{len(products)}: '{product_name}' - {supplier} - {unit_price}€")
+
+                # Générer un code produit
+                product_code = self._generate_product_code(product_name, supplier)
+
+                # Chercher un prix existant pour ce produit et fournisseur
+                name_clean = product_name.lower().strip()
                 
-                # Déterminer le statut basé sur prix unitaires
-                if abs(percentage_diff) < 5:
-                    status = 'ok'
-                    comparison['summary']['products_with_same_prices'] += 1
-                elif price_difference > 0:
-                    status = 'overprice'
-                    comparison['summary']['products_with_higher_prices'] += 1
-                else:
-                    status = 'savings'
-                    comparison['summary']['products_with_better_prices'] += 1
-                
-                # Ajouter à price_variations pour l'interface web
-                if abs(price_difference) > 0.01:  # Seulement si écart significatif
-                    comparison['price_variations'].append({
-                        'product_name': product['name'],
+                matching_price = None
+                for existing in existing_prices:
+                    existing_name = str(existing.get('produit', '')).lower().strip()
+                    existing_supplier = str(existing.get('fournisseur', '')).upper()
+                    current_supplier = supplier.upper()
+                    
+                    if existing_name == name_clean and existing_supplier == current_supplier:
+                        matching_price = existing
+                        print(f"✅ COMPARE_PRICES: Prix existant trouvé pour '{product_name}' ({supplier})")
+                        break
+
+                if matching_price:
+                    # PRODUIT EXISTANT
+                    reference_price = float(matching_price.get('prix', 0))
+                    savings = reference_price - unit_price
+
+                    comparison['total_savings'] += savings
+                    comparison['products_details'].append({
+                        'product_name': product_name,
                         'product_code': product_code,
-                        'invoice_price': unit_price,
-                        'reference_price': ref_unit_price,
-                        'price_difference': price_difference,
-                        'percentage_difference': percentage_diff,
-                        'quantity': quantity,
-                        'total_impact': price_difference * quantity,  # Impact sur le total
-                        'status': status,
-                        'unit': product.get('unit', 'unité'),
-                        'restaurant': ref_price_row.get('restaurant', 'Général')
+                        'unit_price_invoice': unit_price,
+                        'unit_price_reference': reference_price,
+                        'savings': savings,
+                        'status': 'existing',
+                        'message': f'Économie: {savings:.2f}€' if savings > 0 else f'Surcoût: {abs(savings):.2f}€',
+                        'restaurant': restaurant_name or 'Général'
                     })
-                
-                product_comparison = {
-                    'product_name': product['name'],
-                    'product_code': product_code,
-                    'unit_price_invoice': unit_price,  # Prix unitaire facture
-                    'unit_price_reference': ref_unit_price,  # Prix unitaire référence
-                    'difference': price_difference,
-                    'percentage': percentage_diff,
-                    'status': status,
-                    'restaurant': ref_price_row.get('restaurant', 'Général')
-                }
-                
-                # Alertes basées sur les prix unitaires
-                if percentage_diff > 5:  # Alerte si > 5%
-                    comparison['price_alerts'].append({
-                        'product': product['name'],
-                        'message': f"Prix unitaire supérieur de {percentage_diff:.1f}% ({price_difference:.2f}€/unité)",
-                        'severity': 'high' if percentage_diff > 20 else 'medium'
+                else:
+                    # NOUVEAU PRODUIT : Ajouter en attente (prix unitaire uniquement)
+                    print(f"🆕 COMPARE_PRICES: NOUVEAU PRODUIT détecté: '{product_name}' ({supplier}) - {unit_price}€")
+                    comparison['new_products'] += 1
+                    
+                    # Ajouter à la base avec statut "en attente" - PRIX UNITAIRE SEULEMENT
+                    pending_data = {
+                        'code': product_code or '',
+                        'produit': product_name,
+                        'prix': unit_price,  # Prix unitaire uniquement
+                        'unite': product.get('unit', 'unité'),
+                        'fournisseur': supplier,
+                        'categorie': product.get('category', 'Non classé')
+                    }
+                    
+                    # Ajouter le restaurant si spécifié
+                    if restaurant_name:
+                        pending_data['restaurant'] = restaurant_name
+                        print(f"🏪 COMPARE_PRICES: Restaurant ajouté au produit en attente: {restaurant_name}")
+                    else:
+                        print(f"⚠️ COMPARE_PRICES: Aucun restaurant spécifié, utilisera 'Général'")
+                    
+                    print(f"💾 COMPARE_PRICES: Tentative d'ajout en attente: {pending_data}")
+                    success = self.add_pending_product(pending_data)
+                    print(f"📝 COMPARE_PRICES: Résultat ajout en attente: {'✅ Succès' if success else '❌ Échec'}")
+                    
+                    comparison['products_details'].append({
+                        'product_name': product_name,
+                        'product_code': product_code,
+                        'unit_price_invoice': unit_price,
+                        'unit_price_reference': None,
+                        'status': 'new',
+                        'message': f'Nouveau produit à {unit_price:.2f}€/unité - En attente de validation',
+                        'restaurant': restaurant_name or 'Général'
                     })
-                elif percentage_diff < -5:  # Économie si < -5%
-                    comparison['price_alerts'].append({
-                        'product': product['name'],
-                        'message': f"Économie de {abs(percentage_diff):.1f}% ({abs(price_difference):.2f}€/unité)",
-                        'severity': 'success'
-                    })
-                
-                comparison['products_details'].append(product_comparison)
-            else:
-                # NOUVEAU PRODUIT : Ajouter en attente (prix unitaire uniquement)
-                comparison['new_products'] += 1
-                
-                # Ajouter à la base avec statut "en attente" - PRIX UNITAIRE SEULEMENT
-                pending_data = {
-                    'code': product_code or '',
-                    'produit': product['name'],
-                    'prix': unit_price,  # Prix unitaire uniquement
-                    'unite': product.get('unit', 'unité'),
-                    'fournisseur': supplier,
-                    'categorie': product.get('category', 'Non classé')
-                }
-                
-                # Ajouter le restaurant si spécifié
-                if restaurant_name:
-                    pending_data['restaurant'] = restaurant_name
-                
-                self.add_pending_product(pending_data)
-                
-                comparison['products_details'].append({
-                    'product_name': product['name'],
-                    'product_code': product_code,
-                    'unit_price_invoice': unit_price,
-                    'unit_price_reference': None,
-                    'status': 'new',
-                    'message': f'Nouveau produit à {unit_price:.2f}€/unité - En attente de validation',
-                    'restaurant': restaurant_name or 'Général'
-                })
-        
+
+            except Exception as e:
+                print(f"❌ COMPARE_PRICES: Erreur traitement produit {i}: {e}")
+                continue
+
+        print(f"🏁 COMPARE_PRICES: Terminé - {comparison['new_products']} nouveaux produits ajoutés en attente")
         return comparison
     
     def add_pending_product_OLD(self, code: str, name: str, price: float, 
@@ -600,6 +549,9 @@ class PriceManager:
     def add_pending_product(self, product_data: Dict) -> bool:
         """Ajouter un produit en attente depuis un dict (pour scanner batch)"""
         try:
+            print(f"💾 ADD_PENDING: Démarrage ajout produit en attente")
+            print(f"💾 ADD_PENDING: Données reçues: {product_data}")
+            
             code = product_data.get('code', '')
             name = product_data.get('produit', product_data.get('name', ''))
             price = float(product_data.get('prix', product_data.get('price', 0)))
@@ -607,7 +559,10 @@ class PriceManager:
             supplier = product_data.get('fournisseur', product_data.get('supplier', 'SCANNER'))
             restaurant = product_data.get('restaurant', 'Général')  # Nouveau champ restaurant
             
+            print(f"💾 ADD_PENDING: Valeurs extraites - nom:'{name}', prix:{price}, fournisseur:'{supplier}', restaurant:'{restaurant}'")
+            
             if not name or price <= 0:
+                print(f"❌ ADD_PENDING: Validation échouée - nom vide ou prix invalide")
                 return False
             
             # Charger les produits en attente
@@ -689,13 +644,16 @@ class PriceManager:
             pending_df = pd.concat([pending_df, pd.DataFrame([new_product])], ignore_index=True)
             
             # Sauvegarder
+            print(f"💾 ADD_PENDING: Sauvegarde en cours dans {pending_file}")
             os.makedirs('data', exist_ok=True)
             pending_df.to_csv(pending_file, index=False)
             
-            print(f"✅ Nouveau produit en attente: '{name}' ({supplier}) - {price}€ - Restaurant: {restaurant}")
+            print(f"✅ ADD_PENDING: Nouveau produit en attente sauvegardé: '{name}' ({supplier}) - {price}€ - Restaurant: {restaurant}")
+            print(f"✅ ADD_PENDING: ID assigné: {new_id}")
             return True
             
         except Exception as e:
+            print(f"❌ ADD_PENDING: Erreur lors de l'ajout: {e}")
             logger.error(f"Erreur ajout produit en attente (dict): {e}")
             return False
     

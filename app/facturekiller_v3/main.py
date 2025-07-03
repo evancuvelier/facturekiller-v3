@@ -874,26 +874,36 @@ def process_invoice_analysis(analysis_data, filepath):
         
         # Étape 2: Comparaison des prix avec filtrage par restaurant
         if analysis_data.get('products'):
+            print(f"🔍 PROCESS_INVOICE: Démarrage comparaison prix pour {len(analysis_data['products'])} produits")
+            
             # Récupérer le contexte utilisateur pour le restaurant
             user_context = auth_manager.get_user_context()
             current_restaurant = user_context.get('restaurant')
             
+            print(f"🏪 PROCESS_INVOICE: Restaurant actuel: {current_restaurant}")
+            
             if current_restaurant:
+                restaurant_name = current_restaurant.get('name')
+                print(f"🏪 PROCESS_INVOICE: Nom du restaurant: '{restaurant_name}'")
+                
                 # Passer le restaurant au price_manager
+                print(f"🔄 PROCESS_INVOICE: Appel compare_prices avec restaurant '{restaurant_name}'")
                 comparison = price_manager.compare_prices(
                     analysis_data['products'], 
-                    restaurant_name=current_restaurant.get('name')
+                    restaurant_name=restaurant_name
                 )
                 analysis_data['price_comparison'] = comparison
-                analysis_data['restaurant_context'] = current_restaurant.get('name')
+                analysis_data['restaurant_context'] = restaurant_name
                 
                 # 🎯 Les nouveaux produits sont déjà automatiquement ajoutés en attente par compare_prices()
                 # Ajouter juste un message informatif si il y en a
                 new_products_count = comparison.get('new_products', 0)
+                print(f"📊 PROCESS_INVOICE: Résultat comparaison - {new_products_count} nouveaux produits")
                 if new_products_count > 0:
-                    print(f"✅ {new_products_count} nouveaux produits automatiquement ajoutés en attente pour validation")
+                    print(f"✅ PROCESS_INVOICE: {new_products_count} nouveaux produits automatiquement ajoutés en attente pour validation")
                     analysis_data['pending_products_added'] = new_products_count
             else:
+                print(f"⚠️ PROCESS_INVOICE: Aucun restaurant sélectionné")
                 # Pas de restaurant sélectionné - utiliser tous les prix
                 comparison = price_manager.compare_prices(analysis_data['products'])
                 analysis_data['price_comparison'] = comparison
