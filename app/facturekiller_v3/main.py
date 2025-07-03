@@ -4930,7 +4930,8 @@ def validate_supplier_pending_product(supplier_name, pending_id):
             # 🔄 SYNCHRONISATION AUTOMATIQUE si restaurant multi-restaurant
             sync_result = None
             if current_restaurant:
-                from modules.sync_manager import sync_manager
+                from modules.sync_manager import SyncManager  # Correction ici
+                sync_manager = SyncManager()  # Création de l'instance
                 
                 # Vérifier si ce restaurant a la synchronisation activée
                 restaurant_config = sync_manager.get_restaurant_sync_settings(current_restaurant.get('id'))

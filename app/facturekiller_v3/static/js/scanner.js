@@ -548,4 +548,19 @@ function formatPrice(price) {
     const numPrice = parseFloat(price);
     if (isNaN(numPrice)) return '0,00 €';
     return numPrice.toFixed(2).replace('.', ',') + ' €';
+}
+
+// Afficher l'aperçu de l'image scannée
+function previewScanImage(event) {
+    const input = event.target;
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('scanPreviewImg').src = e.target.result;
+            document.getElementById('scanPreview').style.display = 'block';
+        };
+        reader.readAsDataURL(input.files[0]);
+    } else {
+        document.getElementById('scanPreview').style.display = 'none';
+    }
 } 

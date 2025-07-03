@@ -423,6 +423,16 @@
                 <!-- Titre principal -->
                 <h4 class="fw-bold text-primary mb-2">📸 Scanner une Facture</h4>
                 <p class="text-muted mb-4 px-2">Analyse intelligente avec IA • Reconnaissance automatique des données</p>
+
+                <!-- Ajout du scan simple -->
+                <div class="mb-3">
+                  <label for="scanInput" class="form-label fw-bold">Scanner une facture (photo ou scan)</label>
+                  <input type="file" accept="image/*" capture="environment" class="form-control" id="scanInput" onchange="previewScanImage(event)">
+                </div>
+                <div id="scanPreview" class="mb-3" style="display:none;">
+                  <label class="form-label">Aperçu :</label>
+                  <img id="scanPreviewImg" src="#" alt="Aperçu du scan" style="max-width:100%; border:1px solid #ccc; border-radius:8px;">
+                </div>
                 
                 <!-- Bouton principal stylé -->
                 <div class="main-scan-button mb-4">
@@ -1683,6 +1693,17 @@ function goToEditPage() {
         <i class="bi bi-collection-fill"></i>
         <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="floatingQueueCount">0</span>
     </button>
+</div>
+
+<!-- Ajout du bouton de scan simple -->
+<div class="mb-3">
+  <label for="scanInput" class="form-label fw-bold">Scanner une facture (photo ou scan)</label>
+  <input type="file" accept="image/*" capture="environment" class="form-control" id="scanInput" onchange="previewScanImage(event)">
+</div>
+<!-- Aperçu de l'image sélectionnée -->
+<div id="scanPreview" class="mb-3" style="display:none;">
+  <label class="form-label">Aperçu :</label>
+  <img id="scanPreviewImg" src="#" alt="Aperçu du scan" style="max-width:100%; border:1px solid #ccc; border-radius:8px;">
 </div>
 
 {% endblock %}
