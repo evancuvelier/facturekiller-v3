@@ -433,9 +433,14 @@ class ScannerPro {
             this.stream = null;
         }
         
-        document.getElementById('cameraPreview').style.display = 'none';
-        document.getElementById('cameraControls').style.display = 'none';
-        document.getElementById('uploadZone').style.display = 'block';
+        const cameraPreview = document.getElementById('cameraPreview');
+        if (cameraPreview) cameraPreview.style.display = 'none';
+
+        const cameraControls = document.getElementById('cameraControls');
+        if (cameraControls) cameraControls.style.display = 'none';
+
+        const uploadZone = document.getElementById('uploadZone');
+        if (uploadZone) uploadZone.style.display = 'block';
     }
 
     async handleFileSelect(file) {
@@ -503,7 +508,9 @@ class ScannerPro {
                 ctx.drawImage(img, 0, 0, width, height);
                 
                 canvas.toBlob((blob) => {
-                    const compressedFile = new File([blob], file.name, { type: 'image/jpeg' });
+                    // Renommer le fichier compressé avec une extension .jpg cohérente
+                    const baseName = file.name.replace(/\.[^/.]+$/, '');
+                    const compressedFile = new File([blob], `${baseName}.jpg`, { type: 'image/jpeg' });
                     resolve(compressedFile);
                 }, 'image/jpeg', 0.8);
             };
