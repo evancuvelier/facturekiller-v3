@@ -2279,50 +2279,65 @@ class ScannerPro {
 
     // Méthodes utilitaires
     showProgress(text = 'Traitement en cours...') {
-        // Afficher le status de traitement fixé en bas
-        const processingStatus = document.getElementById('processingStatus');
-        const processingTitle = document.getElementById('processingTitle');
+        // Créer l'overlay de progression si nécessaire
+        let overlay = document.getElementById('processingStatus');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'processingStatus';
+            overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:4px;background:#e9ecef;z-index:9999;';
+            overlay.innerHTML = `
+                <div id="processingProgress" style="width:0%;height:100%;background:#0d6efd;transition:width 0.3s;"></div>
+            `;
+            document.body.appendChild(overlay);
+            // Détails textuels facultatifs
+            const details = document.createElement('div');
+            details.id = 'processingDetails';
+            details.style.cssText = 'position:fixed;top:6px;left:50%;transform:translateX(-50%);background:#0d6efd;color:white;padding:2px 8px;border-radius:4px;font-size:12px;z-index:10000;';
+            document.body.appendChild(details);
+        }
+
+         // Afficher le status de traitement fixé en bas
+        const processingStatus = overlay;
         const processingDetails = document.getElementById('processingDetails');
-        
-        if (processingStatus) {
-            processingStatus.style.display = 'block';
-            processingTitle.textContent = '🤖 Analyse en cours...';
-            processingDetails.textContent = text;
-        }
-        
-        // Cacher les actions du bas pendant le traitement
-        const finalActions = document.querySelector('.final-actions');
-        if (finalActions) {
-            finalActions.style.display = 'none';
-        }
-    }
+         
+         if (processingStatus) {
+             processingStatus.style.display = 'block';
+             if (processingDetails) processingDetails.textContent = text;
+         }
+         
+         // Cacher les actions du bas pendant le traitement
+         const finalActions = document.querySelector('.final-actions');
+         if (finalActions) {
+             finalActions.style.display = 'none';
+         }
+     }
 
     hideProgress() {
         // Cacher le status de traitement
         const processingStatus = document.getElementById('processingStatus');
-        if (processingStatus) {
-            processingStatus.style.display = 'none';
-        }
-        
-        // Remettre les actions du bas
-        const finalActions = document.querySelector('.final-actions');
-        if (finalActions) {
-            finalActions.style.display = 'block';
-        }
-    }
+        if (processingStatus) processingStatus.remove();
+        const processingDetails = document.getElementById('processingDetails');
+        if (processingDetails) processingDetails.remove();
+         
+         // Remettre les actions du bas
+         const finalActions = document.querySelector('.final-actions');
+         if (finalActions) {
+             finalActions.style.display = 'block';
+         }
+     }
 
     updateProgress(percent, text) {
-        const processingProgress = document.getElementById('processingProgress');
-        const processingDetails = document.getElementById('processingDetails');
-        
-        if (processingProgress) {
-            processingProgress.style.width = percent + '%';
-        }
-        
-        if (processingDetails) {
-            processingDetails.textContent = text;
-        }
-    }
+         const processingProgress = document.getElementById('processingProgress');
+         const processingDetails = document.getElementById('processingDetails');
+         
+         if (processingProgress) {
+             processingProgress.style.width = percent + '%';
+         }
+         
+         if (processingDetails) {
+             processingDetails.textContent = text;
+         }
+     }
 
     showNotification(message, type = 'info') {
         // Créer une notification toast

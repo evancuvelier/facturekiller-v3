@@ -13,11 +13,24 @@ import re
 
 logger = logging.getLogger(__name__)
 
+# === Firestore ===
+try:
+    from modules.firestore_db import available as _fs_available, get_client as _fs_client
+except Exception:
+    # Import léger pour éviter ImportError si Firestore non configuré
+    def _fs_available():
+        return False
+    def _fs_client():
+        return None
+
 class PriceManager:
     """Gestionnaire des prix de référence"""
     
     def __init__(self):
         self.prices_db = self._load_prices()
+        # Firestore
+        self._fs_enabled = _fs_available()
+        self._fs = _fs_client() if self._fs_enabled else None
         
     def _load_prices(self) -> pd.DataFrame:
         """Charger les prix depuis le fichier de données"""
@@ -492,6 +505,15 @@ class PriceManager:
             pending_df.to_csv(pending_file, index=False)
             
             print(f"✅ Produit '{product_data['produit']}' validé et ajouté aux prix de référence (ID: {new_id})")
+            
+            # 🔥 Firestore push si activé
+            if self._fs_enabled:
+                try:
+                    doc_id = product_data.get('code') or str(product_data['id'])
+                    self._fs.collection('prices').document(doc_id).set(product_data)
+                except Exception as e:
+                    logger.warning(f"Firestore prices push KO: {e}")
+            
             return True
             
         except Exception as e:
@@ -659,6 +681,15 @@ class PriceManager:
             
             print(f"✅ ADD_PENDING: Nouveau produit en attente sauvegardé: '{name}' ({supplier}) - {price}€ - Restaurant: {restaurant}")
             print(f"✅ ADD_PENDING: ID assigné: {new_id}")
+            
+            # 🔥 Firestore push si activé
+            if self._fs_enabled:
+                try:
+                    doc_id = new_product.get('code') or str(int(datetime.now().timestamp()))
+                    self._fs.collection('prices').document(doc_id).set(new_product)
+                except Exception as e:
+                    logger.warning(f"Firestore prices push KO: {e}")
+            
             return True
             
         except Exception as e:
@@ -729,6 +760,14 @@ class PriceManager:
                 except Exception as sync_error:
                     logger.warning(f"Erreur synchronisation prix: {sync_error}")
                     # Ne pas faire échouer l'ajout si la sync échoue
+            
+            # 🔥 Firestore push si activé
+            if self._fs_enabled:
+                try:
+                    doc_id = new_price.get('code') or str(int(datetime.now().timestamp()))
+                    self._fs.collection('prices').document(doc_id).set(new_price)
+                except Exception as e:
+                    logger.warning(f"Firestore prices push KO: {e}")
             
             logger.info(f"Prix ajouté: {new_price['produit']} - {new_price['prix']}€")
             return True
