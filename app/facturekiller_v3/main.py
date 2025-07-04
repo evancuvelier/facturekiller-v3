@@ -843,7 +843,27 @@ def process_invoice_analysis(analysis_data, filepath):
                         'created_at': datetime.now().isoformat()
                     }
                     supplier_manager.save_supplier(new_supplier_data)
-                    
+                    created_now = True
+                else:
+                    # Fournisseur existant mais peut-être pas encore lié au restaurant
+                    created_now = False
+
+                # ➕ Associer le fournisseur au restaurant si absent
+                restaurant_suppliers = current_restaurant.get('suppliers', [])
+                if supplier_name not in restaurant_suppliers:
+                    restaurant_suppliers.append(supplier_name)
+
+                    # Mettre à jour dans le fichier restaurants.json
+                    restaurants = auth_manager._load_restaurants()
+                    for rest in restaurants:
+                        if rest['id'] == current_restaurant['id']:
+                            rest['suppliers'] = restaurant_suppliers
+                            break
+                    auth_manager._save_restaurants(restaurants)
+
+                    print(f"✅ Fournisseur '{supplier_name}' associé au restaurant '{current_restaurant.get('name')}'")
+
+                if created_now:
                     # Ajouter le fournisseur au restaurant actuel
                     restaurant_suppliers = current_restaurant.get('suppliers', [])
                     if supplier_name not in restaurant_suppliers:
@@ -3461,6 +3481,31 @@ def get_restaurant_suppliers():
         
         # Filtrer les fournisseurs selon le restaurant
         filtered_suppliers = [s for s in all_suppliers if s['name'] in restaurant_suppliers]
+        
+        # 🔄 Si des fournisseurs existent mais ne sont pas encore associés, les lier automatiquement
+        missing_suppliers = [s['name'] for s in all_suppliers if s['name'] not in restaurant_suppliers]
+        if missing_suppliers:
+            print(f"♻️ AUTO-ASSOC fournisseurs {missing_suppliers} → restaurant {current_restaurant['name']}")
+            restaurant_suppliers.extend(missing_suppliers)
+            current_restaurant['suppliers'] = restaurant_suppliers
+
+            # Persister dans le fichier restaurants.json pour la prochaine requête
+            try:
+                rest_path = 'data/restaurants.json'
+                if os.path.exists(rest_path):
+                    with open(rest_path, 'r', encoding='utf-8') as f:
+                        restaurants = json.load(f)
+                    for r in restaurants:
+                        if r['id'] == current_restaurant['id']:
+                            r['suppliers'] = restaurant_suppliers
+                            break
+                    with open(rest_path, 'w', encoding='utf-8') as f:
+                        json.dump(restaurants, f, indent=2, ensure_ascii=False)
+            except Exception as err:
+                logger.warning(f"Impossible de mettre à jour restaurants.json : {err}")
+
+            # Recalculer
+            filtered_suppliers = [s for s in all_suppliers if s['name'] in restaurant_suppliers]
         
         return jsonify({
             'success': True,
