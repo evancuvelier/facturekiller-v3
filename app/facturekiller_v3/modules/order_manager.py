@@ -58,11 +58,39 @@ class OrderManager:
         try:
             if os.path.exists(self.orders_file):
                 with open(self.orders_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    # Migrer vers la nouvelle structure si nécessaire
-                    if 'restaurant_counters' not in data:
-                        data['restaurant_counters'] = {}
-                    return data
+                    file_data = json.load(f)
+            else:
+                file_data = None
+
+            # 🔀 Fusion Firestore + fichier local (import historique)
+            if file_data:
+                file_orders = file_data.get('orders', []) if isinstance(file_data, dict) else file_data.get('orders', []) if isinstance(file_data, dict) else []
+                fs_order_ids = {o['id'] for o in self.orders_data.get('orders', [])}
+                new_imports = [o for o in file_orders if o.get('id') not in fs_order_ids]
+                if new_imports:
+                    print(f"♻️ IMPORT HISTORIQUE: Ajout de {len(new_imports)} commandes depuis le fichier local vers Firestore")
+                    self.orders_data['orders'].extend(new_imports)
+                    # Push en batch
+                    batch = self._fs.batch()
+                    col = self._fs.collection('orders')
+                    for o in new_imports:
+                        batch.set(col.document(o['id']), o)
+                    batch.commit()
+                    # Mettre à jour les données locales pour cohérence
+                    merged_data = {
+                        'orders': self.orders_data['orders'],
+                        'last_updated': datetime.now().isoformat(),
+                        'next_order_number': file_data.get('next_order_number', 1),
+                        'restaurant_counters': file_data.get('restaurant_counters', {})
+                    }
+                    self._save_orders(merged_data)
+
+                return {
+                    'orders': self.orders_data['orders'],
+                    'last_updated': datetime.now().isoformat(),
+                    'next_order_number': file_data.get('next_order_number', 1),
+                    'restaurant_counters': file_data.get('restaurant_counters', {})
+                }
             else:
                 # Créer la structure par défaut
                 default_data = {
@@ -328,13 +356,6 @@ class OrderManager:
             
             for i, order in enumerate(orders):
                 if order.get('id') == order_id:
-                    # Vérifier que la commande peut être supprimée
-                    # Seules les commandes 'draft' et 'pending' peuvent être supprimées
-                    # Les commandes confirmées (email envoyé) et plus avancées ne peuvent pas être supprimées
-                    status = order.get('status')
-                    if status not in ['draft', 'pending']:
-                        return False  # Ne pas supprimer les commandes confirmées ou plus avancées
-                    
                     del self.orders_data['orders'][i]
                     self.orders_data['last_updated'] = datetime.now().isoformat()
                     

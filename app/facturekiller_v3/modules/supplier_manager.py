@@ -78,6 +78,18 @@ class SupplierManager:
         except Exception as e:
             print(f"Erreur ajout à la liste des supprimés: {e}")
 
+    def _remove_from_deleted_suppliers(self, supplier_name: str):
+        """Retirer un fournisseur de la liste des supprimés"""
+        try:
+            deleted = list(self._get_deleted_suppliers())
+            if supplier_name in deleted:
+                deleted.remove(supplier_name)
+                with open(self.deleted_suppliers_file, 'w', encoding='utf-8') as f:
+                    json.dump(deleted, f, ensure_ascii=False, indent=2)
+                print(f"♻️ Fournisseur '{supplier_name}' retiré de la liste des supprimés")
+        except Exception as e:
+            print(f"Erreur suppression de la liste deleted_suppliers: {e}")
+
     def get_all_suppliers(self) -> List[Dict]:
         """Récupérer tous les fournisseurs avec leurs statistiques"""
         # 1️⃣ Firestore d'abord
@@ -122,13 +134,6 @@ class SupplierManager:
             # Sauvegarder la liste des fournisseurs
             with open(self.suppliers_file, 'w', encoding='utf-8') as f:
                 json.dump(suppliers, f, ensure_ascii=False, indent=2)
-
-            # Firestore delete
-            if getattr(self, '_fs_enabled', False):
-                try:
-                    self._fs.collection('suppliers').document(supplier_name).delete()
-                except Exception as e:
-                    print(f"Firestore delete_supplier KO: {e}")
 
             return suppliers
             
@@ -283,6 +288,9 @@ class SupplierManager:
             with open(self.suppliers_file, 'w', encoding='utf-8') as f:
                 json.dump(suppliers, f, ensure_ascii=False, indent=2)
 
+            # ➕ Autoriser la recréation : retirer de deleted_suppliers.json si présent
+            self._remove_from_deleted_suppliers(supplier_name)
+
             # Firestore save / update
             if getattr(self, '_fs_enabled', False):
                 try:
@@ -321,6 +329,13 @@ class SupplierManager:
             # 4. Supprimer les produits en attente du fournisseur
             self._remove_supplier_from_pending(supplier_name)
             
+            # 5. Supprimer le document Firestore
+            if getattr(self, '_fs_enabled', False):
+                try:
+                    self._fs.collection('suppliers').document(supplier_name).delete()
+                except Exception as e:
+                    print(f"Firestore delete_supplier KO: {e}")
+
             print(f"✅ Fournisseur '{supplier_name}' et tous ses produits supprimés")
             return True
             
