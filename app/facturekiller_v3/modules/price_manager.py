@@ -284,14 +284,16 @@ class PriceManager:
                 'total_savings': 0.0,
                 'items_analyzed': 0,
                 'new_products': 0,
-                'products_details': []
+                'products_details': [],
+                'products_with_price_differences': []
             }
 
         comparison = {
             'total_savings': 0.0,
             'items_analyzed': len(products),
             'new_products': 0,
-            'products_details': []
+            'products_details': [],
+            'products_with_price_differences': []
         }
 
         # Charger les prix existants
@@ -342,6 +344,13 @@ class PriceManager:
                     savings = reference_price - unit_price
 
                     comparison['total_savings'] += savings
+                    if abs(savings) > 0.01:
+                        comparison['products_with_price_differences'].append({
+                            'product_name': product_name,
+                            'savings': savings,
+                            'unit_price_invoice': unit_price,
+                            'unit_price_reference': reference_price
+                        })
                     comparison['products_details'].append({
                         'product_name': product_name,
                         'product_code': product_code,

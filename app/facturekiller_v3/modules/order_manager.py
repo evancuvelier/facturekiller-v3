@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
 import logging
 import uuid
+from modules.firestore_db import available as _fs_available, get_client as _fs_client
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,11 @@ class OrderManager:
     def __init__(self, email_manager=None, auth_manager=None):
         self.orders_file = 'data/orders.json'
         self.prices_file = 'data/prices.csv'
+        
+        # Firestore
+        self._fs_enabled = _fs_available()
+        self._fs = _fs_client() if self._fs_enabled else None
+        
         self.orders_data = self._load_orders()
         self.email_manager = email_manager  # Injecter EmailManager
         self.auth_manager = auth_manager  # Injecter AuthManager (optionnel)
@@ -35,7 +41,20 @@ class OrderManager:
         }
     
     def _load_orders(self) -> Dict[str, Any]:
-        """Charger les commandes depuis le fichier JSON"""
+        """Charger les commandes : Firestore d'abord, sinon fichier JSON"""
+        # 1️⃣ Firestore
+        if getattr(self, '_fs_enabled', False):
+            try:
+                docs = list(self._fs.collection('orders').stream())
+                if docs:
+                    return {
+                        'orders': [d.to_dict() for d in docs],
+                        'last_updated': datetime.now().isoformat(),
+                        'next_order_number': 1,  # recalculé ci-dessous
+                        'restaurant_counters': {}
+                    }
+            except Exception as e:
+                logger.warning(f"Firestore indisponible _load_orders: {e}")
         try:
             if os.path.exists(self.orders_file):
                 with open(self.orders_file, 'r', encoding='utf-8') as f:
@@ -64,7 +83,7 @@ class OrderManager:
             }
     
     def _save_orders(self, data: Dict[str, Any] = None):
-        """Sauvegarder les commandes"""
+        """Sauvegarder les commandes (fichier + Firestore si dispo)"""
         try:
             if data is None:
                 data = self.orders_data
@@ -73,6 +92,14 @@ class OrderManager:
             
             with open(self.orders_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
+                
+            # Firestore bulk upload (simple) – on écrase tout pour simplifier
+            if getattr(self, '_fs_enabled', False):
+                batch = self._fs.batch()
+                col = self._fs.collection('orders')
+                for o in data.get('orders', []):
+                    batch.set(col.document(o['id']), o)
+                batch.commit()
                 
         except Exception as e:
             logger.error(f"Erreur sauvegarde commandes: {e}")
@@ -197,6 +224,13 @@ class OrderManager:
             
             self._save_orders()
             
+            # Firestore save
+            if getattr(self, '_fs_enabled', False):
+                try:
+                    self._fs.collection('orders').document(order_id).set(new_order)
+                except Exception as e:
+                    logger.warning(f"Firestore create_order KO: {e}")
+            
             logger.info(f"✅ Commande créée: {order_number} (ID: {order_id})")
             
             return order_id
@@ -228,6 +262,14 @@ class OrderManager:
                     self.orders_data['last_updated'] = datetime.now().isoformat()
                     
                     self._save_orders()
+                    
+                    # Firestore update
+                    if getattr(self, '_fs_enabled', False):
+                        try:
+                            self._fs.collection('orders').document(order_id).update(order)
+                        except Exception as e:
+                            logger.warning(f"Firestore update_order KO: {e}")
+                    
                     return True
             
             return False
@@ -297,6 +339,14 @@ class OrderManager:
                     self.orders_data['last_updated'] = datetime.now().isoformat()
                     
                     self._save_orders()
+                    
+                    # Firestore delete
+                    if getattr(self, '_fs_enabled', False):
+                        try:
+                            self._fs.collection('orders').document(order_id).delete()
+                        except Exception as e:
+                            logger.warning(f"Firestore delete_order KO: {e}")
+                    
                     return True
             
             return False
