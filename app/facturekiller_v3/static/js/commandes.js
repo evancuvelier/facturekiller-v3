@@ -1891,12 +1891,25 @@ function showScanVerificationModal(order) {
                 </div>
             </div>
         </div>`;
-    // ... existing code ...
-    // après modal.show();
-    document.getElementById('scanFileInput').addEventListener('change', (e)=>handleScanFileSelect(e));
+    // Supprimer le modal existant s'il y en a un
+    const existingModal = document.getElementById('scanVerificationModal');
+    if (existingModal) existingModal.remove();
+
+    // Insérer dans le DOM
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    // Initialiser Bootstrap modal + accessibilité
+    const modalElement = document.getElementById('scanVerificationModal');
+    const modal = new bootstrap.Modal(modalElement);
+    modalElement.addEventListener('shown.bs.modal', ()=>modalElement.removeAttribute('aria-hidden'));
+    modalElement.addEventListener('hidden.bs.modal', ()=>modalElement.setAttribute('aria-hidden','true'));
+    modal.show();
+
+    // Ajouter les listeners une fois l'élément présent
+    document.getElementById('scanFileInput').addEventListener('change', handleScanFileSelect);
     document.getElementById('launchScanBtn').addEventListener('click', ()=>analyzeScanInvoice(order));
 }
-// ... existing code ...
+
 function handleScanFileSelect(event){
     const file = event.target.files[0];
     if(!file) return;
@@ -1943,7 +1956,6 @@ async function analyzeScanInvoice(order){
         document.getElementById('actionButtons').classList.remove('d-none');
     }
 }
-// ... existing code ...
 
 // Fonction pour afficher les résultats du scan
 function displayScanResults(scanData, order) {
