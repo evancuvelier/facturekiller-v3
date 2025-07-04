@@ -97,7 +97,14 @@ class SupplierManager:
             try:
                 docs = list(self._fs.collection('suppliers').stream())
                 if docs:
-                    return [d.to_dict() for d in docs]
+                    suppliers_fs = []
+                    for doc in docs:
+                        data = doc.to_dict()
+                        # Calculer stats (produits validés / pending)
+                        stats = self._get_supplier_stats(data['name'])
+                        data.update(stats)
+                        suppliers_fs.append(data)
+                    return suppliers_fs
             except Exception as e:
                 print(f"Firestore get_all_suppliers KO: {e}")
 
