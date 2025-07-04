@@ -7,16 +7,34 @@ import os
 from datetime import datetime
 from typing import Dict, List, Any
 import logging
+from modules.firestore_db import available as _fs_available, get_client as _fs_client
 
 logger = logging.getLogger(__name__)
 
 class InvoiceManager:
     def __init__(self):
         self.invoices_file = 'data/invoices.json'
+        # Firestore
+        self._fs_enabled = _fs_available()
+        self._fs = _fs_client() if self._fs_enabled else None
+
         self.invoices_data = self._load_invoices()
     
     def _load_invoices(self) -> Dict[str, Any]:
-        """Charger les factures depuis le fichier JSON"""
+        """Charger les factures depuis Firestore sinon depuis le fichier."""
+        # 1️⃣ Tentative Firestore
+        if getattr(self, '_fs_enabled', False):
+            try:
+                docs = list(self._fs.collection('invoices').stream())
+                if docs:
+                    invoices = [d.to_dict() for d in docs]
+                    return {
+                        'invoices': invoices,
+                        'last_updated': datetime.now().isoformat()
+                    }
+            except Exception as e:
+                logger.warning(f"Firestore indisponible pour _load_invoices: {e}")
+
         try:
             if os.path.exists(self.invoices_file):
                 with open(self.invoices_file, 'r', encoding='utf-8') as f:
@@ -167,6 +185,13 @@ class InvoiceManager:
             
             # Sauvegarder dans le fichier
             self._save_invoices()
+            
+            # 2️⃣ Persist Firestore
+            if getattr(self, '_fs_enabled', False):
+                try:
+                    self._fs.collection('invoices').document(invoice_id).set(invoice_data)
+                except Exception as e:
+                    logger.warning(f"Firestore save_invoice échoué: {e}")
             
             logger.info(f"Facture sauvegardée avec ID: {invoice_id}")
             return invoice_id

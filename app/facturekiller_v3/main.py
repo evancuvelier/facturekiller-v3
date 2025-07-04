@@ -829,7 +829,10 @@ def process_invoice_analysis(analysis_data, filepath):
                 
                 existing_supplier = next((s for s in suppliers if s['name'].lower() == supplier_name.lower()), None)
                 
-                if not existing_supplier:
+                # Ne pas recréer si le fournisseur a été explicitement supprimé
+                deleted_suppliers = supplier_manager._get_deleted_suppliers() if hasattr(supplier_manager, '_get_deleted_suppliers') else set()
+                
+                if not existing_supplier and supplier_name not in deleted_suppliers:
                     # 🎯 CRÉER AUTOMATIQUEMENT LE FOURNISSEUR
                     new_supplier_data = {
                         'name': supplier_name,
@@ -4160,7 +4163,9 @@ def scan_order_verification():
         
         try:
             # Analyser la facture avec Claude Vision
-            scan_result = invoice_analyzer.analyze_invoice(temp_path)
+            from claude_scanner import ClaudeScanner
+            claude_scanner = ClaudeScanner(price_manager)
+            scan_result = claude_scanner.scan_facture(temp_path)
             
             if not scan_result or not scan_result.get('success'):
                 return jsonify({

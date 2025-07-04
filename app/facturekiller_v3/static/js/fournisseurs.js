@@ -664,11 +664,30 @@ function deleteProduct(supplierName, productIndex) {
     if (!supplier || !supplier.products[productIndex]) return;
     
     const product = supplier.products[productIndex];
+    const productId = product.id || product.produit_id || product.code_produit || null;
+    if (!productId) {
+        showNotification('ID de produit introuvable – suppression impossible', 'error');
+        return;
+    }
     
     if (confirm(`Supprimer le produit "${product.produit}" ?`)) {
-        // Utiliser l'API des prix pour supprimer
-        // TODO: Implémenter la suppression de produit individuel
-        showNotification('Fonctionnalité en cours de développement', 'warning');
+        fetch(`/api/suppliers/${encodeURIComponent(supplierName)}/products/${productId}`, {
+            method: 'DELETE'
+        })
+            .then(r => r.json())
+            .then(result => {
+                if (result.success) {
+                    showNotification('Produit supprimé', 'success');
+                    // Recharger
+                    loadSuppliers();
+                } else {
+                    showNotification('Erreur suppression: ' + result.error, 'error');
+                }
+            })
+            .catch(err => {
+                console.error('❌ Erreur suppression produit:', err);
+                showNotification('Erreur connexion', 'error');
+            });
     }
 }
 
