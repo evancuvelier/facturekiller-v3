@@ -21,4 +21,5 @@ python-dotenv==1.0.0
 
 # Utilitaires
 python-dateutil==2.8.2
-requests==2.31.0 
+requests==2.31.0
+google-cloud-firestore>=2.7.0 

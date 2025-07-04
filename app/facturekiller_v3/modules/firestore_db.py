@@ -10,23 +10,25 @@ import json, tempfile
 
 
 def is_configured() -> bool:
-    """Retourne True si la clé de service est disponible."""
-    return bool(os.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
+    """Retourne True si une clé de service est disponible (fichier ou JSON brut)."""
+    return bool(os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or os.getenv("FIREBASE_SERVICE_KEY"))
 
 
 @lru_cache()
 def get_client():
     """Initialiser le client Firestore (lazy, singleton)."""
+    # Cas où une clé brute est fournie mais pas encore écrite sur disque
+    if os.getenv("FIREBASE_SERVICE_KEY") and not os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
+        _write_temp_key(os.getenv("FIREBASE_SERVICE_KEY"))
+
     if not is_configured():
         return None
 
-    # Autoriser un secret JSON brut dans la variable FIREBASE_SERVICE_KEY
-    if not os.getenv("GOOGLE_APPLICATION_CREDENTIALS") and os.getenv("FIREBASE_SERVICE_KEY"):
-        _write_temp_key(os.getenv("FIREBASE_SERVICE_KEY"))
-
     try:
         from google.cloud import firestore  # type: ignore
-        return firestore.Client()
+        client = firestore.Client()
+        print(f"🔥 Firestore initialisé – projet : {client.project}")
+        return client
     except Exception:
         return None
 
