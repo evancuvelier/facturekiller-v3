@@ -96,15 +96,15 @@ class SupplierManager:
         if getattr(self, '_fs_enabled', False):
             try:
                 docs = list(self._fs.collection('suppliers').stream())
-                if docs:
-                    suppliers_fs = []
-                    for doc in docs:
-                        data = doc.to_dict()
-                        # Calculer stats (produits validés / pending)
-                        stats = self._get_supplier_stats(data['name'])
-                        data.update(stats)
-                        suppliers_fs.append(data)
-                    return suppliers_fs
+                suppliers_fs = []
+                for doc in docs:
+                    data = doc.to_dict()
+                    stats = self._get_supplier_stats(data['name'])
+                    data.update(stats)
+                    suppliers_fs.append(data)
+
+                # Même si la collection est vide on renvoie la liste (pour ne pas tomber sur le legacy)
+                return suppliers_fs
             except Exception as e:
                 print(f"Firestore get_all_suppliers KO: {e}")
 
