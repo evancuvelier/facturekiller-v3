@@ -29,7 +29,8 @@ def get_client():
         client = firestore.Client()
         print(f"🔥 Firestore initialisé – projet : {client.project}")
         return client
-    except Exception:
+    except Exception as e:
+        print(f"❌ Firestore init error: {e}")
         return None
 
 
