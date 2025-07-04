@@ -14,4 +14,8 @@ pillow-heif==0.13.0
 pytesseract==0.3.10
 opencv-python-headless==4.8.1.78
 numpy==1.24.3
-# FORCE CACHE CLEAR - 2025-01-02-v2 
+google-cloud-firestore==2.17.0
+google-cloud-core>=2.4.0
+google-api-core>=2.8.0
+grpcio>=1.64.0
+# FORCE CACHE CLEAR - 2025-01-02-v2
