@@ -187,26 +187,44 @@ class SupplierManager:
     def _get_validated_products(self, supplier_name: str) -> List[Dict]:
         """Récupérer les produits validés d'un fournisseur"""
         products = []
+        # 1️⃣ Priorité Firestore si disponible
+        if self._fs_enabled:
+            try:
+                docs = self._fs.collection('prices').where('fournisseur', '==', supplier_name).stream()
+                for d in docs:
+                    row = d.to_dict()
+                    products.append({
+                        'id': row.get('code') or d.id,
+                        'name': row.get('produit', ''),
+                        'produit': row.get('produit', ''),
+                        'code': row.get('code', ''),
+                        'unit_price': float(row.get('prix') or row.get('prix_unitaire', 0)),
+                        'unite': row.get('unite', 'unité'),
+                        'category': row.get('categorie', ''),
+                        'date_added': row.get('date_maj') or row.get('date_ajout', '')
+                    })
+            except Exception as e:
+                print(f"Firestore _get_validated_products KO: {e}")
+
+        # 2️⃣ Compléter avec le fichier local (pour backup / historique)
         try:
-            with open(self.prices_file, 'r', encoding='utf-8') as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    if row.get('fournisseur') == supplier_name:
-                        products.append({
-                            'id': row.get('id', ''),
-                            'name': row.get('produit', ''),
-                            'produit': row.get('produit', ''),  # Pour compatibilité
-                            'code': row.get('code', ''),
-                            'unit_price': float(row.get('prix_unitaire', 0)),
-                            'prix_unitaire': float(row.get('prix_unitaire', 0)),  # Pour compatibilité
-                            'unit': row.get('unite', ''),
-                            'unite': row.get('unite', ''),  # Pour compatibilité
-                            'category': row.get('categorie', ''),
-                            'status': 'validated',
-                            'date_added': row.get('date_ajout', '')
-                        })
+            if os.path.exists(self.prices_file):
+                with open(self.prices_file, 'r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        if row.get('fournisseur') == supplier_name:
+                            products.append({
+                                'id': row.get('id', ''),
+                                'name': row.get('produit', ''),
+                                'produit': row.get('produit', ''),
+                                'code': row.get('code', ''),
+                                'unit_price': float(row.get('prix_unitaire') or row.get('prix') or 0),
+                                'unite': row.get('unite', 'unité'),
+                                'category': row.get('categorie', ''),
+                                'date_added': row.get('date_ajout', '')
+                            })
         except Exception as e:
-            print(f"Erreur lecture prix validés: {e}")
+            print(f"CSV _get_validated_products KO: {e}")
         
         return products
     

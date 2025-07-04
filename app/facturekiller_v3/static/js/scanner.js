@@ -218,8 +218,10 @@ async function analyzeInvoice() {
         updateProgress(100, 'Analyse terminée !');
         
         if (response.success) {
-            analysisResult = response.data;
-            displayResults(response.data);
+            // Redirection vers la nouvelle interface Scanner Pro
+            const invId = response.data.invoice_id || '';
+            window.location.href = `/scanner/pro?invoice_id=${encodeURIComponent(invId)}`;
+            return; // Stop further legacy rendering
             
             // Afficher le modal des produits en attente si nécessaire
             if (response.data.price_comparison?.new_products > 0) {
