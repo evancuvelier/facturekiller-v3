@@ -1899,6 +1899,44 @@ def save_invoice():
             'has_price_differences': any(a['type'] == 'price_difference' for a in anomalies)
         }
         
+        # === DETECTION ECARTS POUR AVOIR ===
+        needs_credit = False
+        credit_items = []
+        try:
+            # Écarts de prix (price_comparison)
+            pc = invoice_data.get('price_comparison', {})
+            for prod in pc.get('products_with_price_differences', []):
+                needs_credit = True
+                diff = prod.get('price_difference', 0)
+                credit_items.append({
+                    'product': prod.get('name'),
+                    'issue': f"Écart prix {prod.get('invoice_price',0)} → {prod.get('reference_price',0)}",
+                    'amount': abs(diff)
+                })
+            # Écarts de quantités (quantity_comparison)
+            qc = invoice_data.get('quantity_comparison', {})
+            for item in qc.get('items_with_differences', []):
+                needs_credit = True
+                missing_qty = item.get('ordered_quantity',0) - item.get('received_quantity',0)
+                credit_items.append({
+                    'product': item.get('product_name'),
+                    'issue': f"Manque {missing_qty} {item.get('unit','')}",
+                    'amount': abs(missing_qty * item.get('ordered_price',0))
+                })
+        except Exception as diff_err:
+            logger.warning(f"Analyse écarts avoir: {diff_err}")
+
+        # Envoi email avoir si besoin
+        if needs_credit and credit_items:
+            try:
+                email_manager.send_credit_note(invoice_data, credit_items)
+                invoice_data['credit_requested'] = True
+            except Exception as email_err:
+                logger.warning(f"Envoi avoir échoué: {email_err}")
+                invoice_data['credit_requested'] = False
+        else:
+            invoice_data['credit_requested'] = False
+        
         return jsonify({
             'success': True,
             'invoice_id': invoice_id,
@@ -1909,6 +1947,7 @@ def save_invoice():
             'anomalies_detected': len(anomalies),  # ✅ Nombre d'anomalies
             'anomaly_status': invoice_data['anomaly_status'],  # ✅ Statut anomalies
             'validation_required': invoice_data['validation_required'],  # ✅ Validation requise
+            'needs_credit': invoice_data['credit_requested'],
             'stats': stats_summary,
             'message': f'✅ Facture {invoice_code} sauvegardée avec succès' + (f' - {len(anomalies)} anomalie(s) détectée(s)' if anomalies else '')
         })

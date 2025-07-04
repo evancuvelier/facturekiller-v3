@@ -884,3 +884,50 @@ class EmailManager:
         """
         
         return html 
+
+    def send_credit_note(self, invoice_data: Dict, credit_items: List[Dict], supplier_email: str = '') -> Dict[str, any]:
+        """Envoyer une demande d'avoir au fournisseur sur les écarts détectés"""
+        try:
+            if not credit_items:
+                return {'success': False, 'error': 'Aucun écart à signaler'}
+
+            # Si pas d'email fourni, tenter de récupérer depuis supplier manager
+            if not supplier_email:
+                try:
+                    from modules.supplier_manager import SupplierManager
+                    supplier_manager = SupplierManager()
+                    supplier = supplier_manager.get_supplier_by_name(invoice_data.get('supplier', ''))
+                    supplier_email = supplier.get('email', '') if supplier else ''
+                except Exception:
+                    supplier_email = ''
+
+            if not supplier_email:
+                return {'success': False, 'error': 'Email fournisseur manquant'}
+
+            invoice_code = invoice_data.get('invoice_code', invoice_data.get('id', 'N/A'))
+            subject = f"Demande d'avoir – Facture {invoice_code}"
+
+            # Générer tableau HTML des écarts
+            rows = ''
+            total_credit = 0
+            for item in credit_items:
+                rows += f"<tr><td>{item.get('product')}</td><td>{item.get('issue')}</td><td style='text-align:right;'>{item.get('amount',0):.2f}€</td></tr>"
+                total_credit += item.get('amount', 0)
+
+            html_content = f"""
+            <h3>Bonjour,</h3>
+            <p>Suite à la livraison de la facture <strong>{invoice_code}</strong>, nous avons constaté les écarts suivants :</p>
+            <table style='border-collapse:collapse;width:100%;'>
+                <thead><tr><th style='text-align:left;border-bottom:1px solid #ccc;'>Produit</th><th style='text-align:left;border-bottom:1px solid #ccc;'>Écart</th><th style='text-align:right;border-bottom:1px solid #ccc;'>Montant avoir</th></tr></thead>
+                <tbody>{rows}</tbody>
+                <tfoot><tr><td colspan='2' style='text-align:right;font-weight:bold;'>Total</td><td style='text-align:right;font-weight:bold;'>{total_credit:.2f}€</td></tr></tfoot>
+            </table>
+            <p>Merci de bien vouloir émettre un avoir correspondant.</p>
+            <p>Cordialement,<br>FactureKiller</p>
+            """
+
+            return self._send_email_generic(supplier_email, subject, html_content)
+
+        except Exception as e:
+            logger.error(f"Erreur envoi demande d'avoir: {e}")
+            return {'success': False, 'error': str(e)} 
