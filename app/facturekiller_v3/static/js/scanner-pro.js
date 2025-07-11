@@ -145,12 +145,12 @@ class ScannerPro {
             const diffY = startY - endY;
             const diffX = startX - endX;
 
-            // Swipe up to analyze
-            if (diffY > 50 && Math.abs(diffX) < 100) {
-                if (this.currentFile && !this.isProcessing) {
-                    this.analyzeInvoice();
-                }
-            }
+            // Swipe up to analyze - DÉSACTIVÉ pour éviter le scan automatique
+            // if (diffY > 50 && Math.abs(diffX) < 100) {
+            //     if (this.currentFile && !this.isProcessing) {
+            //         this.analyzeInvoice();
+            //     }
+            // }
 
             // Swipe down to reset - SUPPRIMÉ pour éviter de perdre les scans
             // if (diffY < -50 && Math.abs(diffX) < 100) {
@@ -173,7 +173,9 @@ class ScannerPro {
                         break;
                     case 'Enter':
                         e.preventDefault();
-                        if (this.currentFile) this.analyzeInvoice();
+                        // DÉSACTIVÉ pour éviter le scan automatique
+                        // if (this.currentFile) this.analyzeInvoice();
+                        this.showNotification('Utilisez le bouton "Analyser cette facture"', 'info');
                         break;
                 }
             }
@@ -671,11 +673,11 @@ class ScannerPro {
             // Remplir les informations de facture
             this.fillInvoiceInfo(data);
             
-            // Remplir la liste des produits
-            await this.fillProductsList(data);
-            
             // Afficher les statistiques rapides
             this.fillQuickStats(data);
+            
+            // Remplir la liste des produits (en dernier pour éviter les conflits)
+            await this.fillProductsList(data);
             
             console.log('🔍 DEBUG: Recherche de l\'élément analysisResults...');
             
