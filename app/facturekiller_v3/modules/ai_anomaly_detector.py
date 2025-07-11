@@ -2,48 +2,82 @@
 🧠 FactureKiller V3 - Détecteur d'Anomalies IA
 Système intelligent pour détecter les patterns d'anomalies et SUGGÉRER des mises à jour de prix
 ⚠️ IMPORTANT: L'IA ne modifie JAMAIS les prix directement - elle fait seulement des suggestions
+100% Firestore - Plus de fichiers locaux
 """
 
-import pandas as pd
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
-import json
-import os
+import logging
 from collections import defaultdict, Counter
 
+logger = logging.getLogger(__name__)
+
 class AIAnomalyDetector:
-    def __init__(self, data_dir: str = "data"):
-        self.data_dir = data_dir
-        self.anomaly_history_file = os.path.join(data_dir, "anomaly_history.json")
-        self.ai_suggestions_file = os.path.join(data_dir, "ai_suggestions.json")
+    def __init__(self):
         self.confidence_threshold = 0.8  # Seuil de confiance pour suggestions
         self.pattern_min_occurrences = 2  # Minimum d'occurrences pour détecter un pattern
         
-        # Charger l'historique des anomalies
-        self.anomaly_history = self._load_anomaly_history()
-        self.ai_suggestions = self._load_ai_suggestions()
+        # Initialiser Firestore
+        try:
+            from modules.firestore_db import get_client
+            self._fs = get_client()
+            self._fs_enabled = self._fs is not None
+            if self._fs_enabled:
+                print("✅ Firestore initialisé pour AIAnomalyDetector")
+            else:
+                print("❌ Firestore non disponible pour AIAnomalyDetector")
+        except Exception as e:
+            print(f"❌ Erreur initialisation Firestore AIAnomalyDetector: {e}")
+            self._fs_enabled = False
+            self._fs = None
     
     def _load_anomaly_history(self) -> List[Dict]:
-        """Charger l'historique des anomalies détectées"""
+        """Charger l'historique des anomalies détectées depuis Firestore"""
         try:
-            if os.path.exists(self.anomaly_history_file):
-                with open(self.anomaly_history_file, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-            return []
+            if not self._fs_enabled or not self._fs:
+                return []
+            
+            docs = list(self._fs.collection('anomaly_history').stream())
+            return [doc.to_dict() for doc in docs]
         except Exception as e:
-            print(f"⚠️ Erreur chargement historique anomalies: {e}")
+            logger.error(f"⚠️ Erreur chargement historique anomalies: {e}")
             return []
     
     def _load_ai_suggestions(self) -> List[Dict]:
-        """Charger les suggestions IA précédentes"""
+        """Charger les suggestions IA précédentes depuis Firestore"""
         try:
-            if os.path.exists(self.ai_suggestions_file):
-                with open(self.ai_suggestions_file, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-            return []
+            if not self._fs_enabled or not self._fs:
+                return []
+            
+            docs = list(self._fs.collection('ai_suggestions').stream())
+            return [doc.to_dict() for doc in docs]
         except Exception as e:
-            print(f"⚠️ Erreur chargement suggestions IA: {e}")
+            logger.error(f"⚠️ Erreur chargement suggestions IA: {e}")
             return []
+    
+    def _save_anomaly_history(self, anomalies: List[Dict]):
+        """Sauvegarder l'historique des anomalies dans Firestore"""
+        try:
+            if not self._fs_enabled or not self._fs:
+                return
+            
+            for anomaly in anomalies:
+                anomaly_id = f"hist_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{anomaly.get('product_name', 'unknown')}"
+                self._fs.collection('anomaly_history').document(anomaly_id).set(anomaly)
+        except Exception as e:
+            logger.error(f"Erreur sauvegarde historique anomalies: {e}")
+    
+    def _save_ai_suggestions(self, suggestions: List[Dict]):
+        """Sauvegarder les suggestions IA dans Firestore"""
+        try:
+            if not self._fs_enabled or not self._fs:
+                return
+            
+            for suggestion in suggestions:
+                suggestion_id = suggestion.get('id', f"sugg_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+                self._fs.collection('ai_suggestions').document(suggestion_id).set(suggestion)
+        except Exception as e:
+            logger.error(f"Erreur sauvegarde suggestions IA: {e}")
     
     def analyze_batch_anomalies(self, batch_results: List[Dict]) -> Dict[str, Any]:
         """
@@ -252,98 +286,121 @@ class AIAnomalyDetector:
             insights[supplier] = {
                 'total_products_scanned': stats['total_products'],
                 'anomalies_detected': stats['anomalies'],
-                'anomaly_rate': round(stats['anomalies'] / max(stats['total_products'], 1) * 100, 1),
-                'price_patterns_detected': len(supplier_patterns),
-                'suggestions_count': len(supplier_patterns),
-                'requires_review': len(supplier_patterns) > 0,
-                'recommended_actions': self._get_supplier_recommendations(supplier_patterns)
+                'anomaly_rate': round((stats['anomalies'] / stats['total_products']) * 100, 1) if stats['total_products'] > 0 else 0,
+                'patterns_detected': len(supplier_patterns),
+                'high_confidence_patterns': len([p for p in supplier_patterns if p['confidence_score'] >= 0.8]),
+                'total_financial_impact': sum(p['total_impact'] for p in supplier_patterns),
+                'recommendations': self._get_supplier_recommendations(supplier_patterns)
             }
         
         return insights
     
     def _get_supplier_recommendations(self, patterns: List[Dict]) -> List[str]:
-        """Obtenir les recommandations pour un fournisseur"""
+        """Générer des recommandations pour un fournisseur"""
         recommendations = []
         
-        strong_suggestions = len([p for p in patterns if p['confidence_score'] >= 0.85])
-        moderate_suggestions = len([p for p in patterns if 0.7 <= p['confidence_score'] < 0.85])
+        if not patterns:
+            return ["Aucun pattern détecté - surveillance normale"]
         
-        if strong_suggestions > 0:
-            recommendations.append(f"💪 {strong_suggestions} suggestions fortes à réviser")
+        high_confidence_count = len([p for p in patterns if p['confidence_score'] >= 0.8])
         
-        if moderate_suggestions > 0:
-            recommendations.append(f"👀 {moderate_suggestions} suggestions modérées à examiner")
+        if high_confidence_count >= 3:
+            recommendations.append("🔴 URGENT: Nombreux patterns de prix détectés - vérification catalogue requise")
+        elif high_confidence_count >= 1:
+            recommendations.append("🟡 ATTENTION: Patterns de prix détectés - surveillance renforcée")
         
-        if not recommendations:
-            recommendations.append("✅ Aucune suggestion - prix stables")
+        total_impact = sum(p['total_impact'] for p in patterns)
+        if total_impact > 1000:
+            recommendations.append("💰 Impact financier élevé - priorité haute")
         
         return recommendations
     
     def _save_analysis_data(self, anomalies: List[Dict], suggestions: List[Dict]):
-        """Sauvegarder les données d'analyse"""
+        """Sauvegarder les données d'analyse dans Firestore"""
         try:
-            # Ajouter les nouvelles anomalies à l'historique
-            self.anomaly_history.extend(anomalies)
+            # Sauvegarder l'historique des anomalies
+            self._save_anomaly_history(anomalies)
             
-            # Limiter l'historique aux 1000 dernières anomalies
-            if len(self.anomaly_history) > 1000:
-                self.anomaly_history = self.anomaly_history[-1000:]
+            # Sauvegarder les suggestions IA
+            self._save_ai_suggestions(suggestions)
             
-            # Ajouter les nouvelles suggestions
-            self.ai_suggestions.extend(suggestions)
-            
-            # Sauvegarder
-            with open(self.anomaly_history_file, 'w', encoding='utf-8') as f:
-                json.dump(self.anomaly_history, f, indent=2, ensure_ascii=False)
-            
-            with open(self.ai_suggestions_file, 'w', encoding='utf-8') as f:
-                json.dump(self.ai_suggestions, f, indent=2, ensure_ascii=False)
-                
+            logger.info(f"✅ Données d'analyse sauvegardées: {len(anomalies)} anomalies, {len(suggestions)} suggestions")
         except Exception as e:
-            print(f"⚠️ Erreur sauvegarde données IA: {e}")
+            logger.error(f"❌ Erreur sauvegarde données d'analyse: {e}")
     
     def get_pending_suggestions(self) -> List[Dict]:
-        """Obtenir les suggestions en attente de validation client"""
-        return [s for s in self.ai_suggestions if s.get('status') == 'pending_validation']
+        """Récupérer les suggestions en attente de validation"""
+        try:
+            if not self._fs_enabled or not self._fs:
+                return []
+            
+            docs = list(self._fs.collection('ai_suggestions').where('status', '==', 'pending_validation').stream())
+            return [doc.to_dict() for doc in docs]
+        except Exception as e:
+            logger.error(f"Erreur récupération suggestions en attente: {e}")
+            return []
     
     def mark_suggestion_reviewed(self, suggestion_id: str, client_decision: str, notes: str = '') -> bool:
-        """
-        Marquer une suggestion comme révisée par le client
-        client_decision: 'accepted', 'rejected', 'modified'
-        """
-        for suggestion in self.ai_suggestions:
-            if suggestion['id'] == suggestion_id:
-                suggestion['status'] = f'client_{client_decision}'
-                suggestion['reviewed_at'] = datetime.now().isoformat()
-                suggestion['client_notes'] = notes
-                self._save_analysis_data([], [])
-                return True
-        return False
+        """Marquer une suggestion comme examinée par le client"""
+        try:
+            if not self._fs_enabled or not self._fs:
+                return False
+            
+            doc_ref = self._fs.collection('ai_suggestions').document(suggestion_id)
+            doc = doc_ref.get()
+            if not doc.exists:
+                return False
+            
+            update_data = {
+                'status': 'reviewed',
+                'client_decision': client_decision,
+                'client_notes': notes,
+                'reviewed_at': datetime.now().isoformat()
+            }
+            
+            doc_ref.update(update_data)
+            return True
+        except Exception as e:
+            logger.error(f"Erreur mise à jour suggestion: {e}")
+            return False
     
     def get_suggestions_for_validation_interface(self) -> List[Dict]:
-        """
-        Obtenir les suggestions formatées pour l'interface de validation client
-        """
-        pending_suggestions = self.get_pending_suggestions()
+        """Récupérer les suggestions pour l'interface de validation"""
+        suggestions = self.get_pending_suggestions()
         
-        formatted_suggestions = []
-        for suggestion in pending_suggestions:
-            formatted = {
-                'id': suggestion['id'],
-                'product_name': suggestion['product_name'],
-                'supplier': suggestion['supplier'],
-                'current_price': suggestion['current_reference_price'],
-                'suggested_price': suggestion['suggested_new_price'],
-                'price_change': suggestion['suggested_new_price'] - suggestion['current_reference_price'],
-                'percentage_change': suggestion['evidence']['percentage_change'],
-                'confidence': round(suggestion['confidence_score'] * 100),
-                'recommendation_level': suggestion['recommendation_level'],
-                'evidence_count': suggestion['evidence']['occurrences'],
-                'financial_impact': suggestion['evidence']['total_financial_impact'],
-                'can_accept': True,  # Client peut accepter
-                'can_reject': True,  # Client peut rejeter
-                'can_modify': True   # Client peut modifier le prix suggéré
-            }
-            formatted_suggestions.append(formatted)
+        # Ajouter des informations supplémentaires pour l'interface
+        for suggestion in suggestions:
+            suggestion['formatted_evidence'] = self._format_evidence_for_ui(suggestion.get('evidence', {}))
+            suggestion['risk_level'] = self._calculate_risk_level(suggestion)
         
-        return formatted_suggestions 
+        return suggestions
+    
+    def _format_evidence_for_ui(self, evidence: Dict) -> str:
+        """Formater les preuves pour l'interface utilisateur"""
+        if not evidence:
+            return "Aucune preuve disponible"
+        
+        lines = []
+        if evidence.get('occurrences'):
+            lines.append(f"• {evidence['occurrences']} occurrences détectées")
+        if evidence.get('percentage_change'):
+            lines.append(f"• Changement moyen: {evidence['percentage_change']}%")
+        if evidence.get('total_financial_impact'):
+            lines.append(f"• Impact financier: {evidence['total_financial_impact']}€")
+        
+        return "\n".join(lines)
+    
+    def _calculate_risk_level(self, suggestion: Dict) -> str:
+        """Calculer le niveau de risque d'une suggestion"""
+        confidence = suggestion.get('confidence_score', 0)
+        financial_impact = suggestion.get('evidence', {}).get('total_financial_impact', 0)
+        
+        if confidence >= 0.9 and financial_impact > 500:
+            return "high"
+        elif confidence >= 0.7 or financial_impact > 200:
+            return "medium"
+        else:
+            return "low"
+
+# Instance globale
+ai_anomaly_detector = AIAnomalyDetector() 

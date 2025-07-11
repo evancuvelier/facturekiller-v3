@@ -1,31 +1,30 @@
 #!/usr/bin/env python3
 """
 Gestionnaire d'anomalies - Workflow complet avec fournisseurs
+100% Firestore - Plus de fichiers locaux
 """
 
-import pandas as pd
-import os
 from datetime import datetime
-import json
+from typing import Dict, List, Optional, Any
+import logging
+
+logger = logging.getLogger(__name__)
 
 class AnomalyManager:
     def __init__(self):
-        self.anomalies_file = 'data/anomalies.csv'
-        self.ensure_files_exist()
-    
-    def ensure_files_exist(self):
-        """Créer les fichiers s'ils n'existent pas"""
-        if not os.path.exists('data'):
-            os.makedirs('data')
-        
-        if not os.path.exists(self.anomalies_file):
-            df = pd.DataFrame(columns=[
-                'id', 'facture_id', 'produit_nom', 'fournisseur', 'restaurant',
-                'type_anomalie', 'prix_facture', 'prix_catalogue', 'ecart_euros', 'ecart_pourcent',
-                'statut', 'date_detection', 'date_mail_envoye', 'date_reponse', 
-                'reponse_fournisseur', 'commentaire', 'utilisateur'
-            ])
-            df.to_csv(self.anomalies_file, index=False)
+        # Initialiser Firestore
+        try:
+            from modules.firestore_db import get_client
+            self._fs = get_client()
+            self._fs_enabled = self._fs is not None
+            if self._fs_enabled:
+                print("✅ Firestore initialisé pour AnomalyManager")
+            else:
+                print("❌ Firestore non disponible pour AnomalyManager")
+        except Exception as e:
+            print(f"❌ Erreur initialisation Firestore AnomalyManager: {e}")
+            self._fs_enabled = False
+            self._fs = None
     
     def detect_price_anomalies(self, facture_products, seuil_pourcent=10, seuil_euros=2):
         """
@@ -72,63 +71,110 @@ class AnomalyManager:
         return anomalies
     
     def save_anomaly(self, anomalie_data, facture_id=None):
-        """Sauvegarder une nouvelle anomalie"""
-        df = pd.read_csv(self.anomalies_file)
-        
-        # Générer un ID unique
-        anomalie_id = f"ANOM_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{len(df)+1}"
-        
-        anomalie_data['id'] = anomalie_id
-        anomalie_data['facture_id'] = facture_id
-        
-        # Ajouter à la DataFrame
-        new_row = pd.DataFrame([anomalie_data])
-        df = pd.concat([df, new_row], ignore_index=True)
-        df.to_csv(self.anomalies_file, index=False)
-        
-        return anomalie_id
+        """Sauvegarder une nouvelle anomalie dans Firestore"""
+        try:
+            if not self._fs_enabled or not self._fs:
+                logger.error("Firestore non disponible pour sauvegarder l'anomalie")
+                return None
+            
+            # Générer un ID unique
+            anomalie_id = f"ANOM_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{self._get_next_anomaly_number()}"
+            
+            anomalie_data['id'] = anomalie_id
+            anomalie_data['facture_id'] = facture_id
+            anomalie_data['created_at'] = datetime.now().isoformat()
+            anomalie_data['updated_at'] = datetime.now().isoformat()
+            
+            # Sauvegarder dans Firestore
+            self._fs.collection('anomalies').document(anomalie_id).set(anomalie_data)
+            
+            logger.info(f"Anomalie sauvegardée: {anomalie_id}")
+            return anomalie_id
+            
+        except Exception as e:
+            logger.error(f"Erreur sauvegarde anomalie: {e}")
+            return None
     
-    def get_anomalies(self, statut=None, fournisseur=None):
-        """Récupérer les anomalies avec filtres"""
-        if not os.path.exists(self.anomalies_file):
+    def _get_next_anomaly_number(self):
+        """Obtenir le prochain numéro d'anomalie"""
+        try:
+            if not self._fs_enabled or not self._fs:
+                return 1
+            docs = list(self._fs.collection('anomalies').stream())
+            return len(docs) + 1
+        except:
+            return 1
+    
+    def get_anomalies(self, statut=None, fournisseur=None, restaurant=None):
+        """Récupérer les anomalies avec filtres depuis Firestore"""
+        try:
+            if not self._fs_enabled or not self._fs:
+                return []
+            
+            docs = list(self._fs.collection('anomalies').stream())
+            anomalies = [doc.to_dict() for doc in docs]
+            
+            # Appliquer les filtres
+            if statut:
+                anomalies = [a for a in anomalies if a.get('statut') == statut]
+            
+            if fournisseur:
+                anomalies = [a for a in anomalies if a.get('fournisseur') == fournisseur]
+            
+            if restaurant:
+                anomalies = [a for a in anomalies if a.get('restaurant') == restaurant]
+            
+            # Trier par date de création (plus récent en premier)
+            anomalies.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+            
+            return anomalies
+            
+        except Exception as e:
+            logger.error(f"Erreur récupération anomalies: {e}")
             return []
-        
-        df = pd.read_csv(self.anomalies_file)
-        
-        if statut:
-            df = df[df['statut'] == statut]
-        
-        if fournisseur:
-            df = df[df['fournisseur'] == fournisseur]
-        
-        return df.to_dict('records')
     
     def update_anomaly_status(self, anomalie_id, nouveau_statut, commentaire=None, reponse_fournisseur=None):
-        """Mettre à jour le statut d'une anomalie"""
-        df = pd.read_csv(self.anomalies_file)
-        
-        mask = df['id'] == anomalie_id
-        if not mask.any():
+        """Mettre à jour le statut d'une anomalie dans Firestore"""
+        try:
+            if not self._fs_enabled or not self._fs:
+                logger.error("Firestore non disponible pour mettre à jour l'anomalie")
+                return False
+            
+            # Récupérer l'anomalie
+            doc_ref = self._fs.collection('anomalies').document(anomalie_id)
+            doc = doc_ref.get()
+            if not doc.exists:
+                logger.warning(f"Anomalie non trouvée: {anomalie_id}")
+                return False
+            
+            # Mettre à jour le statut
+            update_data = {
+                'statut': nouveau_statut,
+                'updated_at': datetime.now().isoformat()
+            }
+            
+            # Dates spécifiques selon le statut
+            if nouveau_statut == 'mail_envoye':
+                update_data['date_mail_envoye'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            elif nouveau_statut in ['avoir_accepte', 'avoir_refuse', 'resolu']:
+                update_data['date_reponse'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            
+            # Commentaires et réponses
+            if commentaire:
+                update_data['commentaire'] = commentaire
+            
+            if reponse_fournisseur:
+                update_data['reponse_fournisseur'] = reponse_fournisseur
+            
+            # Mettre à jour dans Firestore
+            doc_ref.update(update_data)
+            
+            logger.info(f"Statut anomalie mis à jour: {anomalie_id} -> {nouveau_statut}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Erreur mise à jour anomalie: {e}")
             return False
-        
-        # Mettre à jour le statut
-        df.loc[mask, 'statut'] = nouveau_statut
-        
-        # Dates spécifiques selon le statut
-        if nouveau_statut == 'mail_envoye':
-            df.loc[mask, 'date_mail_envoye'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        elif nouveau_statut in ['avoir_accepte', 'avoir_refuse', 'resolu']:
-            df.loc[mask, 'date_reponse'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        
-        # Commentaires et réponses
-        if commentaire:
-            df.loc[mask, 'commentaire'] = commentaire
-        
-        if reponse_fournisseur:
-            df.loc[mask, 'reponse_fournisseur'] = reponse_fournisseur
-        
-        df.to_csv(self.anomalies_file, index=False)
-        return True
     
     def send_mail_to_supplier(self, anomalie_id):
         """Marquer comme mail envoyé au fournisseur"""
@@ -155,33 +201,76 @@ class AnomalyManager:
         )
     
     def get_anomaly_stats(self):
-        """Statistiques des anomalies"""
-        if not os.path.exists(self.anomalies_file):
+        """Statistiques des anomalies depuis Firestore"""
+        try:
+            if not self._fs_enabled or not self._fs:
+                return {
+                    'total': 0,
+                    'detectees': 0,
+                    'mail_envoyes': 0,
+                    'avoir_acceptes': 0,
+                    'avoir_refuses': 0,
+                    'resolues': 0,
+                    'montant_total_ecarts': 0
+                }
+            
+            docs = list(self._fs.collection('anomalies').stream())
+            anomalies = [doc.to_dict() for doc in docs]
+            
+            if not anomalies:
+                return {
+                    'total': 0,
+                    'detectees': 0,
+                    'mail_envoyes': 0,
+                    'avoir_acceptes': 0,
+                    'avoir_refuses': 0,
+                    'resolues': 0,
+                    'montant_total_ecarts': 0
+                }
+            
+            stats = {
+                'total': len(anomalies),
+                'detectees': len([a for a in anomalies if a.get('statut') == 'detectee']),
+                'mail_envoyes': len([a for a in anomalies if a.get('statut') == 'mail_envoye']),
+                'avoir_acceptes': len([a for a in anomalies if a.get('statut') == 'avoir_accepte']),
+                'avoir_refuses': len([a for a in anomalies if a.get('statut') == 'avoir_refuse']),
+                'resolues': len([a for a in anomalies if a.get('statut') == 'resolu']),
+                'montant_total_ecarts': sum(float(a.get('ecart_euros', 0)) for a in anomalies)
+            }
+            
+            return stats
+            
+        except Exception as e:
+            logger.error(f"Erreur calcul stats anomalies: {e}")
             return {}
-        
-        df = pd.read_csv(self.anomalies_file)
-        
-        stats = {
-            'total': len(df),
-            'detectees': len(df[df['statut'] == 'detectee']),
-            'mail_envoyes': len(df[df['statut'] == 'mail_envoye']),
-            'avoir_acceptes': len(df[df['statut'] == 'avoir_accepte']),
-            'avoir_refuses': len(df[df['statut'] == 'avoir_refuse']),
-            'resolues': len(df[df['statut'] == 'resolu']),
-            'montant_total_ecarts': df['ecart_euros'].sum() if not df.empty else 0
-        }
-        
-        return stats
     
     def get_anomaly_by_id(self, anomalie_id):
-        """Récupérer une anomalie spécifique"""
-        df = pd.read_csv(self.anomalies_file)
-        mask = df['id'] == anomalie_id
-        
-        if not mask.any():
+        """Récupérer une anomalie spécifique depuis Firestore"""
+        try:
+            if not self._fs_enabled or not self._fs:
+                return None
+            
+            doc = self._fs.collection('anomalies').document(anomalie_id).get()
+            if doc.exists:
+                return doc.to_dict()
             return None
-        
-        return df[mask].iloc[0].to_dict()
+        except Exception as e:
+            logger.error(f"Erreur récupération anomalie: {e}")
+            return None
+    
+    def delete_anomaly(self, anomalie_id):
+        """Supprimer une anomalie de Firestore"""
+        try:
+            if not self._fs_enabled or not self._fs:
+                logger.error("Firestore non disponible pour supprimer l'anomalie")
+                return False
+            
+            self._fs.collection('anomalies').document(anomalie_id).delete()
+            logger.info(f"Anomalie supprimée: {anomalie_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Erreur suppression anomalie: {e}")
+            return False
     
     def generate_supplier_email_content(self, anomalie_id):
         """Générer le contenu d'email pour le fournisseur"""

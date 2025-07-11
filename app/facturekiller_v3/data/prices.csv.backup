@@ -1,4 +1,0 @@
-code,produit,fournisseur,prix,unite,categorie,restaurant,date_maj,actif
-DESP_33,Bière Desperados 33cl,MVA,2.8,unité,Boisson,Général,2024-01-01,True
-COCA_33,Coca Cola 33cl,MVA,2.2,unité,Boisson,Général,2024-01-01,True
-PAIN_B,Pain Burger,Au Bureau St Amand,1.5,unité,Boulangerie,Général,2024-01-01,True

@@ -30,15 +30,21 @@ logger = logging.getLogger(__name__)
 
 class EmailManager:
     def __init__(self):
-        self.config_file = 'config/email_config.json'
-        self.notifications_file = 'data/email_notifications.json'
+        # Initialiser Firestore
+        try:
+            from modules.firestore_db import get_client
+            self._fs = get_client()
+            self._fs_enabled = self._fs is not None
+            if self._fs_enabled:
+                print("✅ Firestore initialisé pour EmailManager")
+            else:
+                print("❌ Firestore non disponible pour EmailManager")
+        except Exception as e:
+            print(f"❌ Erreur initialisation Firestore EmailManager: {e}")
+            self._fs_enabled = False
+            self._fs = None
         
-        # Créer les dossiers nécessaires
-        os.makedirs('config', exist_ok=True)
-        os.makedirs('data', exist_ok=True)
-        
-        # Créer les fichiers s'ils n'existent pas
-        self._ensure_files_exist()
+        # Charger la configuration depuis Firestore
         self.config = self._load_config()
         
         self.smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
@@ -47,42 +53,39 @@ class EmailManager:
         self.smtp_password = os.getenv('SMTP_PASSWORD', '')
         self.from_email = os.getenv('FROM_EMAIL', self.smtp_username)
         self.from_name = os.getenv('FROM_NAME', 'FactureKiller V3')
-        
-        # Fichier pour stocker les invitations
-        self.invitations_file = Path('data/invitations.json')
-        self.invitations_file.parent.mkdir(exist_ok=True)
-    
-    def _ensure_files_exist(self):
-        """Créer les fichiers de configuration s'ils n'existent pas"""
-        if not os.path.exists(self.config_file):
-            default_config = {
-                "enabled": False,
-                "smtp_server": "smtp.gmail.com",
-                "smtp_port": 587,
-                "email": "",
-                "password": "",
-                "sender_name": "FactureKiller",
-                "auto_send": True
-            }
-            with open(self.config_file, 'w', encoding='utf-8') as f:
-                json.dump(default_config, f, indent=2, ensure_ascii=False)
-        
-        if not os.path.exists(self.notifications_file):
-            with open(self.notifications_file, 'w', encoding='utf-8') as f:
-                json.dump([], f, indent=2, ensure_ascii=False)
     
     def _load_config(self) -> Dict:
-        """Charger la configuration email"""
+        """Charger la configuration email depuis Firestore"""
         try:
-            with open(self.config_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
+            if not self._fs_enabled or not self._fs:
+                return {"enabled": False}
+            
+            doc = self._fs.collection('email_config').document('main').get()
+            if doc.exists:
+                return doc.to_dict()
+            else:
+                # Créer la configuration par défaut
+                default_config = {
+                    "enabled": False,
+                    "smtp_server": "smtp.gmail.com",
+                    "smtp_port": 587,
+                    "email": "",
+                    "password": "",
+                    "sender_name": "FactureKiller",
+                    "auto_send": True
+                }
+                self._fs.collection('email_config').document('main').set(default_config)
+                return default_config
         except Exception as e:
             logger.error(f"Erreur chargement config email: {e}")
             return {"enabled": False}
     
     def save_config(self, config: Dict) -> bool:
-        """Sauvegarder la configuration email"""
+        """Sauvegarder la configuration email dans Firestore"""
         try:
+            if not self._fs_enabled or not self._fs:
+                return False
+            
             # Si le mot de passe est masqué (contient uniquement des *), garder l'ancien
             password = config.get('password', '')
             if not password or password.strip() == '' or all(c == '*' for c in password.strip()):
@@ -92,8 +95,7 @@ class EmailManager:
                     config['password'] = old_config['password']
                     print(f"💾 Mot de passe préservé (masqué détecté: '{password}')")
             
-            with open(self.config_file, 'w', encoding='utf-8') as f:
-                json.dump(config, f, indent=2, ensure_ascii=False)
+            self._fs.collection('email_config').document('main').set(config)
             self.config = config
             return True
         except Exception as e:
@@ -347,46 +349,39 @@ class EmailManager:
         return html
     
     def _log_notification(self, order_data: Dict, email: str, notification_type: str, status: str, error: str = None):
-        """Enregistrer une notification dans l'historique"""
+        """Enregistrer une notification dans l'historique Firestore"""
         try:
-            notifications = []
-            if os.path.exists(self.notifications_file):
-                with open(self.notifications_file, 'r', encoding='utf-8') as f:
-                    notifications = json.load(f)
+            if not self._fs_enabled or not self._fs:
+                return
             
             notification = {
-                'id': len(notifications) + 1,
                 'timestamp': datetime.now().isoformat(),
-                'order_id': order_data.get('id'),
-                'supplier': order_data.get('supplier'),
+                'order_id': order_data.get('id', ''),
+                'supplier': order_data.get('supplier', ''),
                 'email': email,
                 'type': notification_type,
                 'status': status,
-                'error': error
+                'error': error or ''
             }
             
-            notifications.append(notification)
-            
-            # Garder seulement les 500 dernières
-            if len(notifications) > 500:
-                notifications = notifications[-500:]
-            
-            with open(self.notifications_file, 'w', encoding='utf-8') as f:
-                json.dump(notifications, f, indent=2, ensure_ascii=False)
+            # Sauvegarder dans Firestore
+            notification_id = f"notif_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            self._fs.collection('email_notifications').document(notification_id).set(notification)
                 
         except Exception as e:
             logger.error(f"Erreur log notification: {e}")
     
     def get_notifications_history(self, limit: int = 50) -> List[Dict]:
-        """Récupérer l'historique des notifications"""
+        """Récupérer l'historique des notifications depuis Firestore"""
         try:
-            if os.path.exists(self.notifications_file):
-                with open(self.notifications_file, 'r', encoding='utf-8') as f:
-                    notifications = json.load(f)
-                    return notifications[-limit:] if limit else notifications
+            if not self._fs_enabled or not self._fs:
+                return []
+            
+            docs = list(self._fs.collection('email_notifications').order_by('timestamp', direction='desc').limit(limit).stream())
+            return [doc.to_dict() for doc in docs]
         except Exception as e:
             logger.error(f"Erreur récupération historique: {e}")
-        return []
+            return []
     
     def get_config(self) -> Dict:
         """Récupérer la configuration actuelle (sans le mot de passe)"""
