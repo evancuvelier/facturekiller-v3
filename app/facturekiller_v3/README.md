@@ -1,5 +1,94 @@
 # FactureKiller V3 - Système d'Authentification Multi-Restaurants
 
+## 🚀 Déploiement Railway avec Firebase
+
+### 📋 Configuration Firebase pour Railway
+
+L'application utilise Firebase Firestore comme base de données. Pour déployer sur Railway :
+
+#### 1. Créer un projet Firebase
+1. Allez sur [https://console.firebase.google.com](https://console.firebase.google.com)
+2. Créez un nouveau projet ou sélectionnez un projet existant
+3. Notez le Project ID (ex: `facturekiller-v3`)
+
+#### 2. Activer Firestore
+1. Dans la console Firebase, allez dans **Firestore Database**
+2. Cliquez sur **Créer une base de données**
+3. Choisissez **Mode production** ou **Mode test**
+4. Sélectionnez une région (ex: `europe-west1`)
+
+#### 3. Créer une clé de service
+1. Dans la console Firebase, allez dans **Paramètres** > **Comptes de service**
+2. Cliquez sur **Générer une nouvelle clé privée**
+3. Téléchargez le fichier JSON
+4. Ouvrez le fichier et copiez tout son contenu
+
+#### 4. Configurer Railway
+1. Allez sur [https://railway.app](https://railway.app)
+2. Sélectionnez votre projet
+3. Allez dans l'onglet **Variables**
+4. Ajoutez les variables suivantes :
+
+```env
+# Configuration Firebase (OBLIGATOIRE)
+FIREBASE_SERVICE_KEY={"type":"service_account","project_id":"votre-projet-id",...}
+
+# Configuration Flask
+SECRET_KEY=facturekiller-v3-secret-key-2025-production
+FLASK_ENV=production
+PORT=8000
+
+# Configuration SMTP (optionnel)
+SMTP_SERVER=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=votre-email@gmail.com
+SMTP_PASSWORD=votre-mot-de-passe-app
+FROM_EMAIL=votre-email@gmail.com
+FROM_NAME=FactureKiller
+```
+
+#### 5. Redéploiement
+- Après avoir ajouté les variables, Railway redéploiera automatiquement
+- Vérifiez les logs pour s'assurer qu'il n'y a pas d'erreurs
+
+#### 6. Test de connexion
+- Une fois déployé, allez sur votre URL Railway
+- Connectez-vous avec : `evancuvelier@yahoo.com` / `Evan1250!`
+
+### 🧪 Scripts de test et configuration
+
+```bash
+# Générer la configuration Firebase
+python generate_firebase_config.py
+
+# Tester la connexion Firebase
+python test_firebase.py
+
+# Configuration rapide avec compte admin
+python quick_setup.py
+```
+
+### 🔧 Diagnostic des problèmes
+
+Si vous obtenez "Firebase non disponible" :
+
+1. **Vérifiez les variables d'environnement** sur Railway
+2. **Vérifiez que Firestore est activé** dans votre projet Firebase
+3. **Vérifiez les logs Railway** pour les erreurs détaillées
+4. **Testez la connexion** avec `python test_firebase.py`
+
+### 📊 Variables d'environnement requises
+
+| Variable | Description | Obligatoire |
+|----------|-------------|-------------|
+| `FIREBASE_SERVICE_KEY` | Contenu JSON de la clé de service Firebase | ✅ |
+| `SECRET_KEY` | Clé secrète Flask | ✅ |
+| `FLASK_ENV` | Environnement Flask | ✅ |
+| `PORT` | Port de l'application | ✅ |
+| `SMTP_*` | Configuration email (optionnel) | ❌ |
+
+---
+
 ## 🚀 État Final - Système Nettoyé et Optimisé
 
 ### ✅ Fonctionnalités Principales
