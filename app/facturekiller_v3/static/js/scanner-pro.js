@@ -1204,6 +1204,34 @@ class ScannerPro {
         // Ajouter à la suite du contenu existant
         resultsContent.innerHTML += productsHTML;
         
+        // Ajouter le bouton de validation en bas
+        const validationHTML = `
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card border-0 bg-light">
+                        <div class="card-body text-center">
+                            <h6 class="text-primary mb-3">
+                                <i class="bi bi-check-circle me-2"></i>Validation de la facture
+                            </h6>
+                            <p class="text-muted mb-3">
+                                Vérifiez les informations ci-dessus et validez pour que cette facture soit visible dans les fournisseurs et factures.
+                            </p>
+                            <div class="d-flex justify-content-center gap-3">
+                                <button class="btn btn-outline-secondary" onclick="window.scanner.resetScanner()">
+                                    <i class="bi bi-x-circle me-2"></i>Annuler
+                                </button>
+                                <button class="btn btn-success btn-lg px-5" onclick="window.scanner.validateAndSaveInvoice()">
+                                    <i class="bi bi-check-circle me-2"></i>Valider et Sauvegarder
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        resultsContent.innerHTML += validationHTML;
+        
         // Animation pour chaque produit
         const productElements = resultsContent.querySelectorAll('.product-item');
         productElements.forEach((productEl, index) => {
@@ -1225,39 +1253,53 @@ class ScannerPro {
         const statusColor = this.getStatusColor(status);
         
         return `
-            <div class="product-item border-start border-${statusColor} border-3 p-3 mb-2 bg-white rounded shadow-sm">
+            <div class="product-item border-start border-${statusColor} border-3 p-3 mb-3 bg-white rounded shadow-sm" data-product-index="${index}">
                 <div class="row align-items-center">
-                    <div class="col-8">
+                    <div class="col-12 col-md-8">
                         <div class="d-flex align-items-center mb-2">
-                            <h6 class="mb-0 fw-bold text-dark">${product.name || 'Produit sans nom'}</h6>
+                            <h6 class="mb-0 fw-bold text-dark product-name" contenteditable="true" onblur="updateProductField(${index}, 'name', this.textContent)">${product.name || 'Produit sans nom'}</h6>
                             <span class="badge bg-${statusColor} ms-2 small">${status}</span>
                         </div>
-                        <div class="row g-2 small text-muted">
-                            <div class="col-6">
-                                <i class="bi bi-tag-fill me-1"></i>
-                                <strong class="text-primary">${this.formatPrice(product.unit_price || 0)}</strong>
-                                <span class="text-muted">/${product.unit || 'unité'}</span>
+                        <div class="row g-3 small">
+                            <div class="col-md-4">
+                                <label class="form-label text-muted mb-1">Prix unitaire</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">€</span>
+                                    <input type="number" class="form-control form-control-sm product-unit-price" 
+                                           value="${product.unit_price || 0}" step="0.01" 
+                                           onchange="updateProductField(${index}, 'unit_price', this.value)">
+                                </div>
                             </div>
-                            <div class="col-6">
-                                <i class="bi bi-box-seam me-1"></i>
-                                <strong class="text-success">${product.quantity || 1}</strong>
-                                <span class="text-muted">${product.unit || 'unité'}(s)</span>
+                            <div class="col-md-4">
+                                <label class="form-label text-muted mb-1">Quantité</label>
+                                <div class="input-group input-group-sm">
+                                    <input type="number" class="form-control form-control-sm product-quantity" 
+                                           value="${product.quantity || 1}" step="0.1" min="0.1"
+                                           onchange="updateProductField(${index}, 'quantity', this.value)">
+                                    <span class="input-group-text">${product.unit || 'unité'}</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label text-muted mb-1">Total</label>
+                                <div class="fw-bold text-primary product-total">
+                                    ${this.formatPrice((product.unit_price || 0) * (product.quantity || 1))}
+                                </div>
                             </div>
                         </div>
                         <div class="mt-2">
+                            ${product.code ? `<span class="badge bg-secondary me-1">Code: ${product.code}</span>` : ''}
                             <span class="badge bg-light text-dark">
-                                Total: <strong class="text-primary">${this.formatPrice((product.unit_price || 0) * (product.quantity || 1))}</strong>
+                                <i class="bi bi-calculator me-1"></i>Total: <strong class="text-primary">${this.formatPrice((product.unit_price || 0) * (product.quantity || 1))}</strong>
                             </span>
-                            ${product.code ? `<span class="badge bg-secondary ms-1">${product.code}</span>` : ''}
                         </div>
                     </div>
-                    <div class="col-4 text-end">
+                    <div class="col-12 col-md-4 text-end">
                         <div class="btn-group-vertical gap-1">
-                            <button class="btn btn-sm btn-outline-info" onclick="editSingleProduct(${index})" title="Éditer ce produit">
-                                <i class="bi bi-pencil-square"></i> Éditer
+                            <button class="btn btn-sm btn-outline-danger" onclick="removeProduct(${index})" title="Supprimer ce produit">
+                                <i class="bi bi-trash"></i>
                             </button>
-                            <button class="btn btn-sm btn-outline-secondary" onclick="showProductDetails(${index})" title="Voir détails">
-                                <i class="bi bi-eye"></i>
+                            <button class="btn btn-sm btn-outline-warning" onclick="addAnomalyToProduct(${index})" title="Ajouter une anomalie">
+                                <i class="bi bi-exclamation-triangle"></i>
                             </button>
                         </div>
                     </div>
@@ -1284,43 +1326,133 @@ class ScannerPro {
         }
     }
 
-    showProductDetails(productIndex) {
+    // === NOUVELLES FONCTIONS POUR GESTION DES PRODUITS ===
+    
+    updateProductField(productIndex, field, value) {
+        if (!this.analysisResult || !this.analysisResult.products[productIndex]) return;
+        
+        const product = this.analysisResult.products[productIndex];
+        product[field] = field === 'quantity' || field === 'unit_price' ? parseFloat(value) : value;
+        
+        // Recalculer le total
+        this.updateProductTotal(productIndex);
+        
+        // Marquer comme modifié
+        product.manually_edited = true;
+        
+        console.log(`Produit ${productIndex} mis à jour: ${field} = ${value}`);
+    }
+    
+    updateProductTotal(productIndex) {
         const product = this.analysisResult.products[productIndex];
         if (!product) return;
         
-        // Modal avec détails du produit
+        const total = (product.unit_price || 0) * (product.quantity || 1);
+        const totalElement = document.querySelector(`[data-product-index="${productIndex}"] .product-total`);
+        if (totalElement) {
+            totalElement.textContent = this.formatPrice(total);
+        }
+        
+        // Recalculer le total général
+        this.recalculateInvoiceTotal();
+    }
+    
+    recalculateInvoiceTotal() {
+        if (!this.analysisResult || !this.analysisResult.products) return;
+        
+        const total = this.analysisResult.products.reduce((sum, product) => {
+            return sum + ((product.unit_price || 0) * (product.quantity || 1));
+        }, 0);
+        
+        // Mettre à jour l'affichage du total
+        const totalElements = document.querySelectorAll('.fw-bold.text-success');
+        totalElements.forEach(el => {
+            if (el.textContent.includes('€')) {
+                el.textContent = this.formatPrice(total);
+            }
+        });
+        
+        this.analysisResult.total_amount = total;
+    }
+    
+    removeProduct(productIndex) {
+        if (!this.analysisResult || !this.analysisResult.products) return;
+        
+        if (confirm('Êtes-vous sûr de vouloir supprimer ce produit ?')) {
+            this.analysisResult.products.splice(productIndex, 1);
+            this.refreshProductsDisplay();
+            this.recalculateInvoiceTotal();
+        }
+    }
+    
+    refreshProductsDisplay() {
+        const resultsContent = document.getElementById('resultsContent');
+        if (!resultsContent) return;
+        
+        // Trouver la section des produits et la remplacer
+        const productsSection = resultsContent.querySelector('.products-container');
+        if (productsSection) {
+            let productsHTML = '';
+            this.analysisResult.products.forEach((product, index) => {
+                productsHTML += this.createProductElement(product, index);
+            });
+            productsSection.innerHTML = productsHTML;
+        }
+    }
+    
+    addAnomalyToProduct(productIndex) {
+        const product = this.analysisResult.products[productIndex];
+        if (!product) return;
+        
+        // Créer le modal d'anomalie
         const modal = document.createElement('div');
         modal.className = 'modal fade';
         modal.innerHTML = `
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title">${product.name}</h5>
+                        <h5 class="modal-title">
+                            <i class="bi bi-exclamation-triangle text-warning me-2"></i>
+                            Ajouter une anomalie
+                        </h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
-                        <div class="row g-3">
-                            <div class="col-6">
-                                <label class="form-label">Quantité</label>
-                                <div class="fw-bold">${product.quantity || 1}</div>
-                            </div>
-                            <div class="col-6">
-                                <label class="form-label">Prix unitaire</label>
-                                <div class="fw-bold">${this.formatPrice(product.unit_price || 0)}</div>
-                            </div>
-                            ${product.reference_price ? `
-                            <div class="col-6">
-                                <label class="form-label">Prix de référence</label>
-                                <div class="fw-bold">${this.formatPrice(product.reference_price)}</div>
-                            </div>
-                            <div class="col-6">
-                                <label class="form-label">Différence</label>
-                                <div class="fw-bold text-${this.getStatusColor(this.getProductStatus(product))}">
-                                    ${this.formatPrice(product.unit_price - product.reference_price)}
-                                </div>
-                            </div>
-                            ` : ''}
+                        <div class="mb-3">
+                            <label class="form-label">Produit concerné</label>
+                            <div class="fw-bold text-primary">${product.name}</div>
                         </div>
+                        <div class="mb-3">
+                            <label class="form-label">Type d'anomalie</label>
+                            <select class="form-select" id="anomalyType">
+                                <option value="missing_item">Article manquant</option>
+                                <option value="wrong_quantity">Quantité incorrecte</option>
+                                <option value="damaged_item">Article endommagé</option>
+                                <option value="wrong_price">Prix incorrect</option>
+                                <option value="expired_item">Article périmé</option>
+                                <option value="other">Autre</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" id="anomalyDescription" rows="3" 
+                                      placeholder="Décrivez l'anomalie détectée..."></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Sévérité</label>
+                            <select class="form-select" id="anomalySeverity">
+                                <option value="low">Faible</option>
+                                <option value="medium">Moyenne</option>
+                                <option value="high">Élevée</option>
+                                <option value="critical">Critique</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                        <button type="button" class="btn btn-warning" onclick="saveAnomaly(${productIndex})">
+                            <i class="bi bi-exclamation-triangle me-2"></i>Ajouter l'anomalie
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1334,8 +1466,145 @@ class ScannerPro {
             document.body.removeChild(modal);
         });
     }
+    
+    saveAnomaly(productIndex) {
+        const product = this.analysisResult.products[productIndex];
+        if (!product) return;
+        
+        const type = document.getElementById('anomalyType').value;
+        const description = document.getElementById('anomalyDescription').value;
+        const severity = document.getElementById('anomalySeverity').value;
+        
+        if (!description.trim()) {
+            alert('Veuillez décrire l\'anomalie');
+            return;
+        }
+        
+        // Créer l'anomalie
+        const anomaly = {
+            id: Date.now(),
+            product_index: productIndex,
+            product_name: product.name,
+            type: type,
+            description: description,
+            severity: severity,
+            timestamp: new Date().toISOString()
+        };
+        
+        // Ajouter à la liste des anomalies
+        if (!this.analysisResult.anomalies) {
+            this.analysisResult.anomalies = [];
+        }
+        this.analysisResult.anomalies.push(anomaly);
+        
+        // Fermer le modal
+        bootstrap.Modal.getInstance(document.querySelector('.modal')).hide();
+        
+        // Afficher l'anomalie
+        this.displayAnomaly(anomaly);
+        
+        console.log('Anomalie ajoutée:', anomaly);
+    }
+    
+    displayAnomaly(anomaly) {
+        const resultsContent = document.getElementById('resultsContent');
+        if (!resultsContent) return;
+        
+        // Créer la section anomalies si elle n'existe pas
+        let anomaliesSection = resultsContent.querySelector('.anomalies-section');
+        if (!anomaliesSection) {
+            anomaliesSection = document.createElement('div');
+            anomaliesSection.className = 'anomalies-section mt-4';
+            anomaliesSection.innerHTML = `
+                <h6 class="text-warning mb-3">
+                    <i class="bi bi-exclamation-triangle me-2"></i>Anomalies détectées
+                </h6>
+                <div class="anomalies-list"></div>
+            `;
+            resultsContent.appendChild(anomaliesSection);
+        }
+        
+        const anomaliesList = anomaliesSection.querySelector('.anomalies-list');
+        const anomalyHTML = `
+            <div class="alert alert-warning d-flex align-items-start" data-anomaly-id="${anomaly.id}">
+                <i class="bi bi-exclamation-triangle me-2 mt-1"></i>
+                <div class="flex-grow-1">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <strong>${anomaly.product_name}</strong>
+                            <span class="badge bg-${this.getAnomalySeverityColor(anomaly.severity)} ms-2">${this.getAnomalyTypeLabel(anomaly.type)}</span>
+                        </div>
+                        <button class="btn btn-sm btn-outline-danger" onclick="removeAnomaly(${anomaly.id})">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </div>
+                    <p class="mb-0 mt-1">${anomaly.description}</p>
+                </div>
+            </div>
+        `;
+        
+        anomaliesList.insertAdjacentHTML('beforeend', anomalyHTML);
+    }
+    
+    getAnomalySeverityColor(severity) {
+        switch(severity) {
+            case 'low': return 'success';
+            case 'medium': return 'warning';
+            case 'high': return 'danger';
+            case 'critical': return 'dark';
+            default: return 'secondary';
+        }
+    }
+    
+    getAnomalyTypeLabel(type) {
+        switch(type) {
+            case 'missing_item': return 'Manquant';
+            case 'wrong_quantity': return 'Quantité incorrecte';
+            case 'damaged_item': return 'Endommagé';
+            case 'wrong_price': return 'Prix incorrect';
+            case 'expired_item': return 'Périmé';
+            case 'other': return 'Autre';
+            default: return 'Anomalie';
+        }
+    }
+    
+    removeAnomaly(anomalyId) {
+        // Supprimer de la liste
+        this.analysisResult.anomalies = this.analysisResult.anomalies.filter(a => a.id !== anomalyId);
+        
+        // Supprimer de l'affichage
+        const anomalyElement = document.querySelector(`[data-anomaly-id="${anomalyId}"]`);
+        if (anomalyElement) {
+            anomalyElement.remove();
+        }
+        
+        // Si plus d'anomalies, supprimer la section
+        if (!this.analysisResult.anomalies || this.analysisResult.anomalies.length === 0) {
+            const anomaliesSection = document.querySelector('.anomalies-section');
+            if (anomaliesSection) {
+                anomaliesSection.remove();
+            }
+        }
+    }
 
-    async saveInvoice() {
+    // === NOUVELLE FONCTION DE VALIDATION ===
+    
+    async validateAndSaveInvoice() {
+        if (!this.analysisResult) {
+            this.showNotification('Aucune analyse à valider', 'error');
+            return;
+        }
+        
+        // Marquer comme validé
+        this.analysisResult.validated = true;
+        this.analysisResult.validation_timestamp = new Date().toISOString();
+        this.analysisResult.validated_by = 'user';
+        
+        // Sauvegarder avec le statut validé
+        await this.saveInvoice(true);
+    }
+    
+    async saveInvoice(validated = false) {
         if (!this.analysisResult) {
             this.showNotification('Aucune analyse à sauvegarder', 'error');
             return;
@@ -1345,6 +1614,7 @@ class ScannerPro {
             // Préparer les données à sauvegarder
             const saveData = {
                 ...this.analysisResult,
+                validated: validated,
                 manual_edits: this.hasUserModifications(),
                 modifications: this.getModificationTypes(),
                 scanner_version: '3.0',
@@ -1355,7 +1625,7 @@ class ScannerPro {
                 }
             };
 
-            this.showProgress('Sauvegarde en cours...');
+            this.showProgress(validated ? 'Validation et sauvegarde en cours...' : 'Sauvegarde en cours...');
 
             const response = await fetch('/api/invoices/save-simple', {
                 method: 'POST',
@@ -3858,7 +4128,34 @@ ScannerPro.prototype.prepareNextScan = function() {
     this.showNotification('📄 Prêt pour la prochaine facture !', 'info');
 };
 
-// Nouvelles fonctions globales pour multi-pages
+// === FONCTIONS GLOBALES POUR LES BOUTONS ===
 
-// ... existing code ...
-// ... existing code ...
+function updateProductField(productIndex, field, value) {
+    if (window.scanner) {
+        window.scanner.updateProductField(productIndex, field, value);
+    }
+}
+
+function removeProduct(productIndex) {
+    if (window.scanner) {
+        window.scanner.removeProduct(productIndex);
+    }
+}
+
+function addAnomalyToProduct(productIndex) {
+    if (window.scanner) {
+        window.scanner.addAnomalyToProduct(productIndex);
+    }
+}
+
+function saveAnomaly(productIndex) {
+    if (window.scanner) {
+        window.scanner.saveAnomaly(productIndex);
+    }
+}
+
+function removeAnomaly(anomalyId) {
+    if (window.scanner) {
+        window.scanner.removeAnomaly(anomalyId);
+    }
+}
