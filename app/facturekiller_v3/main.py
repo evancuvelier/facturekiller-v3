@@ -3479,33 +3479,63 @@ def get_restaurant_suppliers():
         restaurant_suppliers = current_restaurant.get('suppliers', [])
         all_suppliers = supplier_manager.get_all_suppliers()
         
-        # Filtrer les fournisseurs selon le restaurant
-        filtered_suppliers = [s for s in all_suppliers if s['name'] in restaurant_suppliers]
+        # ✅ CORRECTION: Filtrage strict - seulement les fournisseurs EXPLICITEMENT associés
+        # Plus d'auto-association automatique pour éviter les confusions
+        filtered_suppliers = []
         
-        # 🔄 Si des fournisseurs existent mais ne sont pas encore associés, les lier automatiquement
-        missing_suppliers = [s['name'] for s in all_suppliers if s['name'] not in restaurant_suppliers]
-        if missing_suppliers:
-            print(f"♻️ AUTO-ASSOC fournisseurs {missing_suppliers} → restaurant {current_restaurant['name']}")
-            restaurant_suppliers.extend(missing_suppliers)
-            current_restaurant['suppliers'] = restaurant_suppliers
-
-            # Persister dans le fichier restaurants.json pour la prochaine requête
-            try:
-                rest_path = 'data/restaurants.json'
-                if os.path.exists(rest_path):
-                    with open(rest_path, 'r', encoding='utf-8') as f:
-                        restaurants = json.load(f)
-                    for r in restaurants:
-                        if r['id'] == current_restaurant['id']:
-                            r['suppliers'] = restaurant_suppliers
+        for supplier in all_suppliers:
+            supplier_name = supplier['name']
+            
+            # Inclure si le fournisseur est explicitement associé au restaurant
+            if supplier_name in restaurant_suppliers:
+                filtered_suppliers.append(supplier)
+                continue
+            
+            # OU si le fournisseur a des produits SPÉCIFIQUEMENT pour ce restaurant
+            # (vérifier dans les prix et produits en attente)
+            restaurant_name = current_restaurant.get('name')
+            has_specific_products = False
+            
+            # Vérifier dans les produits en attente avec filtre restaurant
+            for product in supplier.get('pending_products', []):
+                product_restaurant = product.get('restaurant', 'Général')
+                if product_restaurant == restaurant_name:
+                    has_specific_products = True
+                    break
+            
+            # Vérifier dans les prix confirmés avec filtre restaurant
+            if not has_specific_products:
+                try:
+                    supplier_products = supplier_manager.get_supplier_products(supplier_name)
+                    for product in supplier_products:
+                        if product.get('restaurant') == restaurant_name:
+                            has_specific_products = True
                             break
-                    with open(rest_path, 'w', encoding='utf-8') as f:
-                        json.dump(restaurants, f, indent=2, ensure_ascii=False)
-            except Exception as err:
-                logger.warning(f"Impossible de mettre à jour restaurants.json : {err}")
-
-            # Recalculer
-            filtered_suppliers = [s for s in all_suppliers if s['name'] in restaurant_suppliers]
+                except:
+                    pass
+            
+            if has_specific_products:
+                # Auto-associer seulement si il y a des produits spécifiques
+                filtered_suppliers.append(supplier)
+                if supplier_name not in restaurant_suppliers:
+                    print(f"🔗 AUTO-ASSOCIATION: {supplier_name} → {restaurant_name} (produits spécifiques détectés)")
+                    restaurant_suppliers.append(supplier_name)
+                    current_restaurant['suppliers'] = restaurant_suppliers
+                    
+                    # Persister l'association
+                    try:
+                        rest_path = 'data/restaurants.json'
+                        if os.path.exists(rest_path):
+                            with open(rest_path, 'r', encoding='utf-8') as f:
+                                restaurants = json.load(f)
+                            for r in restaurants:
+                                if r['id'] == current_restaurant['id']:
+                                    r['suppliers'] = restaurant_suppliers
+                                    break
+                            with open(rest_path, 'w', encoding='utf-8') as f:
+                                json.dump(restaurants, f, indent=2, ensure_ascii=False)
+                    except Exception as err:
+                        logger.warning(f"Impossible de mettre à jour restaurants.json : {err}")
         
         return jsonify({
             'success': True,
@@ -4097,8 +4127,9 @@ def manage_restaurant_supplier_products(supplier_name):
                 'created_by': user_context['user']['username']
             }
             
-            # Ajouter le produit dans les produits en attente avec le contexte restaurant
-            success = price_manager.add_pending_product(product_record)
+            # 🎯 CORRECTION: Ajouter le produit DIRECTEMENT en confirmé (pas en attente)
+            # pour les créations manuelles par les restaurants
+            success = price_manager.add_confirmed_product_directly(product_record)
             
             if success:
                 logger.info(f"✅ Produit {product_data['name']} ajouté pour {supplier_name} - Restaurant: {current_restaurant['name']}")

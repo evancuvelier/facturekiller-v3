@@ -477,20 +477,26 @@ class PriceManager:
                 else:
                     new_id = 1
             else:
-                # Créer nouveau fichier avec en-têtes
-                prices_df = pd.DataFrame(columns=['id', 'code', 'produit', 'fournisseur', 'prix_unitaire', 'unite', 'categorie', 'date_ajout'])
+                # Créer nouveau fichier avec en-têtes - STRUCTURE COHÉRENTE
+                prices_df = pd.DataFrame(columns=[
+                    'id', 'code', 'produit', 'fournisseur', 'prix', 'unite', 
+                    'categorie', 'restaurant', 'date_ajout', 'actif', 'source'
+                ])
                 new_id = 1
             
-            # Mapper les colonnes de pending vers prices
+            # Mapper les colonnes de pending vers prices - CORRECTION STRUCTURE
             product_data = {
                 'id': new_id,
                 'code': pending_data.get('code', ''),
                 'produit': pending_data.get('produit', ''),
                 'fournisseur': pending_data.get('fournisseur', ''),
-                'prix_unitaire': float(pending_data.get('prix', 0)),  # CONVERSION CLÉE: prix -> prix_unitaire
+                'prix': float(pending_data.get('prix', 0)),  # ✅ CORRECTION: Garder 'prix' pour cohérence
                 'unite': pending_data.get('unite', 'pièce'),
                 'categorie': pending_data.get('categorie', 'Non classé'),
-                'date_ajout': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                'restaurant': pending_data.get('restaurant', 'Général'),  # Ajout restaurant
+                'date_ajout': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'actif': True,
+                'source': 'validated_pending'
             }
             
             # Ajouter aux prix de référence
@@ -708,6 +714,106 @@ class PriceManager:
         
         return f"P{supplier_part}{name_part}{timestamp}"
     
+    def add_confirmed_product_directly(self, product_data: Dict) -> bool:
+        """
+        Ajouter un produit directement dans les prix confirmés (pour création manuelle)
+        SANS passer par les produits en attente
+        """
+        try:
+            print(f"💾 ADD_CONFIRMED: Ajout direct produit confirmé")
+            print(f"💾 ADD_CONFIRMED: Données reçues: {product_data}")
+            
+            # Valider les données
+            name = product_data.get('produit', product_data.get('name', '')).strip()
+            price = float(product_data.get('prix', product_data.get('unit_price', 0)))
+            supplier = product_data.get('fournisseur', product_data.get('supplier', 'MANUEL'))
+            restaurant = product_data.get('restaurant', 'Général')
+            
+            if not name or price <= 0 or not supplier:
+                print(f"❌ ADD_CONFIRMED: Validation échouée - données manquantes")
+                return False
+            
+            # Vérifier s'il existe déjà dans les prix confirmés
+            prices_file = 'data/prices.csv'
+            if os.path.exists(prices_file):
+                existing_df = pd.read_csv(prices_file)
+                if not existing_df.empty:
+                    # Vérifier doublons
+                    name_clean = name.strip().lower()
+                    existing = existing_df[
+                        (existing_df['produit'].str.strip().str.lower() == name_clean) & 
+                        (existing_df['fournisseur'].str.upper() == supplier.upper())
+                    ]
+                    if not existing.empty:
+                        print(f"⚠️ ADD_CONFIRMED: Produit '{name}' déjà confirmé pour {supplier}")
+                        return False
+            
+            # Préparer les données pour prices.csv avec la structure correcte
+            new_price = {
+                'code': product_data.get('code', ''),
+                'produit': name,
+                'fournisseur': supplier,
+                'prix': price,  # Note: dans prices.csv c'est 'prix' mais parfois lu comme 'prix_unitaire'
+                'unite': product_data.get('unite', product_data.get('unit', 'unité')),
+                'categorie': product_data.get('categorie', product_data.get('category', 'Manuel')),
+                'restaurant': restaurant,
+                'date_maj': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'actif': True,
+                'source': 'manual_direct'
+            }
+            
+            # Générer un code si manquant
+            if not new_price['code']:
+                new_price['code'] = self._generate_product_code(name, supplier)
+            
+            # Charger ou créer le fichier prices.csv
+            if os.path.exists(prices_file):
+                prices_df = pd.read_csv(prices_file)
+                # Générer un nouvel ID
+                if not prices_df.empty and 'id' in prices_df.columns:
+                    numeric_ids = pd.to_numeric(prices_df['id'], errors='coerce')
+                    max_id = numeric_ids.max()
+                    new_id = int(max_id + 1) if pd.notna(max_id) else 1
+                else:
+                    new_id = 1
+            else:
+                # Créer nouveau fichier
+                prices_df = pd.DataFrame(columns=[
+                    'id', 'code', 'produit', 'fournisseur', 'prix', 'unite', 
+                    'categorie', 'restaurant', 'date_maj', 'actif', 'source'
+                ])
+                new_id = 1
+            
+            new_price['id'] = new_id
+            
+            # Ajouter le nouveau produit
+            new_row = pd.DataFrame([new_price])
+            prices_df = pd.concat([prices_df, new_row], ignore_index=True)
+            
+            # Sauvegarder
+            os.makedirs('data', exist_ok=True)
+            prices_df.to_csv(prices_file, index=False)
+            
+            # Recharger self.prices_db pour synchroniser
+            self.prices_db = self._load_prices()
+            
+            print(f"✅ ADD_CONFIRMED: Produit '{name}' ajouté directement en confirmé (ID: {new_id})")
+            
+            # 🔥 Firestore push si activé
+            if self._fs_enabled:
+                try:
+                    doc_id = new_price.get('code') or str(new_price['id'])
+                    self._fs.collection('prices').document(doc_id).set(new_price)
+                except Exception as e:
+                    logger.warning(f"Firestore prices push KO: {e}")
+            
+            return True
+            
+        except Exception as e:
+            print(f"❌ ADD_CONFIRMED: Erreur lors de l'ajout: {e}")
+            logger.error(f"Erreur ajout produit confirmé direct: {e}")
+            return False
+
     def add_price(self, price_data: Dict) -> bool:
         """
         Ajouter un nouveau prix de référence
