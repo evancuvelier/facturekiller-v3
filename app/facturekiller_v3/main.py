@@ -192,10 +192,8 @@ def get_current_user():
 # ===== ROUTES PAGES (avec authentification) =====
 
 @app.route('/')
-@login_required
-def index():
-    """Page d'accueil - Dashboard"""
-    return render_template('dashboard.html')
+def root_healthcheck():
+    return "OK", 200
 
 @app.route('/dashboard')
 @login_required
