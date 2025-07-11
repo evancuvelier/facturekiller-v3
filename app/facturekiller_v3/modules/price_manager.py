@@ -469,6 +469,28 @@ class PriceManager:
             # Charger prices.csv existant
             if os.path.exists(prices_file):
                 prices_df = pd.read_csv(prices_file)
+                # Ajouter colonne restaurant si manquante
+                if 'restaurant' not in prices_df.columns:
+                    prices_df['restaurant'] = 'Général'
+                    
+                # 🚨 VÉRIFICATION DOUBLONS AVANT VALIDATION
+                name_clean = pending_data.get('produit', '').strip().lower()
+                supplier_clean = pending_data.get('fournisseur', '').upper()
+                restaurant_check = pending_data.get('restaurant', 'Général')
+                
+                existing_validated = prices_df[
+                    (prices_df['produit'].str.strip().str.lower() == name_clean) & 
+                    (prices_df['fournisseur'].str.upper() == supplier_clean) &
+                    (prices_df['restaurant'] == restaurant_check)
+                ]
+                
+                if not existing_validated.empty:
+                    print(f"⚠️ VALIDATE_PENDING: DOUBLON DÉTECTÉ! Produit '{pending_data.get('produit')}' déjà validé pour {supplier_clean} - Restaurant: {restaurant_check}")
+                    # Supprimer de pending quand même car c'est un doublon
+                    pending_df = pending_df[pending_df['id'] != pending_id]
+                    pending_df.to_csv(pending_file, index=False)
+                    return True  # Retourner true car "techniquement" validé (déjà existe)
+                
                 # Générer un nouvel ID
                 if not prices_df.empty and 'id' in prices_df.columns:
                     numeric_ids = pd.to_numeric(prices_df['id'], errors='coerce')
@@ -652,15 +674,20 @@ class PriceManager:
             if os.path.exists(prices_file):
                 prices_df = pd.read_csv(prices_file)
                 if not prices_df.empty:
-                    # Vérifier si le produit est déjà validé
+                    # Ajouter colonne restaurant si manquante
+                    if 'restaurant' not in prices_df.columns:
+                        prices_df['restaurant'] = 'Général'
+                    
+                    # 🚨 VÉRIFICATION STRICTE - nom + fournisseur + restaurant
                     name_clean = name.strip().lower()
                     existing_in_prices = prices_df[
                         (prices_df['produit'].str.strip().str.lower() == name_clean) & 
-                        (prices_df['fournisseur'].str.upper() == supplier.upper())
+                        (prices_df['fournisseur'].str.upper() == supplier.upper()) &
+                        (prices_df['restaurant'] == restaurant)
                     ]
                     
                     if not existing_in_prices.empty:
-                        print(f"ℹ️ Produit '{name}' ({supplier}) déjà validé dans le catalogue - ignoré")
+                        print(f"ℹ️ DOUBLON DÉTECTÉ: Produit '{name}' ({supplier}) déjà validé pour restaurant {restaurant} - ignoré")
                         return True  # Ne pas ajouter car déjà validé
             
             # Ajouter nouveau produit en attente
@@ -733,19 +760,24 @@ class PriceManager:
                 print(f"❌ ADD_CONFIRMED: Validation échouée - données manquantes")
                 return False
             
-            # Vérifier s'il existe déjà dans les prix confirmés
+            # 🚨 VÉRIFICATION STRICTE DOUBLONS - nom + fournisseur + restaurant
             prices_file = 'data/prices.csv'
             if os.path.exists(prices_file):
                 existing_df = pd.read_csv(prices_file)
                 if not existing_df.empty:
-                    # Vérifier doublons
+                    # Ajouter colonne restaurant si manquante pour compatibilité
+                    if 'restaurant' not in existing_df.columns:
+                        existing_df['restaurant'] = 'Général'
+                    
+                    # Vérifier doublons STRICT (nom + fournisseur + restaurant)
                     name_clean = name.strip().lower()
                     existing = existing_df[
                         (existing_df['produit'].str.strip().str.lower() == name_clean) & 
-                        (existing_df['fournisseur'].str.upper() == supplier.upper())
+                        (existing_df['fournisseur'].str.upper() == supplier.upper()) &
+                        (existing_df['restaurant'] == restaurant)
                     ]
                     if not existing.empty:
-                        print(f"⚠️ ADD_CONFIRMED: Produit '{name}' déjà confirmé pour {supplier}")
+                        print(f"⚠️ ADD_CONFIRMED: DOUBLON DÉTECTÉ! Produit '{name}' déjà confirmé pour {supplier} - Restaurant: {restaurant}")
                         return False
             
             # Préparer les données pour prices.csv avec la structure correcte
@@ -794,10 +826,19 @@ class PriceManager:
             os.makedirs('data', exist_ok=True)
             prices_df.to_csv(prices_file, index=False)
             
-            # Recharger self.prices_db pour synchroniser
+            # 🔄 SYNCHRONISATION CRITIQUE: Recharger IMMÉDIATEMENT les données en mémoire
             self.prices_db = self._load_prices()
             
-            print(f"✅ ADD_CONFIRMED: Produit '{name}' ajouté directement en confirmé (ID: {new_id})")
+            # 🚨 VÉRIFICATION FINALE: S'assurer que le produit est bien ajouté
+            final_check = self.prices_db[
+                (self.prices_db['produit'].str.strip().str.lower() == name.strip().lower()) & 
+                (self.prices_db['fournisseur'].str.upper() == supplier.upper())
+            ]
+            if final_check.empty:
+                print(f"❌ ADD_CONFIRMED: ERREUR CRITIQUE - Produit non trouvé après sauvegarde!")
+                return False
+            
+            print(f"✅ ADD_CONFIRMED: Produit '{name}' ajouté directement en confirmé (ID: {new_id}) - Vérification finale OK")
             
             # 🔥 Firestore push si activé
             if self._fs_enabled:
