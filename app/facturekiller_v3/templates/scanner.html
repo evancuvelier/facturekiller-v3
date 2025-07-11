@@ -402,6 +402,29 @@
         <i class="bi bi-robot me-2"></i> Lancer le scan
       </button>
     </div>
+
+    <!-- Container des résultats d'analyse -->
+    <div id="analysisResults" class="container my-4" style="display:none;">
+      <div class="row justify-content-center">
+        <div class="col-12 col-lg-10">
+          <div class="card shadow-lg">
+            <div class="card-header bg-success text-white">
+              <div class="d-flex align-items-center justify-content-between">
+                <h5 class="mb-0">
+                  <i class="bi bi-check-circle me-2"></i>🎉 Facture analysée !
+                </h5>
+                <button class="btn btn-outline-light btn-sm" onclick="window.scanner.resetScanner()">
+                  <i class="bi bi-x-lg"></i>
+                </button>
+              </div>
+            </div>
+            <div class="card-body" id="resultsContent">
+              <!-- Le contenu sera rempli dynamiquement -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 </div>
 
 <!-- Charger le script Scanner Pro et initialiser l'objet global -->

@@ -1035,38 +1035,59 @@ class ScannerPro {
     }
 
     fillQuickStats(data) {
-        // Vérifier et remplir seulement les éléments qui existent
-        const totalProductsEl = document.getElementById('totalProducts');
-        const totalAmountEl = document.getElementById('totalAmount');
+        const resultsContent = document.getElementById('resultsContent');
+        if (!resultsContent) return;
         
-        if (totalProductsEl) {
-            totalProductsEl.textContent = data.products?.length || 0;
-        }
+        const priceComparison = data.price_comparison || {};
+        const statsHTML = `
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card border-0 bg-primary bg-opacity-10">
+                        <div class="card-body">
+                            <h6 class="card-title text-primary">
+                                <i class="bi bi-graph-up me-2"></i>Analyse des Prix
+                            </h6>
+                            <div class="row g-3">
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div class="fs-4 fw-bold text-success">${priceComparison.matched_products || 0}</div>
+                                        <small class="text-muted">Produits comparés</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div class="fs-4 fw-bold text-warning">${priceComparison.new_products || 0}</div>
+                                        <small class="text-muted">Nouveaux produits</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div class="fs-4 fw-bold text-success">${this.formatPrice(priceComparison.total_savings || 0)}</div>
+                                        <small class="text-muted">Économies totales</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div class="fs-4 fw-bold text-danger">${this.formatPrice(priceComparison.total_overpayment || 0)}</div>
+                                        <small class="text-muted">Surcoûts</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
         
-        if (totalAmountEl) {
-            totalAmountEl.textContent = this.formatPrice(data.total_amount || 0);
-        }
-        
-        // Éléments optionnels qui peuvent ne pas exister
-        const savingsAmountEl = document.getElementById('savingsAmount');
-        const newProductsEl = document.getElementById('newProducts');
-        
-        if (savingsAmountEl) {
-            const stats = data.price_comparison || {};
-            savingsAmountEl.textContent = this.formatPrice(stats.total_savings || 0);
-        }
-        
-        if (newProductsEl) {
-            const stats = data.price_comparison || {};
-            newProductsEl.textContent = stats.new_products || 0;
-        }
+        // Ajouter à la suite du contenu existant
+        resultsContent.innerHTML += statsHTML;
         
         // Animation des chiffres
         this.animateNumbers();
     }
 
     animateNumbers() {
-        const elements = document.querySelectorAll('.stat-card .fs-4');
+        const elements = document.querySelectorAll('.fs-4.fw-bold');
         elements.forEach(el => {
             const finalValue = el.textContent;
             const isPrice = finalValue.includes('€');
@@ -1088,49 +1109,103 @@ class ScannerPro {
     }
 
     fillInvoiceInfo(data) {
-        // Vérifier et remplir seulement les éléments qui existent
-        const supplierNameEl = document.getElementById('supplierName');
-        const invoiceNumberEl = document.getElementById('invoiceNumber');
-        const invoiceDateEl = document.getElementById('invoiceDate');
-        const vatAmountEl = document.getElementById('vatAmount');
+        // Créer le HTML des informations de facture
+        const invoiceInfoHTML = `
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card border-0 bg-light">
+                        <div class="card-body">
+                            <h6 class="card-title text-primary">
+                                <i class="bi bi-building me-2"></i>Informations Facture
+                            </h6>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <small class="text-muted">Fournisseur</small>
+                                    <div class="fw-bold">${data.supplier || 'Non détecté'}</div>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">N° Facture</small>
+                                    <div class="fw-bold">${data.invoice_number || 'Non détecté'}</div>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">Date</small>
+                                    <div class="fw-bold">${this.formatDate(data.date) || 'Non détectée'}</div>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">Total</small>
+                                    <div class="fw-bold text-success">${this.formatPrice(data.total_amount || 0)}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card border-0 bg-light">
+                        <div class="card-body">
+                            <h6 class="card-title text-primary">
+                                <i class="bi bi-graph-up me-2"></i>Statistiques
+                            </h6>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <small class="text-muted">Produits détectés</small>
+                                    <div class="fw-bold">${data.products ? data.products.length : 0}</div>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">Nouveaux produits</small>
+                                    <div class="fw-bold text-warning">${data.price_comparison?.new_products || 0}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
         
-        if (supplierNameEl) {
-            supplierNameEl.textContent = data.supplier || '-';
-        }
-        
-        if (invoiceNumberEl) {
-            invoiceNumberEl.textContent = data.invoice_number || '-';
-        }
-        
-        if (invoiceDateEl) {
-            invoiceDateEl.textContent = this.formatDate(data.date) || '-';
-        }
-        
-        if (vatAmountEl) {
-            vatAmountEl.textContent = this.formatPrice(data.vat_amount || 0);
+        // Ajouter au contenu des résultats
+        const resultsContent = document.getElementById('resultsContent');
+        if (resultsContent) {
+            resultsContent.innerHTML = invoiceInfoHTML;
         }
     }
 
     async fillProductsList(data) {
-        const container = document.getElementById('productsContainer');
-        container.innerHTML = '';
+        const resultsContent = document.getElementById('resultsContent');
+        if (!resultsContent) return;
         
         if (!data.products || data.products.length === 0) {
-            container.innerHTML = '<div class="text-center text-muted p-4">Aucun produit détecté</div>';
+            const noProductsHTML = `
+                <div class="text-center text-muted p-4">
+                    <i class="bi bi-exclamation-triangle fs-1 text-warning"></i>
+                    <p class="mt-3">Aucun produit détecté dans cette facture</p>
+                </div>
+            `;
+            resultsContent.innerHTML += noProductsHTML;
             return;
         }
 
         // Créer le HTML de tous les produits
-        let productsHTML = '';
+        let productsHTML = `
+            <div class="mb-4">
+                <h6 class="text-primary mb-3">
+                    <i class="bi bi-box-seam me-2"></i>Produits détectés (${data.products.length})
+                </h6>
+                <div class="products-container">
+        `;
+        
         data.products.forEach((product, index) => {
             productsHTML += this.createProductElement(product, index);
         });
         
-        // Injecter tout le HTML d'un coup
-        container.innerHTML = productsHTML;
+        productsHTML += `
+                </div>
+            </div>
+        `;
+        
+        // Ajouter à la suite du contenu existant
+        resultsContent.innerHTML += productsHTML;
         
         // Animation pour chaque produit
-        const productElements = container.querySelectorAll('.product-item');
+        const productElements = resultsContent.querySelectorAll('.product-item');
         productElements.forEach((productEl, index) => {
             // Style initial pour animation
             productEl.style.opacity = '0';
