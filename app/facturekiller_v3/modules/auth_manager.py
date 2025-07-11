@@ -9,56 +9,56 @@ import uuid
 
 class AuthManager:
     def __init__(self):
-        self.users_file = 'data/users.json'
-        self.clients_file = 'data/clients.json'
-        self.restaurants_file = 'data/restaurants.json'
-        self.sessions_file = 'data/sessions.json'
+        """Initialiser le gestionnaire d'authentification (Firestore uniquement)"""
+        # 🔥 FIRESTORE UNIQUEMENT - Plus de fichiers locaux
+        self._fs_enabled = False
+        self._fs = None
         
-        # Créer les fichiers s'ils n'existent pas
-        self._init_files()
-        
-        # Créer le master admin par défaut
-        self._create_master_admin()
-    
-    def _init_files(self):
-        """Initialise les fichiers de données"""
-        files_data = {
-            self.users_file: [],
-            self.clients_file: [],
-            self.restaurants_file: [],
-            self.sessions_file: {}
-        }
-        
-        for file_path, default_data in files_data.items():
-            if not os.path.exists(file_path):
-                os.makedirs(os.path.dirname(file_path), exist_ok=True)
-                with open(file_path, 'w', encoding='utf-8') as f:
-                    json.dump(default_data, f, indent=2, ensure_ascii=False)
+        # Initialiser Firestore
+        try:
+            from modules.firestore_db import FirestoreDB
+            firestore_db = FirestoreDB()
+            self._fs = firestore_db.db
+            self._fs_enabled = True
+            print("✅ Firestore initialisé pour AuthManager")
+            
+            # Créer le master admin par défaut
+            self._create_master_admin()
+        except Exception as e:
+            print(f"❌ Erreur initialisation Firestore AuthManager: {e}")
+            self._fs_enabled = False
+            self._fs = None
     
     def _create_master_admin(self):
-        """Crée le master admin par défaut s'il n'existe pas"""
-        users = self._load_users()
-        
-        # Vérifier si le master admin existe déjà
-        master_exists = any(user.get('role') == 'master_admin' for user in users)
-        
-        if not master_exists:
-            master_admin = {
-                'id': 'master_001',
-                'username': 'master',
-                'email': 'admin@facturekiller.com',
-                'password': self._hash_password('admin123'),
-                'role': 'master_admin',
-                'name': 'Master Administrator',
-                'created_at': datetime.now().isoformat(),
-                'active': True,
-                'client_id': None,
-                'restaurant_id': None
-            }
+        """Crée le master admin par défaut dans Firestore s'il n'existe pas"""
+        try:
+            if not self._fs_enabled:
+                return
             
-            users.append(master_admin)
-            self._save_users(users)
-            print("🔐 Master admin créé - Username: master, Password: admin123")
+            # Vérifier si le master admin existe déjà
+            docs = list(self._fs.collection('users').where('role', '==', 'master_admin').stream())
+            
+            if not docs:
+                master_admin = {
+                    'id': 'master_001',
+                    'username': 'master',
+                    'email': 'admin@facturekiller.com',
+                    'password': self._hash_password('admin123'),
+                    'role': 'master_admin',
+                    'name': 'Master Administrator',
+                    'created_at': datetime.now().isoformat(),
+                    'active': True,
+                    'client_id': None,
+                    'restaurant_id': None
+                }
+                
+                self._fs.collection('users').document('master_001').set(master_admin)
+                print("🔐 Master admin créé dans Firestore - Username: master, Password: admin123")
+            else:
+                print("🔐 Master admin existe déjà dans Firestore")
+                
+        except Exception as e:
+            print(f"❌ Erreur création master admin Firestore: {e}")
     
     def _hash_password(self, password):
         """Hash un mot de passe avec salt"""
@@ -74,52 +74,20 @@ class AuthManager:
         except:
             return False
     
-    def _load_users(self):
-        """Charge les utilisateurs"""
-        try:
-            with open(self.users_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except:
-            return []
-    
-    def _save_users(self, users):
-        """Sauvegarde les utilisateurs"""
-        with open(self.users_file, 'w', encoding='utf-8') as f:
-            json.dump(users, f, indent=2, ensure_ascii=False)
-    
-    def _load_clients(self):
-        """Charge les clients"""
-        try:
-            with open(self.clients_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except:
-            return []
-    
-    def _save_clients(self, clients):
-        """Sauvegarde les clients"""
-        with open(self.clients_file, 'w', encoding='utf-8') as f:
-            json.dump(clients, f, indent=2, ensure_ascii=False)
-    
-    def _load_restaurants(self):
-        """Charge les restaurants"""
-        try:
-            with open(self.restaurants_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except:
-            return []
-    
-    def _save_restaurants(self, restaurants):
-        """Sauvegarde les restaurants"""
-        with open(self.restaurants_file, 'w', encoding='utf-8') as f:
-            json.dump(restaurants, f, indent=2, ensure_ascii=False)
-    
     def login(self, username, password):
-        """Connexion utilisateur"""
-        users = self._load_users()
-        
-        for user in users:
-            if (user['username'] == username or user['email'] == username) and user['active']:
-                if self._verify_password(password, user['password']):
+        """Connexion utilisateur depuis Firestore uniquement"""
+        try:
+            if not self._fs_enabled:
+                return {'success': False, 'error': 'Firestore non disponible'}
+            
+            # Chercher l'utilisateur par username ou email
+            docs = list(self._fs.collection('users').where('username', '==', username).stream())
+            if not docs:
+                docs = list(self._fs.collection('users').where('email', '==', username).stream())
+            
+            if docs:
+                user = docs[0].to_dict()
+                if user.get('active', True) and self._verify_password(password, user['password']):
                     # Créer la session
                     session_token = secrets.token_urlsafe(32)
                     session['user_id'] = user['id']
@@ -148,8 +116,12 @@ class AuthManager:
                             'restaurant_id': user.get('restaurant_id')
                         }
                     }
-        
-        return {'success': False, 'error': 'Identifiants incorrects'}
+            
+            return {'success': False, 'error': 'Identifiants incorrects'}
+            
+        except Exception as e:
+            print(f"❌ Erreur login Firestore: {e}")
+            return {'success': False, 'error': 'Erreur de connexion'}
     
     def logout(self):
         """Déconnexion"""
@@ -157,13 +129,14 @@ class AuthManager:
         return {'success': True, 'message': 'Déconnecté avec succès'}
     
     def get_current_user(self):
-        """Récupère l'utilisateur actuel"""
-        if 'user_id' not in session:
-            return None
-        
-        users = self._load_users()
-        for user in users:
-            if user['id'] == session['user_id']:
+        """Récupère l'utilisateur actuel depuis Firestore uniquement"""
+        try:
+            if 'user_id' not in session or not self._fs_enabled:
+                return None
+            
+            doc = self._fs.collection('users').document(session['user_id']).get()
+            if doc.exists:
+                user = doc.to_dict()
                 return {
                     'id': user['id'],
                     'username': user['username'],
@@ -172,15 +145,22 @@ class AuthManager:
                     'client_id': user.get('client_id'),
                     'restaurant_id': user.get('restaurant_id')
                 }
-        return None
+            return None
+            
+        except Exception as e:
+            print(f"❌ Erreur get_current_user Firestore: {e}")
+            return None
     
     def create_client(self, name, email, contact_name, phone=None):
         """Créer un nouveau client"""
         try:
-            clients = self._load_clients()
+            # 🔥 FIRESTORE UNIQUEMENT - Plus de fichiers locaux
+            if not self._fs_enabled:
+                return {'success': False, 'error': 'Firestore non disponible'}
             
             # Vérifier si l'email existe déjà
-            if any(c['email'] == email for c in clients):
+            docs = list(self._fs.collection('clients').where('email', '==', email).stream())
+            if docs:
                 return {
                     'success': False,
                     'error': 'Un client avec cet email existe déjà'
@@ -201,8 +181,7 @@ class AuthManager:
             }
             
             # Ajouter et sauvegarder
-            clients.append(new_client)
-            self._save_clients(clients)
+            self._fs.collection('clients').document(client_id).set(new_client)
             
             return {
                 'success': True,
@@ -210,6 +189,7 @@ class AuthManager:
             }
             
         except Exception as e:
+            print(f"❌ Erreur création client Firestore: {e}")
             return {
                 'success': False,
                 'error': f'Erreur création client: {str(e)}'
@@ -218,11 +198,13 @@ class AuthManager:
     def create_restaurant(self, client_id, name, address, phone=None, email=None):
         """Créer un nouveau restaurant"""
         try:
-            restaurants = self._load_restaurants()
-            clients = self._load_clients()
+            # 🔥 FIRESTORE UNIQUEMENT - Plus de fichiers locaux
+            if not self._fs_enabled:
+                return {'success': False, 'error': 'Firestore non disponible'}
             
             # Vérifier que le client existe
-            if not any(c['id'] == client_id for c in clients):
+            client_doc = self._fs.collection('clients').document(client_id).get()
+            if not client_doc.exists:
                 return {
                     'success': False,
                     'error': 'Client introuvable'
@@ -245,8 +227,7 @@ class AuthManager:
             }
             
             # Ajouter et sauvegarder
-            restaurants.append(new_restaurant)
-            self._save_restaurants(restaurants)
+            self._fs.collection('restaurants').document(restaurant_id).set(new_restaurant)
             
             return {
                 'success': True,
@@ -254,6 +235,7 @@ class AuthManager:
             }
             
         except Exception as e:
+            print(f"❌ Erreur création restaurant Firestore: {e}")
             return {
                 'success': False,
                 'error': f'Erreur création restaurant: {str(e)}'
@@ -262,16 +244,20 @@ class AuthManager:
     def create_user(self, username, email, password, name, role, client_id=None, restaurant_id=None):
         """Créer un nouvel utilisateur"""
         try:
-            users = self._load_users()
+            # 🔥 FIRESTORE UNIQUEMENT - Plus de fichiers locaux
+            if not self._fs_enabled:
+                return {'success': False, 'error': 'Firestore non disponible'}
             
             # Vérifier si le username ou email existe déjà
-            if any(u['username'] == username for u in users):
+            docs = list(self._fs.collection('users').where('username', '==', username).stream())
+            if docs:
                 return {
                     'success': False,
                     'error': 'Ce nom d\'utilisateur existe déjà'
                 }
             
-            if any(u['email'] == email for u in users):
+            docs = list(self._fs.collection('users').where('email', '==', email).stream())
+            if docs:
                 return {
                     'success': False,
                     'error': 'Un utilisateur avec cet email existe déjà'
@@ -294,16 +280,15 @@ class AuthManager:
                     }
                 
                 # Vérifier que le restaurant existe
-                restaurants = self._load_restaurants()
-                restaurant = next((r for r in restaurants if r['id'] == restaurant_id), None)
-                if not restaurant:
+                restaurant_doc = self._fs.collection('restaurants').document(restaurant_id).get()
+                if not restaurant_doc.exists:
                     return {
                         'success': False,
                         'error': 'Restaurant introuvable'
                     }
                 
                 # Pour admin/user, le client_id doit correspondre au propriétaire du restaurant
-                client_id = restaurant['client_id']
+                client_id = restaurant_doc.to_dict()['client_id']
             
             elif role == 'client':
                 # Les clients peuvent être créés sans restaurant spécifique
@@ -328,8 +313,7 @@ class AuthManager:
             }
             
             # Ajouter et sauvegarder
-            users.append(new_user)
-            self._save_users(users)
+            self._fs.collection('users').document(user_id).set(new_user)
             
             return {
                 'success': True,
@@ -337,6 +321,7 @@ class AuthManager:
             }
             
         except Exception as e:
+            print(f"❌ Erreur création utilisateur Firestore: {e}")
             return {
                 'success': False,
                 'error': f'Erreur création utilisateur: {str(e)}'
@@ -377,13 +362,14 @@ class AuthManager:
         
         # Charger le client si applicable
         if current_user.get('client_id'):
-            clients = self._load_clients()
-            context['client'] = next((c for c in clients if c['id'] == current_user['client_id']), None)
-            
-            # Charger tous les restaurants du client
-            if context['client']:
-                restaurants = self._load_restaurants()
-                context['restaurants'] = [r for r in restaurants if r['client_id'] == current_user['client_id']]
+            client_doc = self._fs.collection('clients').document(current_user['client_id']).get()
+            if client_doc.exists:
+                context['client'] = client_doc.to_dict()
+                
+                # Charger tous les restaurants du client
+                if context['client']:
+                    restaurants_docs = list(self._fs.collection('restaurants').where('client_id', '==', current_user['client_id']).stream())
+                    context['restaurants'] = [r.to_dict() for r in restaurants_docs]
         
         # Charger le restaurant spécifique
         restaurant_id = None
@@ -391,8 +377,8 @@ class AuthManager:
         # Pour les Master Admin, vérifier d'abord selected_restaurant_id puis la session
         if current_user.get('role') == 'master_admin':
             # Recharger l'utilisateur pour avoir les données les plus récentes
-            users = self._load_users()
-            user_data = next((u for u in users if u['id'] == current_user['id']), None)
+            user_doc = self._fs.collection('users').document(current_user['id']).get()
+            user_data = user_doc.to_dict()
             
             if user_data and user_data.get('selected_restaurant_id'):
                 restaurant_id = user_data['selected_restaurant_id']
@@ -417,52 +403,59 @@ class AuthManager:
             # Pour les autres utilisateurs, on ne modifie pas leur restaurant_id permanent
         
         if restaurant_id:
-            restaurants = self._load_restaurants()
-            context['restaurant'] = next((r for r in restaurants if r['id'] == restaurant_id), None)
+            restaurant_doc = self._fs.collection('restaurants').document(restaurant_id).get()
+            if restaurant_doc.exists:
+                context['restaurant'] = restaurant_doc.to_dict()
         
         return context
     
     def update_client(self, client_id, name=None, email=None, contact_name=None, phone=None):
         """Modifier un client existant"""
         try:
-            clients = self._load_clients()
-            client = next((c for c in clients if c['id'] == client_id), None)
+            # 🔥 FIRESTORE UNIQUEMENT - Plus de fichiers locaux
+            if not self._fs_enabled:
+                return {'success': False, 'error': 'Firestore non disponible'}
             
-            if not client:
+            client_doc = self._fs.collection('clients').document(client_id).get()
+            
+            if not client_doc.exists:
                 return {
                     'success': False,
                     'error': 'Client introuvable'
                 }
             
             # Vérifier si l'email est déjà utilisé par un autre client
-            if email and email != client.get('email'):
-                if any(c['email'] == email and c['id'] != client_id for c in clients):
+            if email and email != client_doc.to_dict().get('email'):
+                docs = list(self._fs.collection('clients').where('email', '==', email).stream())
+                if docs:
                     return {
                         'success': False,
                         'error': 'Un client avec cet email existe déjà'
                     }
             
             # Mettre à jour les champs
+            update_data = {}
             if name is not None:
-                client['name'] = name
+                update_data['name'] = name
             if email is not None:
-                client['email'] = email
+                update_data['email'] = email
             if contact_name is not None:
-                client['contact_name'] = contact_name
+                update_data['contact_name'] = contact_name
             if phone is not None:
-                client['phone'] = phone
+                update_data['phone'] = phone
             
-            client['updated_at'] = datetime.now().isoformat()
+            update_data['updated_at'] = datetime.now().isoformat()
             
             # Sauvegarder
-            self._save_clients(clients)
+            self._fs.collection('clients').document(client_id).update(update_data)
             
             return {
                 'success': True,
-                'client': client
+                'client': client_doc.to_dict()
             }
             
         except Exception as e:
+            print(f"❌ Erreur modification client Firestore: {e}")
             return {
                 'success': False,
                 'error': f'Erreur modification client: {str(e)}'
@@ -471,39 +464,39 @@ class AuthManager:
     def delete_client(self, client_id):
         """Supprimer un client et tous ses restaurants/utilisateurs"""
         try:
-            clients = self._load_clients()
-            restaurants = self._load_restaurants()
-            users = self._load_users()
+            # 🔥 FIRESTORE UNIQUEMENT - Plus de fichiers locaux
+            if not self._fs_enabled:
+                return {'success': False, 'error': 'Firestore non disponible'}
             
-            # Vérifier que le client existe
-            client = next((c for c in clients if c['id'] == client_id), None)
-            if not client:
+            client_doc = self._fs.collection('clients').document(client_id).get()
+            if not client_doc.exists:
                 return {
                     'success': False,
                     'error': 'Client introuvable'
                 }
             
             # Supprimer tous les restaurants du client
-            restaurants_to_delete = [r['id'] for r in restaurants if r['client_id'] == client_id]
-            restaurants = [r for r in restaurants if r['client_id'] != client_id]
+            restaurants_to_delete = [r['id'] for r in self._fs.collection('restaurants').where('client_id', '==', client_id).stream()]
+            self._fs.collection('restaurants').where('client_id', '==', client_id).delete()
             
             # Supprimer tous les utilisateurs liés au client ou à ses restaurants
-            users = [u for u in users if u.get('client_id') != client_id and u.get('restaurant_id') not in restaurants_to_delete]
+            users_to_delete = 0
+            for user_doc in self._fs.collection('users').where('client_id', '==', client_id).stream():
+                user_data = user_doc.to_dict()
+                if user_data.get('restaurant_id') in restaurants_to_delete:
+                    self._fs.collection('users').document(user_data['id']).delete()
+                    users_to_delete += 1
             
             # Supprimer le client
-            clients = [c for c in clients if c['id'] != client_id]
-            
-            # Sauvegarder
-            self._save_clients(clients)
-            self._save_restaurants(restaurants)
-            self._save_users(users)
+            self._fs.collection('clients').document(client_id).delete()
             
             return {
                 'success': True,
-                'message': f'Client {client["name"]} supprimé avec {len(restaurants_to_delete)} restaurants'
+                'message': f'Client {client_doc.to_dict()["name"]} supprimé avec {users_to_delete} utilisateurs'
             }
             
         except Exception as e:
+            print(f"❌ Erreur suppression client Firestore: {e}")
             return {
                 'success': False,
                 'error': f'Erreur suppression client: {str(e)}'
@@ -512,36 +505,41 @@ class AuthManager:
     def update_restaurant(self, restaurant_id, name=None, address=None, phone=None, email=None):
         """Modifier un restaurant existant"""
         try:
-            restaurants = self._load_restaurants()
-            restaurant = next((r for r in restaurants if r['id'] == restaurant_id), None)
+            # 🔥 FIRESTORE UNIQUEMENT - Plus de fichiers locaux
+            if not self._fs_enabled:
+                return {'success': False, 'error': 'Firestore non disponible'}
             
-            if not restaurant:
+            restaurant_doc = self._fs.collection('restaurants').document(restaurant_id).get()
+            
+            if not restaurant_doc.exists:
                 return {
                     'success': False,
                     'error': 'Restaurant introuvable'
                 }
             
             # Mettre à jour les champs
+            update_data = {}
             if name is not None:
-                restaurant['name'] = name
+                update_data['name'] = name
             if address is not None:
-                restaurant['address'] = address
+                update_data['address'] = address
             if phone is not None:
-                restaurant['phone'] = phone
+                update_data['phone'] = phone
             if email is not None:
-                restaurant['email'] = email
+                update_data['email'] = email
             
-            restaurant['updated_at'] = datetime.now().isoformat()
+            update_data['updated_at'] = datetime.now().isoformat()
             
             # Sauvegarder
-            self._save_restaurants(restaurants)
+            self._fs.collection('restaurants').document(restaurant_id).update(update_data)
             
             return {
                 'success': True,
-                'restaurant': restaurant
+                'restaurant': restaurant_doc.to_dict()
             }
             
         except Exception as e:
+            print(f"❌ Erreur modification restaurant Firestore: {e}")
             return {
                 'success': False,
                 'error': f'Erreur modification restaurant: {str(e)}'
@@ -550,34 +548,33 @@ class AuthManager:
     def delete_restaurant(self, restaurant_id):
         """Supprimer un restaurant et tous ses utilisateurs"""
         try:
-            restaurants = self._load_restaurants()
-            users = self._load_users()
+            # 🔥 FIRESTORE UNIQUEMENT - Plus de fichiers locaux
+            if not self._fs_enabled:
+                return {'success': False, 'error': 'Firestore non disponible'}
             
-            # Vérifier que le restaurant existe
-            restaurant = next((r for r in restaurants if r['id'] == restaurant_id), None)
-            if not restaurant:
+            restaurant_doc = self._fs.collection('restaurants').document(restaurant_id).get()
+            if not restaurant_doc.exists:
                 return {
                     'success': False,
                     'error': 'Restaurant introuvable'
                 }
             
             # Supprimer tous les utilisateurs du restaurant
-            users_to_delete = len([u for u in users if u.get('restaurant_id') == restaurant_id])
-            users = [u for u in users if u.get('restaurant_id') != restaurant_id]
+            users_to_delete = 0
+            for user_doc in self._fs.collection('users').where('restaurant_id', '==', restaurant_id).stream():
+                user_doc.reference.delete()
+                users_to_delete += 1
             
             # Supprimer le restaurant
-            restaurants = [r for r in restaurants if r['id'] != restaurant_id]
-            
-            # Sauvegarder
-            self._save_restaurants(restaurants)
-            self._save_users(users)
+            self._fs.collection('restaurants').document(restaurant_id).delete()
             
             return {
                 'success': True,
-                'message': f'Restaurant {restaurant["name"]} supprimé avec {users_to_delete} utilisateurs'
+                'message': f'Restaurant {restaurant_doc.to_dict()["name"]} supprimé avec {users_to_delete} utilisateurs'
             }
             
         except Exception as e:
+            print(f"❌ Erreur suppression restaurant Firestore: {e}")
             return {
                 'success': False,
                 'error': f'Erreur suppression restaurant: {str(e)}'
@@ -586,32 +583,37 @@ class AuthManager:
     def update_user(self, user_id, name=None, email=None, username=None, role=None, client_id=None, restaurant_id=None, active=None):
         """Modifier un utilisateur existant"""
         try:
-            users = self._load_users()
-            user = next((u for u in users if u['id'] == user_id), None)
+            # 🔥 FIRESTORE UNIQUEMENT - Plus de fichiers locaux
+            if not self._fs_enabled:
+                return {'success': False, 'error': 'Firestore non disponible'}
             
-            if not user:
+            user_doc = self._fs.collection('users').document(user_id).get()
+            
+            if not user_doc.exists:
                 return {
                     'success': False,
                     'error': 'Utilisateur introuvable'
                 }
             
             # Vérifier l'unicité du username et email
-            if username and username != user.get('username'):
-                if any(u['username'] == username and u['id'] != user_id for u in users):
+            if username and username != user_doc.to_dict().get('username'):
+                docs = list(self._fs.collection('users').where('username', '==', username).stream())
+                if docs:
                     return {
                         'success': False,
                         'error': 'Ce nom d\'utilisateur existe déjà'
                     }
             
-            if email and email != user.get('email'):
-                if any(u['email'] == email and u['id'] != user_id for u in users):
+            if email and email != user_doc.to_dict().get('email'):
+                docs = list(self._fs.collection('users').where('email', '==', email).stream())
+                if docs:
                     return {
                         'success': False,
                         'error': 'Un utilisateur avec cet email existe déjà'
                     }
             
             # Vérifier les contraintes selon le rôle
-            if role and role != user.get('role'):
+            if role and role != user_doc.to_dict().get('role'):
                 if role in ['admin', 'user'] and not restaurant_id:
                     return {
                         'success': False,
@@ -619,32 +621,34 @@ class AuthManager:
                     }
             
             # Mettre à jour les champs
+            update_data = {}
             if name is not None:
-                user['name'] = name
+                update_data['name'] = name
             if email is not None:
-                user['email'] = email
+                update_data['email'] = email
             if username is not None:
-                user['username'] = username
+                update_data['username'] = username
             if role is not None:
-                user['role'] = role
+                update_data['role'] = role
             if client_id is not None:
-                user['client_id'] = client_id
+                update_data['client_id'] = client_id
             if restaurant_id is not None:
-                user['restaurant_id'] = restaurant_id
+                update_data['restaurant_id'] = restaurant_id
             if active is not None:
-                user['active'] = active
+                update_data['active'] = active
             
-            user['updated_at'] = datetime.now().isoformat()
+            update_data['updated_at'] = datetime.now().isoformat()
             
             # Sauvegarder
-            self._save_users(users)
+            self._fs.collection('users').document(user_id).update(update_data)
             
             return {
                 'success': True,
-                'user': user
+                'user': user_doc.to_dict()
             }
             
         except Exception as e:
+            print(f"❌ Erreur modification utilisateur Firestore: {e}")
             return {
                 'success': False,
                 'error': f'Erreur modification utilisateur: {str(e)}'
@@ -653,34 +657,35 @@ class AuthManager:
     def delete_user(self, user_id):
         """Supprimer un utilisateur"""
         try:
-            users = self._load_users()
-            user = next((u for u in users if u['id'] == user_id), None)
+            # 🔥 FIRESTORE UNIQUEMENT - Plus de fichiers locaux
+            if not self._fs_enabled:
+                return {'success': False, 'error': 'Firestore non disponible'}
             
-            if not user:
+            user_doc = self._fs.collection('users').document(user_id).get()
+            
+            if not user_doc.exists:
                 return {
                     'success': False,
                     'error': 'Utilisateur introuvable'
                 }
             
             # Empêcher la suppression du master admin
-            if user.get('role') == 'master_admin':
+            if user_doc.to_dict().get('role') == 'master_admin':
                 return {
                     'success': False,
                     'error': 'Impossible de supprimer le Master Admin'
                 }
             
             # Supprimer l'utilisateur
-            users = [u for u in users if u['id'] != user_id]
-            
-            # Sauvegarder
-            self._save_users(users)
+            self._fs.collection('users').document(user_id).delete()
             
             return {
                 'success': True,
-                'message': f'Utilisateur {user["name"]} supprimé'
+                'message': f'Utilisateur {user_doc.to_dict()["name"]} supprimé'
             }
             
         except Exception as e:
+            print(f"❌ Erreur suppression utilisateur Firestore: {e}")
             return {
                 'success': False,
                 'error': f'Erreur suppression utilisateur: {str(e)}'
@@ -689,8 +694,12 @@ class AuthManager:
     def get_client_restaurants(self, client_id):
         """Récupérer tous les restaurants d'un client"""
         try:
-            restaurants = self._load_restaurants()
-            client_restaurants = [r for r in restaurants if r['client_id'] == client_id]
+            # 🔥 FIRESTORE UNIQUEMENT - Plus de fichiers locaux
+            if not self._fs_enabled:
+                return {'success': False, 'error': 'Firestore non disponible'}
+            
+            restaurants_docs = list(self._fs.collection('restaurants').where('client_id', '==', client_id).stream())
+            client_restaurants = [r.to_dict() for r in restaurants_docs]
             
             return {
                 'success': True,
@@ -698,6 +707,7 @@ class AuthManager:
             }
             
         except Exception as e:
+            print(f"❌ Erreur récupération restaurants Firestore: {e}")
             return {
                 'success': False,
                 'error': f'Erreur récupération restaurants: {str(e)}'
@@ -706,8 +716,12 @@ class AuthManager:
     def get_restaurant_users(self, restaurant_id):
         """Récupérer tous les utilisateurs d'un restaurant"""
         try:
-            users = self._load_users()
-            restaurant_users = [u for u in users if u.get('restaurant_id') == restaurant_id]
+            # 🔥 FIRESTORE UNIQUEMENT - Plus de fichiers locaux
+            if not self._fs_enabled:
+                return {'success': False, 'error': 'Firestore non disponible'}
+            
+            users_docs = list(self._fs.collection('users').where('restaurant_id', '==', restaurant_id).stream())
+            restaurant_users = [u.to_dict() for u in users_docs]
             
             # Masquer les mots de passe
             safe_users = []
@@ -722,6 +736,7 @@ class AuthManager:
             }
             
         except Exception as e:
+            print(f"❌ Erreur récupération utilisateurs Firestore: {e}")
             return {
                 'success': False,
                 'error': f'Erreur récupération utilisateurs: {str(e)}'
@@ -730,19 +745,21 @@ class AuthManager:
     def create_user_for_client(self, client_id, username, email, password, name, role, restaurant_id):
         """Créer un utilisateur pour un client spécifique (utilisé par les clients)"""
         try:
+            # 🔥 FIRESTORE UNIQUEMENT - Plus de fichiers locaux
+            if not self._fs_enabled:
+                return {'success': False, 'error': 'Firestore non disponible'}
+            
             # Vérifier que le client existe
-            clients = self._load_clients()
-            client = next((c for c in clients if c['id'] == client_id), None)
-            if not client:
+            client_doc = self._fs.collection('clients').document(client_id).get()
+            if not client_doc.exists:
                 return {
                     'success': False,
                     'error': 'Client introuvable'
                 }
             
             # Vérifier que le restaurant appartient au client
-            restaurants = self._load_restaurants()
-            restaurant = next((r for r in restaurants if r['id'] == restaurant_id), None)
-            if not restaurant or restaurant['client_id'] != client_id:
+            restaurant_doc = self._fs.collection('restaurants').document(restaurant_id).get()
+            if not restaurant_doc.exists or restaurant_doc.to_dict()['client_id'] != client_id:
                 return {
                     'success': False,
                     'error': 'Restaurant introuvable ou n\'appartient pas à ce client'
@@ -760,6 +777,7 @@ class AuthManager:
             )
             
         except Exception as e:
+            print(f"❌ Erreur création utilisateur pour client Firestore: {e}")
             return {
                 'success': False,
                 'error': f'Erreur création utilisateur: {str(e)}'

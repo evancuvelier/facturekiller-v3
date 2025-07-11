@@ -13,88 +13,54 @@ logger = logging.getLogger(__name__)
 
 class InvoiceManager:
     def __init__(self):
-        self.invoices_file = 'data/invoices.json'
-        # Firestore
-        self._fs_enabled = _fs_available()
-        self._fs = _fs_client() if self._fs_enabled else None
-
-        self.invoices_data = self._load_invoices()
-    
-    def _load_invoices(self) -> Dict[str, Any]:
-        """Charger les factures depuis Firestore sinon depuis le fichier."""
-        # 1️⃣ Tentative Firestore
-        if getattr(self, '_fs_enabled', False):
-            try:
-                docs = list(self._fs.collection('invoices').stream())
-                if docs:
-                    invoices = [d.to_dict() for d in docs]
-                    return {
-                        'invoices': invoices,
-                        'last_updated': datetime.now().isoformat()
-                    }
-            except Exception as e:
-                logger.warning(f"Firestore indisponible pour _load_invoices: {e}")
-
+        """Initialiser le gestionnaire de factures (Firestore uniquement)"""
+        # 🔥 FIRESTORE UNIQUEMENT - Plus de fichiers locaux
+        self._fs_enabled = False
+        self._fs = None
+        
+        # Initialiser Firestore
         try:
-            if os.path.exists(self.invoices_file):
-                with open(self.invoices_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    
-                # Gérer les différents formats
-                if isinstance(data, dict):
-                    if 'invoices' in data:
-                        return data
-                    else:
-                        # Format ancien - convertir
-                        return {
-                            'invoices': [data] if data else [],
-                            'last_updated': datetime.now().isoformat()
-                        }
-                elif isinstance(data, list):
-                    return {
-                        'invoices': data,
-                        'last_updated': datetime.now().isoformat()
-                    }
-                else:
-                    return {'invoices': [], 'last_updated': datetime.now().isoformat()}
-            else:
-                return {'invoices': [], 'last_updated': datetime.now().isoformat()}
-                
+            from modules.firestore_db import FirestoreDB
+            firestore_db = FirestoreDB()
+            self._fs = firestore_db.db
+            self._fs_enabled = True
+            print("✅ Firestore initialisé pour InvoiceManager")
         except Exception as e:
-            logger.error(f"Erreur chargement factures: {e}")
-            return {'invoices': [], 'last_updated': datetime.now().isoformat()}
+            print(f"❌ Erreur initialisation Firestore InvoiceManager: {e}")
+            self._fs_enabled = False
+            self._fs = None
     
     def get_all_invoices(self, page: int = 1, per_page: int = 50, 
                         supplier: str = '', date_from: str = '', date_to: str = '',
                         restaurant_suppliers: List[str] = None, anomaly_filter: str = '', 
                         restaurant_id: str = None) -> Dict[str, Any]:
-        """Récupérer toutes les factures avec pagination et filtres SÉCURISÉS PAR RESTAURANT_ID"""
+        """Récupérer toutes les factures depuis Firestore uniquement avec filtres sécurisés"""
         try:
-            invoices = self.invoices_data.get('invoices', [])
+            if not self._fs_enabled:
+                return {
+                    'items': [],
+                    'total': 0,
+                    'page': page,
+                    'pages': 0,
+                    'restaurant_filter': restaurant_id,
+                    'anomaly_filter': anomaly_filter,
+                    'error': 'Firestore non disponible'
+                }
+            
+            # Construire la requête Firestore
+            query = self._fs.collection('invoices')
             
             # 🔒 SÉCURITÉ CRITIQUE: Filtrage strict par restaurant_id
             if restaurant_id:
-                filtered_invoices = []
-                for invoice in invoices:
-                    # Méthode 1: Vérifier le restaurant_id direct
-                    if invoice.get('restaurant_id') == restaurant_id:
-                        filtered_invoices.append(invoice)
-                        continue
-                    
-                    # Méthode 2: Vérifier dans l'analyse (fallback pour anciennes données)
-                    analysis = invoice.get('analysis', {})
-                    if analysis.get('restaurant_id') == restaurant_id:
-                        filtered_invoices.append(invoice)
-                        continue
-                        
-                    # NE PAS utiliser les fournisseurs pour filtrer - SÉCURITÉ
-                    # Les restaurants avec les mêmes fournisseurs doivent rester isolés
-                
-                invoices = filtered_invoices
-                logger.info(f"🔒 Filtrage sécurisé restaurant {restaurant_id}: {len(filtered_invoices)} factures")
+                query = query.where('restaurant_id', '==', restaurant_id)
             
-            # ANCIEN FILTRAGE PAR FOURNISSEURS - SUPPRIMÉ POUR SÉCURITÉ
-            # Ne plus utiliser restaurant_suppliers car cela créait des fuites entre restaurants
+            # Récupérer tous les documents
+            docs = list(query.stream())
+            invoices = []
+            for doc in docs:
+                data = doc.to_dict()
+                data['id'] = doc.id
+                invoices.append(data)
             
             # 🚨 FILTRE: Par anomalies
             if anomaly_filter == 'with':
@@ -102,7 +68,7 @@ class InvoiceManager:
             elif anomaly_filter == 'without':
                 invoices = [inv for inv in invoices if not inv.get('has_anomalies', False)]
             
-            # Filtre par fournisseur spécifique (dans les factures déjà filtrées par restaurant)
+            # Filtre par fournisseur spécifique
             if supplier:
                 filtered_invoices = []
                 for invoice in invoices:
@@ -144,26 +110,30 @@ class InvoiceManager:
                 'total': len(sorted_invoices),
                 'page': page,
                 'pages': (len(sorted_invoices) + per_page - 1) // per_page,
-                'restaurant_filter': restaurant_id,  # Maintenant basé sur l'ID
+                'restaurant_filter': restaurant_id,
                 'anomaly_filter': anomaly_filter
             }
             
         except Exception as e:
-            logger.error(f"Erreur récupération factures: {e}")
+            print(f"❌ Erreur get_all_invoices Firestore: {e}")
             return {
                 'items': [],
                 'total': 0,
-                'page': 1,
+                'page': page,
                 'pages': 0,
                 'restaurant_filter': restaurant_id,
-                'anomaly_filter': anomaly_filter
+                'anomaly_filter': anomaly_filter,
+                'error': str(e)
             }
     
     def save_invoice(self, invoice_data: Dict[str, Any]) -> str:
-        """Sauvegarder une facture et retourner son ID"""
+        """Sauvegarder une facture dans Firestore uniquement"""
         try:
+            if not self._fs_enabled:
+                return None
+            
             # Générer un ID unique
-            invoice_id = f"INV_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{len(self.invoices_data.get('invoices', [])) + 1}"
+            invoice_id = f"INV_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{int(datetime.now().timestamp())}"
             
             # Ajouter l'ID et la date de création
             invoice_data['id'] = invoice_id
@@ -179,86 +149,50 @@ class InvoiceManager:
                 if field in invoice_data and field not in invoice_data['analysis']:
                     invoice_data['analysis'][field] = invoice_data[field]
             
-            # Ajouter à la liste des factures
-            self.invoices_data['invoices'].append(invoice_data)
-            self.invoices_data['last_updated'] = datetime.now().isoformat()
+            # Sauvegarder dans Firestore
+            self._fs.collection('invoices').document(invoice_id).set(invoice_data)
             
-            # Sauvegarder dans le fichier
-            self._save_invoices()
-            
-            # 2️⃣ Persist Firestore
-            if getattr(self, '_fs_enabled', False):
-                try:
-                    self._fs.collection('invoices').document(invoice_id).set(invoice_data)
-                except Exception as e:
-                    logger.warning(f"Firestore save_invoice échoué: {e}")
-            
-            logger.info(f"Facture sauvegardée avec ID: {invoice_id}")
+            print(f"✅ Facture sauvegardée avec ID: {invoice_id}")
             return invoice_id
             
         except Exception as e:
-            logger.error(f"Erreur sauvegarde facture: {e}")
-            raise
-    
-    def _save_invoices(self):
-        """Sauvegarder les factures dans le fichier JSON"""
-        try:
-            os.makedirs(os.path.dirname(self.invoices_file), exist_ok=True)
-            with open(self.invoices_file, 'w', encoding='utf-8') as f:
-                json.dump(self.invoices_data, f, indent=2, ensure_ascii=False)
-        except Exception as e:
-            logger.error(f"Erreur écriture factures: {e}")
-            raise
+            print(f"❌ Erreur save_invoice Firestore: {e}")
+            return None
     
     def get_invoice_by_id(self, invoice_id: str) -> Dict[str, Any]:
-        """Récupérer une facture par son ID"""
+        """Récupérer une facture par son ID depuis Firestore uniquement"""
         try:
-            invoices = self.invoices_data.get('invoices', [])
-            for invoice in invoices:
-                if invoice.get('id') == invoice_id:
-                    return invoice
+            if not self._fs_enabled:
+                return None
+            
+            doc = self._fs.collection('invoices').document(invoice_id).get()
+            if doc.exists:
+                data = doc.to_dict()
+                data['id'] = doc.id
+                return data
             return None
+            
         except Exception as e:
-            logger.error(f"Erreur récupération facture {invoice_id}: {e}")
+            print(f"❌ Erreur get_invoice_by_id Firestore: {e}")
             return None
-
+    
     def get_invoices_by_restaurant(self, restaurant_id: str) -> List[Dict[str, Any]]:
-        """Récupérer les factures d'un restaurant spécifique"""
+        """Récupérer toutes les factures d'un restaurant depuis Firestore uniquement"""
         try:
-            invoices = self.invoices_data.get('invoices', [])
+            if not self._fs_enabled:
+                return []
             
-            # Filtrer les factures par restaurant_id ET par fournisseurs autorisés
-            restaurant_invoices = []
+            docs = list(self._fs.collection('invoices').where('restaurant_id', '==', restaurant_id).stream())
+            invoices = []
             
-            for invoice in invoices:
-                # Méthode 1: Vérifier si la facture a directement le restaurant_id
-                if invoice.get('restaurant_id') == restaurant_id:
-                    restaurant_invoices.append(invoice)
-                    continue
-                
-                # Méthode 2: Vérifier via le contexte d'analyse
-                analysis = invoice.get('analysis', {})
-                if analysis.get('restaurant_id') == restaurant_id:
-                    restaurant_invoices.append(invoice)
-                    continue
-                
-                # Méthode 3: Vérifier via le restaurant_context dans l'analyse
-                if analysis.get('restaurant_context'):
-                    # Récupérer le restaurant par nom depuis auth_manager
-                    try:
-                        from modules.auth_manager import AuthManager
-                        auth_manager = AuthManager()
-                        restaurant = auth_manager.get_restaurant_by_id(restaurant_id)
-                        if restaurant and restaurant.get('name') == analysis.get('restaurant_context'):
-                            restaurant_invoices.append(invoice)
-                    except:
-                        pass
+            for doc in docs:
+                data = doc.to_dict()
+                data['id'] = doc.id
+                invoices.append(data)
             
-            # Trier par date de création décroissante
-            restaurant_invoices.sort(key=lambda x: x.get('created_at', ''), reverse=True)
-            
-            return restaurant_invoices
+            print(f"📊 Firestore invoices for restaurant {restaurant_id}: {len(invoices)}")
+            return invoices
             
         except Exception as e:
-            logger.error(f"Erreur récupération factures restaurant {restaurant_id}: {e}")
+            print(f"❌ Erreur get_invoices_by_restaurant Firestore: {e}")
             return [] 

@@ -226,7 +226,7 @@ class SupplierManager:
         return all_products
     
     def save_supplier(self, supplier_data: Dict) -> bool:
-        """Sauvegarder un fournisseur dans Firestore uniquement"""
+        """Sauvegarder un fournisseur dans Firestore uniquement avec restaurant/groupe"""
         try:
             if not self._fs_enabled:
                 print("❌ Firestore non disponible")
@@ -236,6 +236,31 @@ class SupplierManager:
             if not supplier_name:
                 print("❌ Nom de fournisseur manquant")
                 return False
+            
+            # 🔥 AJOUTER AUTOMATIQUEMENT LE RESTAURANT/GROUPE SÉLECTIONNÉ
+            # Récupérer le contexte utilisateur pour obtenir le restaurant actuel
+            try:
+                from modules.auth_manager import AuthManager
+                auth_manager = AuthManager()
+                user_context = auth_manager.get_user_context()
+                current_restaurant = user_context.get('restaurant', {})
+                
+                if current_restaurant:
+                    supplier_data['restaurant_id'] = current_restaurant.get('id', '')
+                    supplier_data['restaurant_name'] = current_restaurant.get('name', '')
+                    supplier_data['restaurant_group'] = current_restaurant.get('group', '')
+                    print(f"🏪 Restaurant ajouté au fournisseur: {current_restaurant.get('name', '')}")
+                else:
+                    print("⚠️ Aucun restaurant sélectionné, fournisseur créé sans restaurant")
+                    supplier_data['restaurant_id'] = ''
+                    supplier_data['restaurant_name'] = ''
+                    supplier_data['restaurant_group'] = ''
+                    
+            except Exception as e:
+                print(f"⚠️ Erreur récupération contexte restaurant: {e}")
+                supplier_data['restaurant_id'] = ''
+                supplier_data['restaurant_name'] = ''
+                supplier_data['restaurant_group'] = ''
             
             # Vérifier si le fournisseur existe déjà
             existing_docs = list(self._fs.collection('suppliers').where('name', '==', supplier_name).stream())
