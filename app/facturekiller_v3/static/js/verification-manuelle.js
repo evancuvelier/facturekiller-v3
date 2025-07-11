@@ -1,4 +1,4 @@
-// Vérification Manuelle FactureKiller V3
+ Manuelle FactureKiller V3
 
 let currentOrder = null;
 let verificationData = [];
