@@ -15,16 +15,25 @@ logger = logging.getLogger(__name__)
 
 class OrderManager:
     def __init__(self, email_manager=None, auth_manager=None):
-        self.orders_file = 'data/orders.json'
-        self.prices_file = 'data/prices.csv'
+        """Initialiser le gestionnaire de commandes (Firestore uniquement)"""
+        # 🔥 FIRESTORE UNIQUEMENT - Plus de fichiers locaux
+        self._fs_enabled = False
+        self._fs = None
         
-        # Firestore
-        self._fs_enabled = _fs_available()
-        self._fs = _fs_client() if self._fs_enabled else None
+        # Initialiser Firestore
+        try:
+            from modules.firestore_db import FirestoreDB
+            firestore_db = FirestoreDB()
+            self._fs = firestore_db.db
+            self._fs_enabled = True
+            print("✅ Firestore initialisé pour OrderManager")
+        except Exception as e:
+            print(f"❌ Erreur initialisation Firestore OrderManager: {e}")
+            self._fs_enabled = False
+            self._fs = None
         
-        self.orders_data = self._load_orders()
-        self.email_manager = email_manager  # Injecter EmailManager
-        self.auth_manager = auth_manager  # Injecter AuthManager (optionnel)
+        self.email_manager = email_manager
+        self.auth_manager = auth_manager
         
         # Statuts possibles d'une commande
         self.ORDER_STATUSES = {
@@ -40,115 +49,41 @@ class OrderManager:
             'cancelled': {'label': 'Annulée', 'color': 'danger', 'icon': 'x-circle'}
         }
     
-    def _load_orders(self) -> Dict[str, Any]:
-        """Charger les commandes : Firestore d'abord, sinon fichier JSON"""
-        # 1️⃣ Firestore
-        if getattr(self, '_fs_enabled', False):
-            try:
-                docs = list(self._fs.collection('orders').stream())
-                if docs:
-                    return {
-                        'orders': [d.to_dict() for d in docs],
-                        'last_updated': datetime.now().isoformat(),
-                        'next_order_number': 1,  # recalculé ci-dessous
-                        'restaurant_counters': {}
-                    }
-            except Exception as e:
-                logger.warning(f"Firestore indisponible _load_orders: {e}")
-        try:
-            if os.path.exists(self.orders_file):
-                with open(self.orders_file, 'r', encoding='utf-8') as f:
-                    file_data = json.load(f)
-            else:
-                file_data = None
-
-            # 🔀 Fusion Firestore + fichier local (import historique)
-            if file_data:
-                file_orders = file_data.get('orders', []) if isinstance(file_data, dict) else file_data.get('orders', []) if isinstance(file_data, dict) else []
-                fs_order_ids = {o['id'] for o in self.orders_data.get('orders', [])}
-                new_imports = [o for o in file_orders if o.get('id') not in fs_order_ids]
-                if new_imports:
-                    print(f"♻️ IMPORT HISTORIQUE: Ajout de {len(new_imports)} commandes depuis le fichier local vers Firestore")
-                    self.orders_data['orders'].extend(new_imports)
-                    # Push en batch
-                    batch = self._fs.batch()
-                    col = self._fs.collection('orders')
-                    for o in new_imports:
-                        batch.set(col.document(o['id']), o)
-                    batch.commit()
-                    # Mettre à jour les données locales pour cohérence
-                    merged_data = {
-                        'orders': self.orders_data['orders'],
-                        'last_updated': datetime.now().isoformat(),
-                        'next_order_number': file_data.get('next_order_number', 1),
-                        'restaurant_counters': file_data.get('restaurant_counters', {})
-                    }
-                    self._save_orders(merged_data)
-
-                return {
-                    'orders': self.orders_data['orders'],
-                    'last_updated': datetime.now().isoformat(),
-                    'next_order_number': file_data.get('next_order_number', 1),
-                    'restaurant_counters': file_data.get('restaurant_counters', {})
-                }
-            else:
-                # Créer la structure par défaut
-                default_data = {
-                    'orders': [],
-                    'last_updated': datetime.now().isoformat(),
-                    'next_order_number': 1,
-                    'restaurant_counters': {}  # Compteurs par restaurant
-                }
-                self._save_orders(default_data)
-                return default_data
-        except Exception as e:
-            logger.error(f"Erreur chargement commandes: {e}")
-            return {
-                'orders': [],
-                'last_updated': datetime.now().isoformat(),
-                'next_order_number': 1,
-                'restaurant_counters': {}
-            }
-    
-    def _save_orders(self, data: Dict[str, Any] = None):
-        """Sauvegarder les commandes (fichier + Firestore si dispo)"""
-        try:
-            if data is None:
-                data = self.orders_data
-            
-            os.makedirs(os.path.dirname(self.orders_file), exist_ok=True)
-            
-            with open(self.orders_file, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-                
-            # Firestore bulk upload (simple) – on écrase tout pour simplifier
-            if getattr(self, '_fs_enabled', False):
-                batch = self._fs.batch()
-                col = self._fs.collection('orders')
-                for o in data.get('orders', []):
-                    batch.set(col.document(o['id']), o)
-                batch.commit()
-                
-        except Exception as e:
-            logger.error(f"Erreur sauvegarde commandes: {e}")
-    
     def get_all_orders(self, page: int = 1, per_page: int = 20, 
                        supplier: str = '', status: str = '', restaurant_suppliers: List[str] = None) -> Dict[str, Any]:
-        """Récupérer toutes les commandes avec filtres INCLUANT RESTAURANT"""
+        """Récupérer toutes les commandes depuis Firestore uniquement"""
         try:
-            orders = self.orders_data.get('orders', [])
+            if not self._fs_enabled:
+                return {
+                    'items': [],
+                    'total': 0,
+                    'page': page,
+                    'pages': 0,
+                    'restaurant_filter': restaurant_suppliers,
+                    'error': 'Firestore non disponible'
+                }
             
-            # NOUVEAU FILTRE: Par fournisseurs du restaurant
+            # Construire la requête Firestore
+            query = self._fs.collection('orders')
+            
+            # Appliquer les filtres
+            if supplier:
+                query = query.where('supplier', '==', supplier)
+            
+            if status:
+                query = query.where('status', '==', status)
+            
+            # Récupérer tous les documents
+            docs = list(query.stream())
+            orders = []
+            for doc in docs:
+                data = doc.to_dict()
+                data['id'] = doc.id
+                orders.append(data)
+            
+            # Filtrer par fournisseurs du restaurant côté application
             if restaurant_suppliers:
                 orders = [o for o in orders if o.get('supplier', '') in restaurant_suppliers]
-            
-            # Filtrage par fournisseur spécifique
-            if supplier:
-                orders = [o for o in orders if o.get('supplier', '').upper() == supplier.upper()]
-            
-            # Filtrage par statut
-            if status:
-                orders = [o for o in orders if o.get('status') == status]
             
             # Trier par date de création décroissante
             orders.sort(key=lambda x: x.get('created_at', ''), reverse=True)
@@ -169,316 +104,239 @@ class OrderManager:
             }
             
         except Exception as e:
-            logger.error(f"Erreur récupération commandes: {e}")
+            print(f"❌ Erreur get_all_orders Firestore: {e}")
             return {
                 'items': [],
                 'total': 0,
-                'page': 1,
+                'page': page,
                 'pages': 0,
-                'restaurant_filter': restaurant_suppliers
+                'restaurant_filter': restaurant_suppliers,
+                'error': str(e)
             }
     
     def get_order_by_id(self, order_id: str) -> Optional[Dict[str, Any]]:
-        """Récupérer une commande par son ID"""
+        """Récupérer une commande par son ID depuis Firestore uniquement"""
         try:
-            orders = self.orders_data.get('orders', [])
-            for order in orders:
-                if order.get('id') == order_id:
-                    return order
+            if not self._fs_enabled:
+                return None
+            
+            doc = self._fs.collection('orders').document(order_id).get()
+            if doc.exists:
+                data = doc.to_dict()
+                data['id'] = doc.id
+                return data
             return None
+            
         except Exception as e:
-            logger.error(f"Erreur récupération commande {order_id}: {e}")
+            print(f"❌ Erreur get_order_by_id Firestore: {e}")
             return None
     
     def create_order(self, order_data: Dict[str, Any]) -> Optional[str]:
-        """Créer une nouvelle commande"""
+        """Créer une nouvelle commande dans Firestore uniquement"""
         try:
+            if not self._fs_enabled:
+                return None
+            
             # Générer un ID unique
             order_id = str(uuid.uuid4())
             
-            # Récupérer l'ID du restaurant (depuis le contexte utilisateur ou les données)
-            restaurant_id = order_data.get('restaurant_id', 'default')
+            # Ajouter les métadonnées
+            order_data['id'] = order_id
+            order_data['created_at'] = datetime.now().isoformat()
+            order_data['updated_at'] = datetime.now().isoformat()
             
-            # CORRECTION: Générer le numéro de commande au format CMD-XXXX-XXXX plus cohérent
-            global_number = self.orders_data.get('next_order_number', 1)
+            # Sauvegarder dans Firestore
+            self._fs.collection('orders').document(order_id).set(order_data)
             
-            # Initialiser les compteurs par restaurant si nécessaire
-            if 'restaurant_counters' not in self.orders_data:
-                self.orders_data['restaurant_counters'] = {}
-            
-            if restaurant_id not in self.orders_data['restaurant_counters']:
-                self.orders_data['restaurant_counters'][restaurant_id] = 1
-            restaurant_number = self.orders_data['restaurant_counters'][restaurant_id]
-            
-            # NOUVEAU FORMAT: CMD-GGGG-RRRR (global-restaurant) - TOUJOURS 4 chiffres
-            order_number = f"CMD-{global_number:04d}-{restaurant_number:04d}"
-            
-            # Calculer le total
-            total_amount = sum(
-                item.get('quantity', 0) * item.get('unit_price', 0) 
-                for item in order_data.get('items', [])
-            )
-            
-            # Créer la commande
-            new_order = {
-                'id': order_id,
-                'order_number': order_number,
-                'supplier': order_data.get('supplier', ''),
-                'supplier_email': order_data.get('supplier_email', ''),
-                'status': 'draft',
-                'items': order_data.get('items', []),
-                'total_amount': round(total_amount, 2),
-                'notes': order_data.get('notes', ''),
-                'delivery_date': order_data.get('delivery_date', ''),
-                'created_at': datetime.now().isoformat(),
-                'updated_at': datetime.now().isoformat(),
-                'restaurant_id': restaurant_id,
-                'restaurant_name': order_data.get('restaurant_name', ''),
-                'restaurant_address': order_data.get('restaurant_address', ''),  # NOUVEAU CHAMP
-                'status_history': [{
-                    'status': 'draft',
-                    'timestamp': datetime.now().isoformat(),
-                    'comment': 'Commande créée'
-                }]
-            }
-            
-            # Ajouter la commande
-            self.orders_data['orders'].append(new_order)
-            
-            # Incrémenter les compteurs
-            self.orders_data['next_order_number'] += 1
-            self.orders_data['restaurant_counters'][restaurant_id] += 1
-            self.orders_data['last_updated'] = datetime.now().isoformat()
-            
-            self._save_orders()
-            
-            # Firestore save
-            if getattr(self, '_fs_enabled', False):
-                try:
-                    self._fs.collection('orders').document(order_id).set(new_order)
-                except Exception as e:
-                    logger.warning(f"Firestore create_order KO: {e}")
-            
-            logger.info(f"✅ Commande créée: {order_number} (ID: {order_id})")
-            
+            print(f"✅ Commande créée: {order_id}")
             return order_id
             
         except Exception as e:
-            logger.error(f"Erreur création commande: {e}")
+            print(f"❌ Erreur create_order Firestore: {e}")
             return None
     
     def update_order(self, order_id: str, order_data: Dict[str, Any]) -> bool:
-        """Mettre à jour une commande"""
+        """Mettre à jour une commande dans Firestore uniquement"""
         try:
-            orders = self.orders_data.get('orders', [])
+            if not self._fs_enabled:
+                return False
             
-            for i, order in enumerate(orders):
-                if order.get('id') == order_id:
-                    # Recalculer le total si les items ont changé
-                    if 'items' in order_data:
-                        total_amount = sum(
-                            item.get('quantity', 0) * item.get('unit_price', 0) 
-                            for item in order_data['items']
-                        )
-                        order_data['total_amount'] = round(total_amount, 2)
-                    
-                    # Mettre à jour les champs
-                    order.update(order_data)
-                    order['updated_at'] = datetime.now().isoformat()
-                    
-                    self.orders_data['orders'][i] = order
-                    self.orders_data['last_updated'] = datetime.now().isoformat()
-                    
-                    self._save_orders()
-                    
-                    # Firestore update
-                    if getattr(self, '_fs_enabled', False):
-                        try:
-                            self._fs.collection('orders').document(order_id).update(order)
-                        except Exception as e:
-                            logger.warning(f"Firestore update_order KO: {e}")
-                    
-                    return True
+            # Vérifier que la commande existe
+            doc = self._fs.collection('orders').document(order_id).get()
+            if not doc.exists:
+                print(f"❌ Commande {order_id} non trouvée")
+                return False
             
-            return False
+            # Mettre à jour les métadonnées
+            order_data['updated_at'] = datetime.now().isoformat()
+            
+            # Mettre à jour dans Firestore
+            self._fs.collection('orders').document(order_id).update(order_data)
+            
+            print(f"✅ Commande {order_id} mise à jour")
+            return True
             
         except Exception as e:
-            logger.error(f"Erreur mise à jour commande {order_id}: {e}")
+            print(f"❌ Erreur update_order Firestore: {e}")
             return False
     
     def update_order_status(self, order_id: str, new_status: str, comment: str = '') -> bool:
-        """Mettre à jour le statut d'une commande"""
+        """Mettre à jour le statut d'une commande dans Firestore uniquement"""
         try:
-            if new_status not in self.ORDER_STATUSES:
+            if not self._fs_enabled:
                 return False
             
-            orders = self.orders_data.get('orders', [])
+            # Vérifier que la commande existe
+            doc = self._fs.collection('orders').document(order_id).get()
+            if not doc.exists:
+                print(f"❌ Commande {order_id} non trouvée")
+                return False
             
-            for i, order in enumerate(orders):
-                if order.get('id') == order_id:
-                    old_status = order.get('status', 'draft')
-                    
-                    # Mettre à jour le statut
-                    order['status'] = new_status
-                    order['updated_at'] = datetime.now().isoformat()
-                    
-                    # Ajouter à l'historique
-                    if 'status_history' not in order:
-                        order['status_history'] = []
-                    
-                    order['status_history'].append({
-                        'status': new_status,
-                        'timestamp': datetime.now().isoformat(),
-                        'comment': comment or f'Passage de "{self.ORDER_STATUSES[old_status]["label"]}" à "{self.ORDER_STATUSES[new_status]["label"]}"'
-                    })
-                    
-                    self.orders_data['orders'][i] = order
-                    self.orders_data['last_updated'] = datetime.now().isoformat()
-                    
-                    self._save_orders()
-                    
-                    # Envoyer un email automatiquement si le statut passe à "confirmed" 
-                    if new_status == 'confirmed' and self.email_manager:
-                        self._send_order_email_auto(order)
-                    
-                    return True
+            order_data = doc.to_dict()
             
-            return False
+            # Mettre à jour le statut
+            updates = {
+                'status': new_status,
+                'updated_at': datetime.now().isoformat()
+            }
+            
+            # Ajouter à l'historique des statuts
+            if 'status_history' not in order_data:
+                order_data['status_history'] = []
+            
+            order_data['status_history'].append({
+                'status': new_status,
+                'timestamp': datetime.now().isoformat(),
+                'comment': comment or f'Statut changé vers {new_status}'
+            })
+            
+            updates['status_history'] = order_data['status_history']
+            
+            # Mettre à jour dans Firestore
+            self._fs.collection('orders').document(order_id).update(updates)
+            
+            print(f"✅ Statut de la commande {order_id} mis à jour: {new_status}")
+            return True
             
         except Exception as e:
-            logger.error(f"Erreur mise à jour statut commande {order_id}: {e}")
+            print(f"❌ Erreur update_order_status Firestore: {e}")
             return False
     
     def delete_order(self, order_id: str) -> bool:
-        """Supprimer une commande"""
+        """Supprimer une commande dans Firestore uniquement"""
         try:
-            orders = self.orders_data.get('orders', [])
+            if not self._fs_enabled:
+                return False
             
-            for i, order in enumerate(orders):
-                if order.get('id') == order_id:
-                    del self.orders_data['orders'][i]
-                    self.orders_data['last_updated'] = datetime.now().isoformat()
-                    
-                    self._save_orders()
-                    
-                    # Firestore delete
-                    if getattr(self, '_fs_enabled', False):
-                        try:
-                            self._fs.collection('orders').document(order_id).delete()
-                        except Exception as e:
-                            logger.warning(f"Firestore delete_order KO: {e}")
-                    
-                    return True
+            # Vérifier que la commande existe
+            doc = self._fs.collection('orders').document(order_id).get()
+            if not doc.exists:
+                print(f"❌ Commande {order_id} non trouvée")
+                return False
             
-            return False
+            # Supprimer de Firestore
+            self._fs.collection('orders').document(order_id).delete()
+            
+            print(f"✅ Commande {order_id} supprimée")
+            return True
             
         except Exception as e:
-            logger.error(f"Erreur suppression commande {order_id}: {e}")
+            print(f"❌ Erreur delete_order Firestore: {e}")
             return False
     
     def get_supplier_products(self, supplier_name: str) -> List[Dict[str, Any]]:
-        """Récupérer les produits d'un fournisseur pour créer une commande"""
+        """Récupérer les produits d'un fournisseur depuis Firestore uniquement"""
         try:
-            if not os.path.exists(self.prices_file):
+            if not self._fs_enabled:
                 return []
             
-            prices_df = pd.read_csv(self.prices_file)
-            supplier_products = prices_df[
-                prices_df['fournisseur'].str.upper() == supplier_name.upper()
-            ]
-            
+            # Récupérer les prix validés du fournisseur
+            docs = list(self._fs.collection('prices').where('fournisseur', '==', supplier_name).stream())
             products = []
-            for _, row in supplier_products.iterrows():
-                products.append({
-                    'name': row.get('produit', ''),
-                    'unit_price': float(row.get('prix_unitaire', 0)),
-                    'unit': row.get('unite', 'unité'),
-                    'code': row.get('code_produit', ''),
-                    'supplier': row.get('fournisseur', '')
-                })
             
+            for doc in docs:
+                data = doc.to_dict()
+                data['id'] = doc.id
+                products.append(data)
+            
+            print(f"📊 Firestore supplier products for {supplier_name}: {len(products)}")
             return products
             
         except Exception as e:
-            logger.error(f"Erreur récupération produits fournisseur {supplier_name}: {e}")
+            print(f"❌ Erreur get_supplier_products Firestore: {e}")
             return []
     
     def get_stats(self) -> Dict[str, Any]:
-        """Récupérer les statistiques des commandes"""
+        """Récupérer les statistiques des commandes depuis Firestore uniquement"""
         try:
-            orders = self.orders_data.get('orders', [])
+            if not self._fs_enabled:
+                return {
+                    'total_orders': 0,
+                    'orders_by_status': {},
+                    'total_amount': 0,
+                    'average_order_value': 0
+                }
             
+            # Récupérer toutes les commandes
+            docs = list(self._fs.collection('orders').stream())
+            orders = []
+            for doc in docs:
+                data = doc.to_dict()
+                data['id'] = doc.id
+                orders.append(data)
+            
+            # Calculer les statistiques
             total_orders = len(orders)
-            total_amount = sum(order.get('total_amount', 0) for order in orders)
+            orders_by_status = {}
+            total_amount = 0
             
-            # Statistiques par statut
-            status_counts = {}
             for order in orders:
                 status = order.get('status', 'unknown')
-                status_counts[status] = status_counts.get(status, 0) + 1
+                orders_by_status[status] = orders_by_status.get(status, 0) + 1
+                total_amount += float(order.get('total_amount', 0))
             
-            # Commandes récentes (7 derniers jours)
-            recent_date = (datetime.now() - timedelta(days=7)).isoformat()
-            recent_orders = [
-                order for order in orders 
-                if order.get('created_at', '') > recent_date
-            ]
-            
-            # Top fournisseurs
-            supplier_amounts = {}
-            for order in orders:
-                supplier = order.get('supplier', 'Unknown')
-                amount = order.get('total_amount', 0)
-                supplier_amounts[supplier] = supplier_amounts.get(supplier, 0) + amount
-            
-            top_suppliers = sorted(
-                supplier_amounts.items(), 
-                key=lambda x: x[1], 
-                reverse=True
-            )[:5]
+            average_order_value = total_amount / total_orders if total_orders > 0 else 0
             
             return {
                 'total_orders': total_orders,
-                'total_amount': total_amount,
-                'status_counts': status_counts,
-                'recent_orders_count': len(recent_orders),
-                'recent_orders': recent_orders[:5],  # 5 plus récentes
-                'top_suppliers': top_suppliers,
-                'average_order_value': total_amount / total_orders if total_orders > 0 else 0
+                'orders_by_status': orders_by_status,
+                'total_amount': round(total_amount, 2),
+                'average_order_value': round(average_order_value, 2)
             }
             
         except Exception as e:
-            logger.error(f"Erreur calcul statistiques commandes: {e}")
+            print(f"❌ Erreur get_stats Firestore: {e}")
             return {
                 'total_orders': 0,
+                'orders_by_status': {},
                 'total_amount': 0,
-                'status_counts': {},
-                'recent_orders_count': 0,
-                'recent_orders': [],
-                'top_suppliers': [],
-                'average_order_value': 0
+                'average_order_value': 0,
+                'error': str(e)
             }
     
     def get_orders_by_restaurant(self, restaurant_id: str) -> List[Dict[str, Any]]:
-        """Récupérer les commandes d'un restaurant spécifique"""
+        """Récupérer les commandes d'un restaurant depuis Firestore uniquement"""
         try:
-            orders = self.orders_data.get('orders', [])
-            restaurant_orders = [
-                order for order in orders 
-                if order.get('restaurant_id') == restaurant_id
-            ]
+            if not self._fs_enabled:
+                return []
             
-            # Trier par date de création décroissante
-            restaurant_orders.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+            docs = list(self._fs.collection('orders').where('restaurant_id', '==', restaurant_id).stream())
+            orders = []
             
-            return restaurant_orders
+            for doc in docs:
+                data = doc.to_dict()
+                data['id'] = doc.id
+                orders.append(data)
+            
+            print(f"📊 Firestore orders for restaurant {restaurant_id}: {len(orders)}")
+            return orders
             
         except Exception as e:
-            logger.error(f"Erreur récupération commandes restaurant {restaurant_id}: {e}")
+            print(f"❌ Erreur get_orders_by_restaurant Firestore: {e}")
             return []
     
     def get_order_statuses(self) -> Dict[str, Dict[str, str]]:
-        """Récupérer la liste des statuts possibles"""
+        """Récupérer les statuts possibles des commandes"""
         return self.ORDER_STATUSES
     
     def _send_order_email_auto(self, order: Dict[str, Any]) -> bool:
