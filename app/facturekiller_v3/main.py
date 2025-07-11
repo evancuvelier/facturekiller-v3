@@ -3529,92 +3529,28 @@ def test_admin_email():
 @app.route('/api/restaurant/suppliers', methods=['GET'])
 @login_required
 def get_restaurant_suppliers():
-    """Récupérer les fournisseurs du restaurant sélectionné"""
+    """Récupérer les fournisseurs du restaurant sélectionné (Firestore only)"""
     try:
-        # Récupérer le contexte utilisateur
         user_context = auth_manager.get_user_context()
         current_restaurant = user_context.get('restaurant')
-        
-        # Vérifier qu'un restaurant est sélectionné
         if not current_restaurant:
             return jsonify({
                 'success': False,
                 'error': 'Aucun restaurant sélectionné. Veuillez sélectionner un restaurant.',
                 'requires_restaurant': True
             }), 400
-        
         from modules.supplier_manager import SupplierManager
         supplier_manager = SupplierManager()
-        
-        # Récupérer les fournisseurs du restaurant
         restaurant_suppliers = current_restaurant.get('suppliers', [])
         all_suppliers = supplier_manager.get_all_suppliers()
-        
-        # ✅ CORRECTION: Filtrage strict - seulement les fournisseurs EXPLICITEMENT associés
-        # Plus d'auto-association automatique pour éviter les confusions
-        filtered_suppliers = []
-        
-        for supplier in all_suppliers:
-            supplier_name = supplier['name']
-            
-            # Inclure si le fournisseur est explicitement associé au restaurant
-            if supplier_name in restaurant_suppliers:
-                filtered_suppliers.append(supplier)
-                continue
-            
-            # OU si le fournisseur a des produits SPÉCIFIQUEMENT pour ce restaurant
-            # (vérifier dans les prix et produits en attente)
-            restaurant_name = current_restaurant.get('name')
-            has_specific_products = False
-            
-            # Vérifier dans les produits en attente avec filtre restaurant
-            for product in supplier.get('pending_products', []):
-                product_restaurant = product.get('restaurant', 'Général')
-                if product_restaurant == restaurant_name:
-                    has_specific_products = True
-                    break
-            
-            # Vérifier dans les prix confirmés avec filtre restaurant
-            if not has_specific_products:
-                try:
-                    supplier_products = supplier_manager.get_supplier_products(supplier_name)
-                    for product in supplier_products:
-                        if product.get('restaurant') == restaurant_name:
-                            has_specific_products = True
-                            break
-                except:
-                    pass
-            
-            if has_specific_products:
-                # Auto-associer seulement si il y a des produits spécifiques
-                filtered_suppliers.append(supplier)
-                if supplier_name not in restaurant_suppliers:
-                    print(f"🔗 AUTO-ASSOCIATION: {supplier_name} → {restaurant_name} (produits spécifiques détectés)")
-                    restaurant_suppliers.append(supplier_name)
-                    current_restaurant['suppliers'] = restaurant_suppliers
-                    
-                    # Persister l'association
-                    try:
-                        rest_path = 'data/restaurants.json'
-                        if os.path.exists(rest_path):
-                            with open(rest_path, 'r', encoding='utf-8') as f:
-                                restaurants = json.load(f)
-                            for r in restaurants:
-                                if r['id'] == current_restaurant['id']:
-                                    r['suppliers'] = restaurant_suppliers
-                                    break
-                            with open(rest_path, 'w', encoding='utf-8') as f:
-                                json.dump(restaurants, f, indent=2, ensure_ascii=False)
-                    except Exception as err:
-                        logger.warning(f"Impossible de mettre à jour restaurants.json : {err}")
-        
+        # Filtrage strict : uniquement les fournisseurs explicitement associés (Firestore)
+        filtered_suppliers = [s for s in all_suppliers if s['name'] in restaurant_suppliers]
         return jsonify({
             'success': True,
             'data': filtered_suppliers,
             'restaurant': current_restaurant['name'],
             'count': len(filtered_suppliers)
         })
-        
     except Exception as e:
         logger.error(f"Erreur API fournisseurs restaurant: {e}")
         return jsonify({
