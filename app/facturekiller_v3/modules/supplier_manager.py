@@ -92,11 +92,14 @@ class SupplierManager:
 
     def get_all_suppliers(self) -> List[Dict]:
         """Récupérer tous les fournisseurs avec leurs statistiques"""
-        # 🔥 NOUVELLE LOGIQUE : Combiner Firestore ET fichiers locaux
+        # 🔥 FORCER L'UTILISATION DE FIRESTORE + FICHIERS LOCAUX
         suppliers = []
         
+        print(f"🔧 Firestore enabled: {getattr(self, '_fs_enabled', False)}")
+        print(f"🔧 Firestore client: {getattr(self, '_fs', None)}")
+        
         # 1️⃣ Récupérer depuis Firestore si disponible
-        if getattr(self, '_fs_enabled', False):
+        if getattr(self, '_fs_enabled', False) and getattr(self, '_fs', None):
             try:
                 docs = list(self._fs.collection('suppliers').stream())
                 for doc in docs:
@@ -108,7 +111,7 @@ class SupplierManager:
             except Exception as e:
                 print(f"Firestore get_all_suppliers KO: {e}")
         
-        # 2️⃣ Compléter avec les fichiers locaux
+        # 2️⃣ TOUJOURS compléter avec les fichiers locaux (backup)
         try:
             # Charger les fournisseurs de base
             if os.path.exists(self.suppliers_file):

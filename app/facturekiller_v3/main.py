@@ -5344,6 +5344,37 @@ def debug_add_test_pending():
             'error': str(e)
         }), 500
 
+@app.route('/api/debug/firestore-status', methods=['GET'])
+@login_required
+def debug_firestore_status():
+    """Déboguer l'état de Firestore"""
+    try:
+        from modules.firestore_db import available, get_client
+        from modules.supplier_manager import SupplierManager
+        
+        # Vérifier Firestore
+        fs_available = available()
+        fs_client = get_client()
+        
+        # Vérifier SupplierManager
+        supplier_manager = SupplierManager()
+        suppliers = supplier_manager.get_all_suppliers()
+        
+        return jsonify({
+            'success': True,
+            'firestore_available': fs_available,
+            'firestore_client': str(fs_client) if fs_client else None,
+            'suppliers_count': len(suppliers),
+            'suppliers': [s['name'] for s in suppliers],
+            'fs_enabled': getattr(supplier_manager, '_fs_enabled', False),
+            'fs_client_attr': str(getattr(supplier_manager, '_fs', None))
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
+
 @app.route('/api/debug/check-pending-workflow', methods=['GET'])
 @login_required
 def debug_check_pending_workflow():
