@@ -13,226 +13,117 @@ from modules.firestore_db import available as _fs_available, get_client as _fs_c
 
 class SupplierManager:
     def __init__(self):
-        self.suppliers_file = 'data/suppliers.json'
-        self.prices_file = 'data/prices.csv'
-        self.pending_file = 'data/pending_products.csv'
-        self.deleted_suppliers_file = 'data/deleted_suppliers.json'  # Nouveau fichier pour les supprimés
+        """Initialiser le gestionnaire de fournisseurs (Firestore uniquement)"""
+        # 🔥 FIRESTORE UNIQUEMENT - Plus de fichiers locaux
+        self._fs_enabled = False
+        self._fs = None
         
-        # Firestore
-        self._fs_enabled = _fs_available()
-        self._fs = _fs_client() if self._fs_enabled else None
-        
-        # Créer les fichiers s'ils n'existent pas
-        self._ensure_files_exist()
-    
-    def _ensure_files_exist(self):
-        """Créer les fichiers de base s'ils n'existent pas"""
-        if not os.path.exists(self.suppliers_file):
-            with open(self.suppliers_file, 'w', encoding='utf-8') as f:
-                json.dump([], f, ensure_ascii=False, indent=2)
-        
-        # Nouveau fichier pour les fournisseurs supprimés
-        if not os.path.exists(self.deleted_suppliers_file):
-            with open(self.deleted_suppliers_file, 'w', encoding='utf-8') as f:
-                json.dump([], f, ensure_ascii=False, indent=2)
-        
-        # Vérifier et corriger le format du fichier prices.csv
-        if not os.path.exists(self.prices_file):
-            with open(self.prices_file, 'w', newline='', encoding='utf-8') as f:
-                writer = csv.writer(f)
-                writer.writerow(['id', 'code', 'produit', 'fournisseur', 'prix_unitaire', 'unite', 'categorie', 'date_ajout'])
-        else:
-            # Vérifier l'en-tête existant
-            with open(self.prices_file, 'r', encoding='utf-8') as f:
-                first_line = f.readline().strip()
-                expected_header = 'id,code,produit,fournisseur,prix_unitaire,unite,categorie,date_ajout'
-                if first_line != expected_header:
-                    print(f"⚠️ Format de prices.csv incorrect. Attendu: {expected_header}")
-                    print(f"   Trouvé: {first_line}")
-                    # Sauvegarder et recréer avec le bon format
-                    self._fix_prices_file_format()
-        
-        if not os.path.exists(self.pending_file):
-            with open(self.pending_file, 'w', newline='', encoding='utf-8') as f:
-                writer = csv.writer(f)
-                writer.writerow(['id', 'code', 'produit', 'fournisseur', 'prix', 'unite', 'categorie', 'date_ajout', 'source'])
+        # Initialiser Firestore
+        try:
+            from modules.firestore_db import FirestoreDB
+            firestore_db = FirestoreDB()
+            self._fs = firestore_db.db
+            self._fs_enabled = True
+            print("✅ Firestore initialisé pour SupplierManager")
+        except Exception as e:
+            print(f"❌ Erreur initialisation Firestore SupplierManager: {e}")
+            self._fs_enabled = False
+            self._fs = None
     
     def _get_deleted_suppliers(self) -> set:
-        """Récupérer la liste des fournisseurs explicitement supprimés"""
+        """Récupérer la liste des fournisseurs explicitement supprimés depuis Firestore"""
+        deleted_suppliers = set()
+        
+        if not self._fs_enabled:
+            return deleted_suppliers
+        
         try:
-            with open(self.deleted_suppliers_file, 'r', encoding='utf-8') as f:
-                deleted_list = json.load(f)
-                return set(deleted_list)
-        except:
-            return set()
+            docs = self._fs.collection('deleted_suppliers').stream()
+            for doc in docs:
+                data = doc.to_dict()
+                if data.get('name'):
+                    deleted_suppliers.add(data['name'])
+            print(f"📊 Firestore deleted suppliers: {len(deleted_suppliers)}")
+        except Exception as e:
+            print(f"❌ Erreur lecture deleted suppliers Firestore: {e}")
+        
+        return deleted_suppliers
     
     def _add_to_deleted_suppliers(self, supplier_name: str):
-        """Ajouter un fournisseur à la liste des supprimés"""
+        """Ajouter un fournisseur à la liste des supprimés dans Firestore"""
         try:
-            deleted_suppliers = list(self._get_deleted_suppliers())
-            if supplier_name not in deleted_suppliers:
-                deleted_suppliers.append(supplier_name)
-                with open(self.deleted_suppliers_file, 'w', encoding='utf-8') as f:
-                    json.dump(deleted_suppliers, f, ensure_ascii=False, indent=2)
-                print(f"📝 Fournisseur '{supplier_name}' ajouté à la liste des supprimés")
+            if not self._fs_enabled:
+                return
+            
+            self._fs.collection('deleted_suppliers').add({
+                'name': supplier_name,
+                'deleted_at': datetime.now().isoformat()
+            })
+            print(f"✅ {supplier_name} ajouté aux supprimés Firestore")
         except Exception as e:
-            print(f"Erreur ajout à la liste des supprimés: {e}")
-
+            print(f"❌ Erreur ajout deleted supplier Firestore: {e}")
+    
     def _remove_from_deleted_suppliers(self, supplier_name: str):
-        """Retirer un fournisseur de la liste des supprimés"""
+        """Retirer un fournisseur de la liste des supprimés dans Firestore"""
         try:
-            deleted = list(self._get_deleted_suppliers())
-            if supplier_name in deleted:
-                deleted.remove(supplier_name)
-                with open(self.deleted_suppliers_file, 'w', encoding='utf-8') as f:
-                    json.dump(deleted, f, ensure_ascii=False, indent=2)
-                print(f"♻️ Fournisseur '{supplier_name}' retiré de la liste des supprimés")
+            if not self._fs_enabled:
+                return
+            
+            docs = list(self._fs.collection('deleted_suppliers').where('name', '==', supplier_name).stream())
+            for doc in docs:
+                doc.reference.delete()
+            print(f"✅ {supplier_name} retiré des supprimés Firestore")
         except Exception as e:
-            print(f"Erreur suppression de la liste deleted_suppliers: {e}")
+            print(f"❌ Erreur retrait deleted supplier Firestore: {e}")
 
     def get_all_suppliers(self) -> List[Dict]:
-        """Récupérer tous les fournisseurs avec leurs statistiques"""
-        # 🔥 FORCER L'UTILISATION DE FIRESTORE + FICHIERS LOCAUX
+        """Récupérer tous les fournisseurs depuis Firestore uniquement"""
         suppliers = []
         
         print(f"🔧 Firestore enabled: {getattr(self, '_fs_enabled', False)}")
         print(f"🔧 Firestore client: {getattr(self, '_fs', None)}")
         
-        # 1️⃣ Récupérer depuis Firestore si disponible
+        # 🔥 FIRESTORE UNIQUEMENT - Plus de fallback fichiers locaux
         if getattr(self, '_fs_enabled', False) and getattr(self, '_fs', None):
             try:
                 docs = list(self._fs.collection('suppliers').stream())
                 for doc in docs:
                     data = doc.to_dict()
-                    stats = self._get_supplier_stats(data['name'])
+                    # Ajouter les statistiques calculées depuis Firestore
+                    stats = self._get_supplier_stats_firestore(data['name'])
                     data.update(stats)
                     suppliers.append(data)
                 print(f"📊 Firestore: {len(suppliers)} fournisseurs récupérés")
             except Exception as e:
-                print(f"Firestore get_all_suppliers KO: {e}")
-        
-        # 2️⃣ TOUJOURS compléter avec les fichiers locaux (backup)
-        try:
-            # Charger les fournisseurs de base
-            if os.path.exists(self.suppliers_file):
-                with open(self.suppliers_file, 'r', encoding='utf-8') as f:
-                    local_suppliers = json.load(f)
-                
-                # Ajouter les statistiques de produits
-                for supplier in local_suppliers:
-                    supplier_stats = self._get_supplier_stats(supplier['name'])
-                    supplier.update(supplier_stats)
-                
-                # Récupérer les fournisseurs supprimés pour les exclure
-                deleted_suppliers = self._get_deleted_suppliers()
-                
-                # Ajouter les fournisseurs qui ont des produits mais pas de fiche
-                # SAUF ceux qui ont été explicitement supprimés
-                all_supplier_names = self._get_all_supplier_names_from_products()
-                existing_names = {s['name'] for s in suppliers + local_suppliers}
-                
-                for name in all_supplier_names:
-                    if name not in existing_names and name not in deleted_suppliers:
-                        supplier_stats = self._get_supplier_stats(name)
-                        new_supplier = {
-                            'name': name,
-                            'email': '',
-                            'delivery_days': [],
-                            'notes': 'Fournisseur créé automatiquement',
-                            'created_at': datetime.now().isoformat(),
-                            **supplier_stats
-                        }
-                        suppliers.append(new_supplier)
-                        local_suppliers.append(new_supplier)
-                
-                # Sauvegarder la liste mise à jour
-                with open(self.suppliers_file, 'w', encoding='utf-8') as f:
-                    json.dump(local_suppliers, f, ensure_ascii=False, indent=2)
-                
-                print(f"📊 Local: {len(local_suppliers)} fournisseurs récupérés")
-                
-                # Combiner les listes en évitant les doublons
-                suppliers_dict = {}
-                for supplier in suppliers + local_suppliers:
-                    suppliers_dict[supplier['name']] = supplier
-                
-                suppliers = list(suppliers_dict.values())
-                
-            else:
-                # Si pas de fichier local, créer les fournisseurs depuis les produits
-                deleted_suppliers = self._get_deleted_suppliers()
-                all_supplier_names = self._get_all_supplier_names_from_products()
-                
-                for name in all_supplier_names:
-                    if name not in deleted_suppliers:
-                        supplier_stats = self._get_supplier_stats(name)
-                        suppliers.append({
-                            'name': name,
-                            'email': '',
-                            'delivery_days': [],
-                            'notes': 'Fournisseur créé automatiquement',
-                            'created_at': datetime.now().isoformat(),
-                            **supplier_stats
-                        })
-            
-        except Exception as e:
-            print(f"Erreur lors du chargement des fournisseurs: {e}")
+                print(f"❌ Firestore get_all_suppliers KO: {e}")
+                # En cas d'erreur Firestore, retourner une liste vide
+                return []
+        else:
+            print("❌ Firestore non disponible - impossible de récupérer les fournisseurs")
+            return []
         
         print(f"🎯 Total: {len(suppliers)} fournisseurs retournés")
         return suppliers
     
-    def _get_all_supplier_names_from_products(self) -> set:
-        """Récupérer tous les noms de fournisseurs depuis les produits"""
-        names = set()
+    def _get_supplier_stats_firestore(self, supplier_name: str) -> Dict:
+        """Calculer les statistiques d'un fournisseur depuis Firestore uniquement"""
+        validated_products = self._get_validated_products_firestore(supplier_name)
+        pending_products = self._get_pending_products_firestore(supplier_name)
         
-        # Depuis les prix validés
-        try:
-            if os.path.exists(self.prices_file):
-                with open(self.prices_file, 'r', encoding='utf-8') as f:
-                    reader = csv.DictReader(f)
-                    for row in reader:
-                        if row.get('fournisseur'):
-                            names.add(row['fournisseur'])
-                print(f"🔍 Prix validés: {len(names)} fournisseurs trouvés")
-        except Exception as e:
-            print(f"❌ Erreur lecture prix validés: {e}")
-        
-        # Depuis les produits en attente
-        try:
-            if os.path.exists(self.pending_file):
-                with open(self.pending_file, 'r', encoding='utf-8') as f:
-                    reader = csv.DictReader(f)
-                    for row in reader:
-                        if row.get('fournisseur'):
-                            names.add(row['fournisseur'])
-                print(f"🔍 Produits en attente: {len(names)} fournisseurs trouvés")
-        except Exception as e:
-            print(f"❌ Erreur lecture produits en attente: {e}")
-        
-        print(f"🎯 Fournisseurs trouvés dans les produits: {list(names)}")
-        return names
-    
-    def _get_supplier_stats(self, supplier_name: str) -> Dict:
-        """Calculer les statistiques d'un fournisseur"""
-        validated_products = self._get_validated_products(supplier_name)
-        pending_products = self._get_pending_products(supplier_name)
-        
-        # ✅ CORRECTION : Séparer clairement validés et pending
         return {
-            'products_count': len(validated_products),  # ← SEULEMENT les validés dans le compte
+            'products_count': len(validated_products),
             'validated_count': len(validated_products),
             'pending_count': len(pending_products),
-            'products': validated_products,  # ← SEULEMENT les produits validés
-            'validated_products': validated_products,  # ← Ajout explicite
-            'pending_products': pending_products,  # ← Ajout explicite  
-            'total_products_count': len(validated_products) + len(pending_products),  # ← Total si besoin
+            'products': validated_products,
+            'validated_products': validated_products,
+            'pending_products': pending_products,
+            'total_products_count': len(validated_products) + len(pending_products),
             'last_updated': datetime.now().isoformat()
         }
     
-    def _get_validated_products(self, supplier_name: str) -> List[Dict]:
-        """Récupérer les produits validés d'un fournisseur"""
+    def _get_validated_products_firestore(self, supplier_name: str) -> List[Dict]:
+        """Récupérer les produits validés d'un fournisseur depuis Firestore uniquement"""
         products = []
-        # 1️⃣ Priorité Firestore si disponible
         if self._fs_enabled:
             try:
                 docs = self._fs.collection('prices').where('fournisseur', '==', supplier_name).stream()
@@ -248,57 +139,80 @@ class SupplierManager:
                         'category': row.get('categorie', ''),
                         'date_added': row.get('date_maj') or row.get('date_ajout', '')
                     })
+                print(f"📊 Firestore validated products for {supplier_name}: {len(products)}")
             except Exception as e:
-                print(f"Firestore _get_validated_products KO: {e}")
-
-        # 2️⃣ Compléter avec le fichier local (pour backup / historique)
-        try:
-            if os.path.exists(self.prices_file):
-                with open(self.prices_file, 'r', encoding='utf-8') as f:
-                    reader = csv.DictReader(f)
-                    for row in reader:
-                        if row.get('fournisseur') == supplier_name:
-                            products.append({
-                                'id': row.get('id', ''),
-                                'name': row.get('produit', ''),
-                                'produit': row.get('produit', ''),
-                                'code': row.get('code', ''),
-                                'unit_price': float(row.get('prix_unitaire') or row.get('prix') or 0),
-                                'unite': row.get('unite', 'unité'),
-                                'category': row.get('categorie', ''),
-                                'date_added': row.get('date_ajout', '')
-                            })
-        except Exception as e:
-            print(f"CSV _get_validated_products KO: {e}")
+                print(f"❌ Firestore _get_validated_products KO: {e}")
         
         return products
     
-    def _get_pending_products(self, supplier_name: str) -> List[Dict]:
-        """Récupérer les produits en attente d'un fournisseur"""
+    def _get_pending_products_firestore(self, supplier_name: str) -> List[Dict]:
+        """Récupérer les produits en attente d'un fournisseur depuis Firestore uniquement"""
         products = []
-        try:
-            with open(self.pending_file, 'r', encoding='utf-8') as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    if row.get('fournisseur') == supplier_name:
-                        products.append({
-                            'id': row.get('id', ''),
-                            'name': row.get('produit', ''),
-                            'produit': row.get('produit', ''),  # Pour compatibilité
-                            'code': row.get('code', ''),
-                            'unit_price': float(row.get('prix', 0)),
-                            'prix_unitaire': float(row.get('prix', 0)),  # Pour compatibilité
-                            'unit': row.get('unite', ''),
-                            'unite': row.get('unite', ''),  # Pour compatibilité
-                            'category': row.get('categorie', ''),
-                            'status': 'pending',
-                            'date_added': row.get('date_ajout', ''),
-                            'source': row.get('source', '')
-                        })
-        except Exception as e:
-            print(f"Erreur lecture produits en attente: {e}")
+        if self._fs_enabled:
+            try:
+                docs = self._fs.collection('pending_products').where('fournisseur', '==', supplier_name).stream()
+                for d in docs:
+                    row = d.to_dict()
+                    products.append({
+                        'id': row.get('code') or d.id,
+                        'name': row.get('produit', ''),
+                        'produit': row.get('produit', ''),
+                        'code': row.get('code', ''),
+                        'unit_price': float(row.get('prix', 0)),
+                        'unite': row.get('unite', 'unité'),
+                        'category': row.get('categorie', ''),
+                        'date_added': row.get('date_ajout', ''),
+                        'status': 'pending'
+                    })
+                print(f"📊 Firestore pending products for {supplier_name}: {len(products)}")
+            except Exception as e:
+                print(f"❌ Firestore _get_pending_products KO: {e}")
         
         return products
+    
+    def _get_all_supplier_names_from_products(self) -> set:
+        """Récupérer tous les noms de fournisseurs depuis Firestore uniquement"""
+        names = set()
+        
+        if not self._fs_enabled:
+            return names
+        
+        try:
+            # Depuis les prix validés
+            docs = self._fs.collection('prices').stream()
+            for d in docs:
+                row = d.to_dict()
+                if row.get('fournisseur'):
+                    names.add(row['fournisseur'])
+            print(f"🔍 Firestore prix validés: {len(names)} fournisseurs trouvés")
+        except Exception as e:
+            print(f"❌ Erreur lecture prix validés Firestore: {e}")
+        
+        try:
+            # Depuis les produits en attente
+            docs = self._fs.collection('pending_products').stream()
+            for d in docs:
+                row = d.to_dict()
+                if row.get('fournisseur'):
+                    names.add(row['fournisseur'])
+            print(f"🔍 Firestore produits en attente: {len(names)} fournisseurs trouvés")
+        except Exception as e:
+            print(f"❌ Erreur lecture produits en attente Firestore: {e}")
+        
+        print(f"🎯 Fournisseurs trouvés dans Firestore: {list(names)}")
+        return names
+    
+    def _get_supplier_stats(self, supplier_name: str) -> Dict:
+        """Calculer les statistiques d'un fournisseur (Firestore uniquement)"""
+        return self._get_supplier_stats_firestore(supplier_name)
+    
+    def _get_validated_products(self, supplier_name: str) -> List[Dict]:
+        """Récupérer les produits validés d'un fournisseur (Firestore uniquement)"""
+        return self._get_validated_products_firestore(supplier_name)
+    
+    def _get_pending_products(self, supplier_name: str) -> List[Dict]:
+        """Récupérer les produits en attente d'un fournisseur (Firestore uniquement)"""
+        return self._get_pending_products_firestore(supplier_name)
     
     def get_supplier_products(self, supplier_name: str) -> List[Dict]:
         """Récupérer tous les produits d'un fournisseur (validés + en attente)"""
@@ -312,431 +226,136 @@ class SupplierManager:
         return all_products
     
     def save_supplier(self, supplier_data: Dict) -> bool:
-        """Sauvegarder ou mettre à jour un fournisseur"""
+        """Sauvegarder un fournisseur dans Firestore uniquement"""
         try:
-            suppliers = []
+            if not self._fs_enabled:
+                print("❌ Firestore non disponible")
+                return False
             
-            # Charger les fournisseurs existants
-            if os.path.exists(self.suppliers_file):
-                with open(self.suppliers_file, 'r', encoding='utf-8') as f:
-                    suppliers = json.load(f)
+            supplier_name = supplier_data.get('name')
+            if not supplier_name:
+                print("❌ Nom de fournisseur manquant")
+                return False
             
-            # Chercher si le fournisseur existe déjà
-            supplier_name = supplier_data.get('name', '')
-            existing_index = -1
-            for i, supplier in enumerate(suppliers):
-                if supplier.get('name') == supplier_name:
-                    existing_index = i
-                    break
+            # Vérifier si le fournisseur existe déjà
+            existing_docs = list(self._fs.collection('suppliers').where('name', '==', supplier_name).stream())
             
-            # Préparer les données du fournisseur
-            supplier_record = {
-                'name': supplier_name,
-                'email': supplier_data.get('email', ''),
-                'delivery_days': supplier_data.get('delivery_days', []),
-                'notes': supplier_data.get('notes', ''),
-                'updated_at': datetime.now().isoformat()
-            }
-            
-            if existing_index >= 0:
-                # Mettre à jour
-                supplier_record['created_at'] = suppliers[existing_index].get('created_at', datetime.now().isoformat())
-                suppliers[existing_index] = supplier_record
+            if existing_docs:
+                # Mettre à jour le fournisseur existant
+                doc_ref = existing_docs[0].reference
+                supplier_data['updated_at'] = datetime.now().isoformat()
+                doc_ref.update(supplier_data)
+                print(f"✅ Fournisseur {supplier_name} mis à jour dans Firestore")
             else:
-                # Ajouter nouveau
-                supplier_record['created_at'] = datetime.now().isoformat()
-                suppliers.append(supplier_record)
+                # Créer un nouveau fournisseur
+                supplier_data['created_at'] = datetime.now().isoformat()
+                supplier_data['updated_at'] = datetime.now().isoformat()
+                self._fs.collection('suppliers').add(supplier_data)
+                print(f"✅ Fournisseur {supplier_name} créé dans Firestore")
             
-            # Sauvegarder la liste
-            with open(self.suppliers_file, 'w', encoding='utf-8') as f:
-                json.dump(suppliers, f, ensure_ascii=False, indent=2)
-
-            # ➕ Autoriser la recréation : retirer de deleted_suppliers.json si présent
-            self._remove_from_deleted_suppliers(supplier_name)
-
-            # Firestore save / update
-            if getattr(self, '_fs_enabled', False):
-                try:
-                    self._fs.collection('suppliers').document(supplier_name).set(supplier_record)
-                    print(f"✅ Firestore: Fournisseur '{supplier_name}' synchronisé")
-                except Exception as e:
-                    print(f"Firestore save_supplier KO: {e}")
-            
-            print(f"✅ Fournisseur '{supplier_name}' sauvegardé (local + Firestore)")
             return True
             
         except Exception as e:
-            print(f"Erreur sauvegarde fournisseur: {e}")
+            print(f"❌ Erreur sauvegarde fournisseur Firestore: {e}")
             return False
     
     def delete_supplier(self, supplier_name: str) -> bool:
-        """Supprimer un fournisseur ET tous ses produits"""
+        """Supprimer un fournisseur et tous ses produits de Firestore uniquement"""
         try:
-            # 1. Ajouter à la liste des fournisseurs supprimés AVANT de supprimer
-            self._add_to_deleted_suppliers(supplier_name)
+            if not self._fs_enabled:
+                print("❌ Firestore non disponible")
+                return False
             
-            # 2. Supprimer la fiche fournisseur
-            suppliers = []
-            if os.path.exists(self.suppliers_file):
-                with open(self.suppliers_file, 'r', encoding='utf-8') as f:
-                    suppliers = json.load(f)
+            # 1️⃣ Supprimer le fournisseur
+            supplier_docs = list(self._fs.collection('suppliers').where('name', '==', supplier_name).stream())
+            if supplier_docs:
+                supplier_docs[0].reference.delete()
+                print(f"✅ Fournisseur {supplier_name} supprimé de Firestore")
             
-            # Filtrer pour supprimer le fournisseur
-            suppliers = [s for s in suppliers if s.get('name') != supplier_name]
+            # 2️⃣ Supprimer tous les produits validés du fournisseur
+            validated_docs = list(self._fs.collection('prices').where('fournisseur', '==', supplier_name).stream())
+            for doc in validated_docs:
+                doc.reference.delete()
+            print(f"✅ {len(validated_docs)} produits validés supprimés de Firestore")
             
-            # Sauvegarder la liste des fournisseurs
-            with open(self.suppliers_file, 'w', encoding='utf-8') as f:
-                json.dump(suppliers, f, ensure_ascii=False, indent=2)
+            # 3️⃣ Supprimer tous les produits en attente du fournisseur
+            pending_docs = list(self._fs.collection('pending_products').where('fournisseur', '==', supplier_name).stream())
+            for doc in pending_docs:
+                doc.reference.delete()
+            print(f"✅ {len(pending_docs)} produits en attente supprimés de Firestore")
             
-            # 3. Supprimer les produits validés du fournisseur
-            self._remove_supplier_from_prices(supplier_name)
-            
-            # 4. Supprimer les produits en attente du fournisseur
-            self._remove_supplier_from_pending(supplier_name)
-            
-            # 5. Supprimer le document Firestore
-            if getattr(self, '_fs_enabled', False):
-                try:
-                    self._fs.collection('suppliers').document(supplier_name).delete()
-                except Exception as e:
-                    print(f"Firestore delete_supplier KO: {e}")
-
-            print(f"✅ Fournisseur '{supplier_name}' et tous ses produits supprimés")
             return True
             
         except Exception as e:
-            print(f"Erreur suppression fournisseur: {e}")
+            print(f"❌ Erreur suppression fournisseur Firestore: {e}")
             return False
     
-    def _remove_supplier_from_prices(self, supplier_name: str):
-        """Supprimer tous les produits d'un fournisseur du fichier prices.csv"""
-        try:
-            if not os.path.exists(self.prices_file):
-                return
-            
-            # Lire tous les prix
-            rows_to_keep = []
-            with open(self.prices_file, 'r', encoding='utf-8') as f:
-                reader = csv.DictReader(f)
-                fieldnames = reader.fieldnames
-                for row in reader:
-                    if row.get('fournisseur') != supplier_name:
-                        rows_to_keep.append(row)
-            
-            # Réécrire le fichier sans les produits du fournisseur
-            with open(self.prices_file, 'w', newline='', encoding='utf-8') as f:
-                if fieldnames:
-                    writer = csv.DictWriter(f, fieldnames=fieldnames)
-                    writer.writeheader()
-                    writer.writerows(rows_to_keep)
-            
-            print(f"🗑️ Produits validés de '{supplier_name}' supprimés")
-            
-        except Exception as e:
-            print(f"Erreur suppression produits validés: {e}")
-    
-    def _remove_supplier_from_pending(self, supplier_name: str):
-        """Supprimer tous les produits en attente d'un fournisseur"""
-        try:
-            if not os.path.exists(self.pending_file):
-                return
-            
-            # Lire tous les produits en attente
-            rows_to_keep = []
-            with open(self.pending_file, 'r', encoding='utf-8') as f:
-                reader = csv.DictReader(f)
-                fieldnames = reader.fieldnames
-                for row in reader:
-                    if row.get('fournisseur') != supplier_name:
-                        rows_to_keep.append(row)
-            
-            # Réécrire le fichier sans les produits du fournisseur
-            with open(self.pending_file, 'w', newline='', encoding='utf-8') as f:
-                if fieldnames:
-                    writer = csv.DictWriter(f, fieldnames=fieldnames)
-                    writer.writeheader()
-                    writer.writerows(rows_to_keep)
-            
-            print(f"🗑️ Produits en attente de '{supplier_name}' supprimés")
-            
-        except Exception as e:
-            print(f"Erreur suppression produits en attente: {e}")
-    
     def add_product_to_supplier(self, supplier_name: str, product_data: Dict) -> bool:
-        """Ajouter un produit directement dans les prix validés (sans doublons)"""
+        """Ajouter un produit à un fournisseur dans Firestore uniquement"""
         try:
-            # 1️⃣ Vérifier l'existence d'un produit identique (nom + fournisseur)
-            existing_id = None
-            product_name = product_data.get('name', '').strip().lower()
-
-            # Chercher d'abord dans les produits validés
-            if os.path.exists(self.prices_file):
-                with open(self.prices_file, 'r', encoding='utf-8') as f:
-                    reader = csv.DictReader(f)
-                    for row in reader:
-                        if row.get('fournisseur') == supplier_name and row.get('produit', '').strip().lower() == product_name:
-                            existing_id = row.get('id')
-                            break
-
-            # Chercher ensuite dans les produits en attente
-            if not existing_id and os.path.exists(self.pending_file):
-                with open(self.pending_file, 'r', encoding='utf-8') as f:
-                    reader = csv.DictReader(f)
-                    for row in reader:
-                        if row.get('fournisseur') == supplier_name and row.get('produit', '').strip().lower() == product_name:
-                            existing_id = row.get('id')
-                            break
-
-            # S'il existe déjà, on fait simplement une mise à jour
-            if existing_id:
-                print(f"ℹ️ Produit déjà existant (id={existing_id}) pour {supplier_name} – mise à jour au lieu de doublon")
-                return self.update_product(supplier_name, existing_id, product_data)
-
-            # Générer un ID unique
-            product_id = datetime.now().strftime('%Y%m%d%H%M%S%f')[:-3]  # Inclure millisecondes
+            if not self._fs_enabled:
+                print("❌ Firestore non disponible")
+                return False
             
-            # Préparer les données
-            row_data = [
-                product_id,
-                product_data.get('code', ''),
-                product_data.get('name', ''),
-                supplier_name,
-                product_data.get('unit_price', 0),
-                product_data.get('unit', 'unité'),
-                product_data.get('category', 'Non classé'),
-                datetime.now().isoformat()
-            ]
+            # Déterminer la collection selon le statut
+            collection_name = 'pending_products' if product_data.get('status') == 'pending' else 'prices'
             
-            # Ajouter au fichier CSV
-            with open(self.prices_file, 'a', newline='', encoding='utf-8') as f:
-                writer = csv.writer(f)
-                writer.writerow(row_data)
+            # Ajouter les métadonnées
+            product_data['fournisseur'] = supplier_name
+            product_data['date_ajout'] = datetime.now().isoformat()
+            product_data['date_maj'] = datetime.now().isoformat()
             
-            print(f"✅ Produit '{product_data.get('name')}' ajouté au fournisseur '{supplier_name}'")
+            # Sauvegarder dans Firestore
+            self._fs.collection(collection_name).add(product_data)
+            print(f"✅ Produit ajouté à {supplier_name} dans Firestore ({collection_name})")
+            
             return True
             
         except Exception as e:
-            print(f"Erreur ajout produit: {e}")
+            print(f"❌ Erreur ajout produit Firestore: {e}")
             return False
     
     def update_product(self, supplier_name: str, product_id: str, product_data: Dict) -> bool:
-        """Mettre à jour un produit existant"""
+        """Mettre à jour un produit dans Firestore uniquement"""
         try:
-            # Chercher d'abord dans les prix validés
-            if self._update_product_in_prices(product_id, product_data):
-                print(f"✅ Produit validé '{product_id}' mis à jour")
-                return True
+            if not self._fs_enabled:
+                print("❌ Firestore non disponible")
+                return False
             
-            # Si pas trouvé, chercher dans les produits en attente
-            if self._update_product_in_pending(product_id, product_data):
-                print(f"✅ Produit en attente '{product_id}' mis à jour")
-                return True
+            # Chercher dans les deux collections
+            for collection_name in ['prices', 'pending_products']:
+                docs = list(self._fs.collection(collection_name).where('code', '==', product_id).stream())
+                if docs:
+                    product_data['date_maj'] = datetime.now().isoformat()
+                    docs[0].reference.update(product_data)
+                    print(f"✅ Produit {product_id} mis à jour dans Firestore ({collection_name})")
+                    return True
             
-            print(f"❌ Produit '{product_id}' non trouvé")
+            print(f"❌ Produit {product_id} non trouvé dans Firestore")
             return False
             
         except Exception as e:
-            print(f"Erreur mise à jour produit: {e}")
+            print(f"❌ Erreur mise à jour produit Firestore: {e}")
             return False
     
     def delete_product(self, supplier_name: str, product_id: str) -> bool:
-        """Supprimer un produit existant"""
+        """Supprimer un produit de Firestore uniquement"""
         try:
-            # Chercher d'abord dans les prix validés
-            if self._delete_product_from_prices(product_id):
-                print(f"✅ Produit validé '{product_id}' supprimé")
-                return True
-            
-            # Si pas trouvé, chercher dans les produits en attente
-            if self._delete_product_from_pending(product_id):
-                print(f"✅ Produit en attente '{product_id}' supprimé")
-                return True
-            
-            print(f"❌ Produit '{product_id}' non trouvé")
-            return False
-            
-        except Exception as e:
-            print(f"Erreur suppression produit: {e}")
-            return False
-    
-    def _update_product_in_prices(self, product_id: str, product_data: Dict) -> bool:
-        """Mettre à jour un produit dans prices.csv"""
-        try:
-            if not os.path.exists(self.prices_file):
+            if not self._fs_enabled:
+                print("❌ Firestore non disponible")
                 return False
             
-            rows = []
-            updated = False
+            # Chercher dans les deux collections
+            for collection_name in ['prices', 'pending_products']:
+                docs = list(self._fs.collection(collection_name).where('code', '==', product_id).stream())
+                if docs:
+                    docs[0].reference.delete()
+                    print(f"✅ Produit {product_id} supprimé de Firestore ({collection_name})")
+                    return True
             
-            with open(self.prices_file, 'r', encoding='utf-8') as f:
-                reader = csv.DictReader(f)
-                fieldnames = reader.fieldnames
-                
-                for row in reader:
-                    if row.get('id') == product_id:
-                        # Mettre à jour la ligne
-                        row['produit'] = product_data.get('name', row['produit'])
-                        row['code'] = product_data.get('code', row['code'])
-                        row['prix_unitaire'] = product_data.get('unit_price', row['prix_unitaire'])
-                        row['unite'] = product_data.get('unit', row['unite'])
-                        row['categorie'] = product_data.get('category', row['categorie'])
-                        updated = True
-                    
-                    rows.append(row)
-            
-            if updated:
-                # Réécrire le fichier
-                with open(self.prices_file, 'w', newline='', encoding='utf-8') as f:
-                    writer = csv.DictWriter(f, fieldnames=fieldnames)
-                    writer.writeheader()
-                    writer.writerows(rows)
-            
-            return updated
-            
-        except Exception as e:
-            print(f"Erreur mise à jour produit validé: {e}")
+            print(f"❌ Produit {product_id} non trouvé dans Firestore")
             return False
-    
-    def _update_product_in_pending(self, product_id: str, product_data: Dict) -> bool:
-        """Mettre à jour un produit dans pending_products.csv"""
-        try:
-            if not os.path.exists(self.pending_file):
-                return False
-            
-            rows = []
-            updated = False
-            
-            with open(self.pending_file, 'r', encoding='utf-8') as f:
-                reader = csv.DictReader(f)
-                fieldnames = reader.fieldnames
-                
-                for row in reader:
-                    if row.get('id') == product_id:
-                        # Mettre à jour la ligne
-                        row['produit'] = product_data.get('name', row['produit'])
-                        row['code'] = product_data.get('code', row['code'])
-                        row['prix'] = product_data.get('unit_price', row['prix'])
-                        row['unite'] = product_data.get('unit', row['unite'])
-                        row['categorie'] = product_data.get('category', row['categorie'])
-                        updated = True
-                    
-                    rows.append(row)
-            
-            if updated:
-                # Réécrire le fichier
-                with open(self.pending_file, 'w', newline='', encoding='utf-8') as f:
-                    writer = csv.DictWriter(f, fieldnames=fieldnames)
-                    writer.writeheader()
-                    writer.writerows(rows)
-            
-            return updated
             
         except Exception as e:
-            print(f"Erreur mise à jour produit en attente: {e}")
-            return False
-    
-    def _delete_product_from_prices(self, product_id: str) -> bool:
-        """Supprimer un produit de prices.csv"""
-        try:
-            if not os.path.exists(self.prices_file):
-                return False
-            
-            rows = []
-            deleted = False
-            
-            with open(self.prices_file, 'r', encoding='utf-8') as f:
-                reader = csv.DictReader(f)
-                fieldnames = reader.fieldnames
-                
-                for row in reader:
-                    if row.get('id') == product_id:
-                        deleted = True
-                        continue  # Ne pas ajouter cette ligne
-                    
-                    rows.append(row)
-            
-            if deleted:
-                # Réécrire le fichier
-                with open(self.prices_file, 'w', newline='', encoding='utf-8') as f:
-                    writer = csv.DictWriter(f, fieldnames=fieldnames)
-                    writer.writeheader()
-                    writer.writerows(rows)
-            
-            return deleted
-            
-        except Exception as e:
-            print(f"Erreur suppression produit validé: {e}")
-            return False
-    
-    def _delete_product_from_pending(self, product_id: str) -> bool:
-        """Supprimer un produit de pending_products.csv"""
-        try:
-            if not os.path.exists(self.pending_file):
-                return False
-            
-            rows = []
-            deleted = False
-            
-            with open(self.pending_file, 'r', encoding='utf-8') as f:
-                reader = csv.DictReader(f)
-                fieldnames = reader.fieldnames
-                
-                for row in reader:
-                    if row.get('id') == product_id:
-                        deleted = True
-                        continue  # Ne pas ajouter cette ligne
-                    
-                    rows.append(row)
-            
-            if deleted:
-                # Réécrire le fichier
-                with open(self.pending_file, 'w', newline='', encoding='utf-8') as f:
-                    writer = csv.DictWriter(f, fieldnames=fieldnames)
-                    writer.writeheader()
-                    writer.writerows(rows)
-            
-            return deleted
-            
-        except Exception as e:
-            print(f"Erreur suppression produit en attente: {e}")
-            return False
-    
-    def _fix_prices_file_format(self):
-        """Corriger le format du fichier prices.csv"""
-        try:
-            import shutil
-            
-            # Sauvegarder l'ancien fichier
-            backup_file = self.prices_file + '.backup'
-            shutil.copy2(self.prices_file, backup_file)
-            print(f"📁 Sauvegarde créée: {backup_file}")
-            
-            # Lire les données existantes
-            existing_data = []
-            with open(self.prices_file, 'r', encoding='utf-8') as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    # Mapper les anciennes colonnes vers les nouvelles
-                    new_row = {
-                        'id': row.get('code', ''),  # Utiliser le code comme ID temporaire
-                        'code': row.get('code_produit', row.get('code', '')),
-                        'produit': row.get('produit', ''),
-                        'fournisseur': row.get('fournisseur', ''),
-                        'prix_unitaire': row.get('prix_unitaire', row.get('prix', '0')),
-                        'unite': row.get('unite', ''),
-                        'categorie': row.get('categorie', 'Non classé'),
-                        'date_ajout': row.get('date_ajout', row.get('date_maj', datetime.now().isoformat()))
-                    }
-                    existing_data.append(new_row)
-            
-            # Recréer le fichier avec le bon format
-            with open(self.prices_file, 'w', newline='', encoding='utf-8') as f:
-                fieldnames = ['id', 'code', 'produit', 'fournisseur', 'prix_unitaire', 'unite', 'categorie', 'date_ajout']
-                writer = csv.DictWriter(f, fieldnames=fieldnames)
-                writer.writeheader()
-                writer.writerows(existing_data)
-            
-            print(f"✅ Fichier prices.csv corrigé avec {len(existing_data)} produits")
-            
-        except Exception as e:
-            print(f"❌ Erreur correction format: {e}") 
+            print(f"❌ Erreur suppression produit Firestore: {e}")
+            return False 
