@@ -740,6 +740,25 @@ class PriceManager:
         timestamp = datetime.now().strftime('%m%d')
         
         return f"P{supplier_part}{name_part}{timestamp}"
+
+    # ===== NOUVELLE MÉTHODE ANTI-DOUBLON =====
+    def _product_exists(self, name: str, supplier: str, restaurant: str = 'Général') -> bool:
+        """Vérifier si un produit existe déjà dans la base confirmée (nom + fournisseur + restaurant)"""
+        try:
+            if self.prices_db.empty:
+                return False
+            df = self.prices_db.copy()
+            if 'restaurant' not in df.columns:
+                df['restaurant'] = 'Général'
+            name_clean = str(name).strip().lower()
+            mask = (
+                (df['produit'].str.strip().str.lower() == name_clean) &
+                (df['fournisseur'].str.upper() == supplier.upper()) &
+                (df['restaurant'] == restaurant)
+            )
+            return mask.any()
+        except Exception:
+            return False
     
     def add_confirmed_product_directly(self, product_data: Dict) -> bool:
         """
