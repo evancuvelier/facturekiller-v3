@@ -24,115 +24,131 @@ except Exception:
         return None
 
 class PriceManager:
-    """Gestionnaire des prix de référence"""
+    """Gestionnaire des prix de référence (Firestore uniquement)"""
     
     def __init__(self):
-        self.prices_db = self._load_prices()
-        # Firestore
-        self._fs_enabled = _fs_available()
-        self._fs = _fs_client() if self._fs_enabled else None
+        """Initialiser le gestionnaire de prix (Firestore uniquement)"""
+        # 🔥 FIRESTORE UNIQUEMENT - Plus de fichiers locaux
+        self._fs_enabled = False
+        self._fs = None
         
-    def _load_prices(self) -> pd.DataFrame:
-        """Charger les prix depuis le fichier de données"""
-        prices_file = 'data/prices.csv'
-        
-        if os.path.exists(prices_file):
-            try:
-                return pd.read_csv(prices_file, encoding='utf-8')
-            except Exception as e:
-                logger.error(f"Erreur chargement prix: {e}")
-        
-        # Créer un DataFrame vide avec les colonnes nécessaires
-        return pd.DataFrame(columns=[
-            'code', 'produit', 'fournisseur', 'prix', 'unite', 
-            'categorie', 'date_maj', 'actif'
-        ])
+        # Initialiser Firestore
+        try:
+            from modules.firestore_db import FirestoreDB
+            firestore_db = FirestoreDB()
+            self._fs = firestore_db.db
+            self._fs_enabled = True
+            print("✅ Firestore initialisé pour PriceManager")
+        except Exception as e:
+            print(f"❌ Erreur initialisation Firestore PriceManager: {e}")
+            self._fs_enabled = False
+            self._fs = None
     
     def is_connected(self) -> bool:
-        """Vérifier si la base de données est accessible"""
-        return True  # Pour l'instant, toujours vrai avec fichiers locaux
+        """Vérifier si Firestore est accessible"""
+        return self._fs_enabled and self._fs is not None
     
     def get_all_prices(self, page: int = 1, per_page: int = 50, 
                       search: str = '', supplier: str = '', restaurant_name: str = None) -> Dict[str, Any]:
-        """Récupérer tous les prix de référence avec pagination et filtres INCLUANT RESTAURANT"""
-        # Si per_page est très grand, retourner tous les résultats
-        if per_page > 9999:
-            # Mode "tous les résultats"
-            items = self.prices_db.to_dict('records')
-            for i, item in enumerate(items):
-                item['id'] = i + 1
-            return {
-                'items': items,
-                'total': len(items),
-                'page': 1,
-                'pages': 1,
-                'per_page': len(items)
-            }
-        
-        # Appliquer les filtres
-        filtered_df = self.prices_db.copy()
-        
-        # NOUVEAU FILTRE: Par restaurant
-        if restaurant_name:
-            # Ajouter une colonne restaurant si elle n'existe pas
-            if 'restaurant' not in filtered_df.columns:
-                filtered_df['restaurant'] = 'Général'  # Valeur par défaut
+        """Récupérer tous les prix de référence depuis Firestore uniquement"""
+        try:
+            if not self._fs_enabled:
+                return {
+                    'items': [],
+                    'total': 0,
+                    'page': page,
+                    'pages': 1,
+                    'per_page': per_page,
+                    'error': 'Firestore non disponible'
+                }
             
-            # Filtrer par restaurant OU prix généraux
-            mask = (
-                (filtered_df['restaurant'] == restaurant_name) |
-                (filtered_df['restaurant'] == 'Général') |
-                (filtered_df['restaurant'].isna())
-            )
-            filtered_df = filtered_df[mask]
-        
-        # Filtre par recherche
-        if search:
-            mask = (
-                filtered_df['produit'].str.contains(search, case=False, na=False) |
-                filtered_df['code'].str.contains(search, case=False, na=False)
-            )
-            filtered_df = filtered_df[mask]
-        
-        # Filtre par fournisseur
-        if supplier:
-            filtered_df = filtered_df[filtered_df['fournisseur'] == supplier]
-        
-        # Calculer la pagination
-        total = len(filtered_df)
-        total_pages = max(1, (total + per_page - 1) // per_page)
-        start_idx = (page - 1) * per_page
-        end_idx = start_idx + per_page
-        
-        # Extraire la page
-        page_df = filtered_df.iloc[start_idx:end_idx]
-        
-        # Ajouter des IDs aux enregistrements
-        items = page_df.to_dict('records')
-        for i, item in enumerate(items):
-            item['id'] = start_idx + i + 1
-            # Remplacer NaN par None pour éviter les erreurs JSON
-            for key, value in item.items():
-                if pd.isna(value):
-                    item[key] = None
-        
-        return {
-            'items': items,
-            'total': total,
-            'page': page,
-            'pages': total_pages,
-            'per_page': per_page,
-            'restaurant_filter': restaurant_name
-        }
+            # Construire la requête Firestore
+            query = self._fs.collection('prices')
+            
+            # Appliquer les filtres
+            if supplier:
+                query = query.where('fournisseur', '==', supplier)
+            
+            if restaurant_name:
+                # Filtrer par restaurant OU prix généraux
+                # Note: Firestore ne supporte pas les requêtes OR complexes
+                # On va filtrer côté application
+                pass
+            
+            # Récupérer tous les documents
+            docs = list(query.stream())
+            
+            # Convertir en liste de dictionnaires
+            items = []
+            for doc in docs:
+                data = doc.to_dict()
+                data['id'] = doc.id
+                items.append(data)
+            
+            # Appliquer les filtres côté application
+            if restaurant_name:
+                items = [item for item in items if 
+                        item.get('restaurant') == restaurant_name or 
+                        item.get('restaurant') == 'Général' or 
+                        not item.get('restaurant')]
+            
+            if search:
+                search_lower = search.lower()
+                items = [item for item in items if 
+                        search_lower in item.get('produit', '').lower() or 
+                        search_lower in item.get('code', '').lower()]
+            
+            # Calculer la pagination
+            total = len(items)
+            
+            # Si per_page est très grand, retourner tous les résultats
+            if per_page > 9999:
+                return {
+                    'items': items,
+                    'total': total,
+                    'page': 1,
+                    'pages': 1,
+                    'per_page': total
+                }
+            
+            total_pages = max(1, (total + per_page - 1) // per_page)
+            start_idx = (page - 1) * per_page
+            end_idx = start_idx + per_page
+            
+            # Extraire la page
+            page_items = items[start_idx:end_idx]
+            
+            return {
+                'items': page_items,
+                'total': total,
+                'page': page,
+                'pages': total_pages,
+                'per_page': per_page,
+                'restaurant_filter': restaurant_name
+            }
+            
+        except Exception as e:
+            print(f"❌ Erreur get_all_prices Firestore: {e}")
+            return {
+                'items': [],
+                'total': 0,
+                'page': page,
+                'pages': 1,
+                'per_page': per_page,
+                'error': str(e)
+            }
     
     def import_from_file(self, file_path: str) -> Dict[str, Any]:
-        """
-        Importer des prix depuis un fichier Excel ou CSV
-        
-        Returns:
-            Dict avec statistiques d'import
-        """
+        """Importer des prix depuis un fichier Excel ou CSV vers Firestore uniquement"""
         try:
+            if not self._fs_enabled:
+                return {
+                    'total_rows': 0,
+                    'new_products': 0,
+                    'updated_products': 0,
+                    'errors': ['Firestore non disponible']
+                }
+            
             # Déterminer le type de fichier
             if file_path.endswith('.xlsx') or file_path.endswith('.xls'):
                 df = pd.read_excel(file_path)
@@ -148,7 +164,7 @@ class PriceManager:
                 raise ValueError("Format de fichier non supporté")
             
             # Mapper les colonnes
-            column_mapping = self._detect_column_mapping(df.columns)
+            column_mapping = self._detect_column_mapping(df.columns.tolist())
             df = df.rename(columns=column_mapping)
             
             # Valider les colonnes requises
@@ -159,14 +175,6 @@ class PriceManager:
             
             # Nettoyer et formater les données
             df = self._clean_import_data(df)
-            
-            # Générer les codes produits si manquants
-            if 'code' not in df.columns:
-                df['code'] = df.apply(lambda row: self._generate_product_code(row), axis=1)
-            
-            # Ajouter les métadonnées
-            df['date_maj'] = datetime.now().strftime('%Y-%m-%d')
-            df['actif'] = True
             
             # Statistiques avant import
             stats = {
@@ -179,19 +187,21 @@ class PriceManager:
             # Traiter chaque ligne
             for _, row in df.iterrows():
                 try:
-                    self._import_price_row(row, stats)
+                    self._import_price_row_firestore(row, stats)
                 except Exception as e:
                     stats['errors'].append(f"Ligne {row.name}: {str(e)}")
-            
-            # Sauvegarder
-            self._save_prices()
             
             stats['imported'] = stats['new_products'] + stats['updated_products']
             return stats
             
         except Exception as e:
-            logger.error(f"Erreur import fichier: {e}")
-            raise
+            print(f"❌ Erreur import fichier Firestore: {e}")
+            return {
+                'total_rows': 0,
+                'new_products': 0,
+                'updated_products': 0,
+                'errors': [str(e)]
+            }
     
     def _detect_column_mapping(self, columns: List[str]) -> Dict[str, str]:
         """Détecter automatiquement le mapping des colonnes"""
@@ -217,517 +227,285 @@ class PriceManager:
         return mapping
     
     def _clean_import_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Nettoyer et formater les données importées"""
-        # Nettoyer les prix
-        if 'prix' in df.columns:
-            df['prix'] = pd.to_numeric(
-                df['prix'].astype(str).str.replace(',', '.').str.replace('€', '').str.strip(),
-                errors='coerce'
-            )
-            df = df[df['prix'] > 0]  # Filtrer les prix invalides
-        
-        # Nettoyer les noms de produits
-        if 'produit' in df.columns:
-            df['produit'] = df['produit'].str.strip().str.title()
-        
-        # Fournisseur par défaut
-        if 'fournisseur' not in df.columns:
-            df['fournisseur'] = 'IMPORT'
-        else:
-            df['fournisseur'] = df['fournisseur'].str.upper()
-        
-        # Unité par défaut
-        if 'unite' not in df.columns:
-            df['unite'] = 'pièce'
-        else:
-            df['unite'] = df['unite'].str.lower()
-        
-        return df
+        """Nettoyer les données d'import pour Firestore"""
+        try:
+            # Supprimer les lignes vides
+            df = df.dropna(subset=['produit'])
+            
+            # Nettoyer les noms de produits
+            df['produit'] = df['produit'].astype(str).str.strip()
+            
+            # Convertir les prix en float
+            df['prix'] = pd.to_numeric(df['prix'], errors='coerce').fillna(0)
+            
+            # Nettoyer les fournisseurs
+            df['fournisseur'] = df['fournisseur'].astype(str).str.strip().fillna('UNKNOWN')
+            
+            # Nettoyer les unités
+            df['unite'] = df['unite'].astype(str).str.strip().fillna('unité')
+            
+            # Nettoyer les catégories
+            df['categorie'] = df['categorie'].astype(str).str.strip().fillna('Non classé')
+            
+            return df
+            
+        except Exception as e:
+            print(f"❌ Erreur nettoyage données: {e}")
+            return df
     
-    def _generate_product_code(self, row: pd.Series) -> str:
-        """Générer un code produit unique"""
-        # Prendre les 3 premières lettres du produit et du fournisseur
-        prod_part = ''.join(c for c in row.get('produit', '')[:3] if c.isalnum()).upper()
-        four_part = ''.join(c for c in row.get('fournisseur', '')[:3] if c.isalnum()).upper()
-        
-        # Ajouter un numéro séquentiel
-        base_code = f"{four_part}{prod_part}"
-        counter = 1
-        code = f"{base_code}{counter:03d}"
-        
-        while code in self.prices_db['code'].values:
-            counter += 1
-            code = f"{base_code}{counter:03d}"
-        
-        return code
+    def _generate_product_code_firestore(self, product_name: str, supplier: str) -> str:
+        """Générer un code produit automatique pour Firestore"""
+        try:
+            # Nettoyer le nom du produit
+            clean_name = ''.join(c for c in product_name.upper() if c.isalnum())[:8]
+            # Nettoyer le fournisseur
+            clean_supplier = ''.join(c for c in supplier.upper() if c.isalnum())[:4]
+            # Ajouter timestamp
+            timestamp = datetime.now().strftime('%m%d')
+            
+            return f"{clean_name}_{clean_supplier}_{timestamp}"
+        except:
+            return f"AUTO_{datetime.now().strftime('%Y%m%d%H%M%S')}"
     
-    def _import_price_row(self, row: pd.Series, stats: Dict):
-        """Importer une ligne de prix"""
-        # Vérifier si le produit existe déjà
-        existing_mask = (
-            (self.prices_db['produit'] == row['produit']) &
-            (self.prices_db['fournisseur'] == row.get('fournisseur', 'IMPORT'))
-        )
-        
-        if existing_mask.any():
-            # Mise à jour
-            idx = self.prices_db[existing_mask].index[0]
-            self.prices_db.loc[idx] = row
-            stats['updated_products'] += 1
-        else:
-            # Nouveau produit
-            self.prices_db = pd.concat([self.prices_db, pd.DataFrame([row])], ignore_index=True)
-            stats['new_products'] += 1
+    def _import_price_row_firestore(self, row: pd.Series, stats: Dict):
+        """Importer une ligne de prix dans Firestore"""
+        try:
+            # Préparer les données
+            price_data = {
+                'code': row.get('code', ''),
+                'produit': str(row.get('produit', '')).strip(),
+                'fournisseur': row.get('fournisseur', 'UNKNOWN'),
+                'prix': float(row.get('prix', 0)),
+                'prix_unitaire': float(row.get('prix', 0)),
+                'unite': row.get('unite', 'unité'),
+                'categorie': row.get('categorie', 'Non classé'),
+                'restaurant': row.get('restaurant', 'Général'),
+                'date_maj': datetime.now().isoformat(),
+                'actif': True
+            }
+            
+            # Générer un code si manquant
+            if not price_data['code']:
+                price_data['code'] = self._generate_product_code_firestore(price_data['produit'], price_data['fournisseur'])
+            
+            # Vérifier si le produit existe déjà
+            existing_docs = list(self._fs.collection('prices').where('produit', '==', price_data['produit']).where('fournisseur', '==', price_data['fournisseur']).stream())
+            
+            if existing_docs:
+                # Mettre à jour le produit existant
+                existing_docs[0].reference.update(price_data)
+                stats['updated_products'] += 1
+            else:
+                # Ajouter nouveau produit
+                self._fs.collection('prices').add(price_data)
+                stats['new_products'] += 1
+                
+        except Exception as e:
+            raise Exception(f"Erreur import ligne: {e}")
     
     def _save_prices(self):
-        """Sauvegarder les prix dans le fichier"""
-        os.makedirs('data', exist_ok=True)
-        self.prices_db.to_csv('data/prices.csv', index=False, encoding='utf-8')
+        """Méthode obsolète - Firestore uniquement"""
+        print("⚠️ _save_prices obsolète - Firestore uniquement")
+        pass
     
     def compare_prices(self, products: List[Dict], restaurant_name: str = None) -> Dict[str, Any]:
-        """
-        Comparer les prix des produits scannés avec la base de données existante
-        Ajoute automatiquement les nouveaux produits en attente
-        """
-        print(f"🔍 COMPARE_PRICES: Démarrage pour {len(products)} produits")
-        print(f"🏪 COMPARE_PRICES: Restaurant: {restaurant_name}")
-        
-        if not products:
-            return {
-                'total_savings': 0.0,
-                'items_analyzed': 0,
-                'new_products': 0,
-                'products_details': [],
-                'products_with_price_differences': []
+        """Comparer les prix des produits avec les prix de référence dans Firestore uniquement"""
+        try:
+            if not self._fs_enabled:
+                return {
+                    'total_products': len(products),
+                    'matched_products': 0,
+                    'unmatched_products': len(products),
+                    'price_differences': [],
+                    'missing_products': products
+                }
+            
+            results = {
+                'total_products': len(products),
+                'matched_products': 0,
+                'unmatched_products': 0,
+                'price_differences': [],
+                'missing_products': []
             }
-
-        comparison = {
-            'total_savings': 0.0,
-            'items_analyzed': len(products),
-            'new_products': 0,
-            'products_details': [],
-            'products_with_price_differences': []
-        }
-
-        # Charger les prix existants
-        prices_data = self.get_all_prices(per_page=99999, restaurant_name=restaurant_name)
-        existing_prices = prices_data.get('items', [])
-        
-        print(f"📋 COMPARE_PRICES: Prix existants chargés: {len(existing_prices)}")
-
-        for i, product in enumerate(products):
-            try:
-                # Nettoyer le nom du produit
-                product_name = str(product.get('name', '')).strip()
-                if not product_name:
-                    print(f"⚠️ COMPARE_PRICES: Produit {i} sans nom, ignoré")
-                    continue
-
-                # Prix facturé
-                unit_price = float(product.get('unit_price', 0))
-                if unit_price <= 0:
-                    print(f"⚠️ COMPARE_PRICES: Produit {i} '{product_name}' sans prix valide, ignoré")
-                    continue
-
-                # Obtenir le fournisseur depuis le produit ou utiliser 'SCAN'
-                supplier = product.get('supplier', 'SCAN')
+            
+            for product in products:
+                product_name = product.get('produit', product.get('name', ''))
+                supplier = product.get('fournisseur', product.get('supplier', ''))
+                invoice_price = float(product.get('prix', product.get('price', 0)))
                 
-                print(f"🔍 COMPARE_PRICES: Produit {i+1}/{len(products)}: '{product_name}' - {supplier} - {unit_price}€")
-
-                # Générer un code produit
-                product_code = self._generate_product_code(product_name, supplier)
-
-                # Chercher un prix existant pour ce produit et fournisseur
-                name_clean = product_name.lower().strip()
+                # Chercher le prix de référence
+                ref_price = self.find_product_price(product_name, supplier, restaurant_name)
                 
-                matching_price = None
-                for existing in existing_prices:
-                    existing_name = str(existing.get('produit', '')).lower().strip()
-                    existing_supplier = str(existing.get('fournisseur', '')).upper()
-                    current_supplier = supplier.upper()
+                if ref_price:
+                    ref_price_value = float(ref_price.get('prix', ref_price.get('prix_unitaire', 0)))
+                    price_diff = invoice_price - ref_price_value
+                    price_diff_percent = (price_diff / ref_price_value * 100) if ref_price_value > 0 else 0
                     
-                    if existing_name == name_clean and existing_supplier == current_supplier:
-                        matching_price = existing
-                        print(f"✅ COMPARE_PRICES: Prix existant trouvé pour '{product_name}' ({supplier})")
-                        break
-
-                if matching_price:
-                    # PRODUIT EXISTANT
-                    reference_price = float(matching_price.get('prix', 0))
-                    savings = reference_price - unit_price
-
-                    comparison['total_savings'] += savings
-                    if abs(savings) > 0.01:
-                        comparison['products_with_price_differences'].append({
-                            'product_name': product_name,
-                            'savings': savings,
-                            'unit_price_invoice': unit_price,
-                            'unit_price_reference': reference_price
-                        })
-                    comparison['products_details'].append({
-                        'product_name': product_name,
-                        'product_code': product_code,
-                        'unit_price_invoice': unit_price,
-                        'unit_price_reference': reference_price,
-                        'savings': savings,
-                        'status': 'existing',
-                        'message': f'Économie: {savings:.2f}€' if savings > 0 else f'Surcoût: {abs(savings):.2f}€',
-                        'restaurant': restaurant_name or 'Général'
+                    results['matched_products'] += 1
+                    results['price_differences'].append({
+                        'product': product_name,
+                        'supplier': supplier,
+                        'invoice_price': invoice_price,
+                        'reference_price': ref_price_value,
+                        'difference': price_diff,
+                        'difference_percent': price_diff_percent,
+                        'status': 'match'
                     })
                 else:
-                    # NOUVEAU PRODUIT : Ajouter en attente (prix unitaire uniquement)
-                    print(f"🆕 COMPARE_PRICES: NOUVEAU PRODUIT détecté: '{product_name}' ({supplier}) - {unit_price}€")
-                    comparison['new_products'] += 1
-                    
-                    # Ajouter à la base avec statut "en attente" - PRIX UNITAIRE SEULEMENT
-                    pending_data = {
-                        'code': product_code or '',
-                        'produit': product_name,
-                        'prix': unit_price,  # Prix unitaire uniquement
-                        'unite': product.get('unit', 'unité'),
-                        'fournisseur': supplier,
-                        'categorie': product.get('category', 'Non classé')
-                    }
-                    
-                    # Ajouter le restaurant si spécifié
-                    if restaurant_name:
-                        pending_data['restaurant'] = restaurant_name
-                        print(f"🏪 COMPARE_PRICES: Restaurant ajouté au produit en attente: {restaurant_name}")
-                    else:
-                        print(f"⚠️ COMPARE_PRICES: Aucun restaurant spécifié, utilisera 'Général'")
-                    
-                    print(f"💾 COMPARE_PRICES: Tentative d'ajout en attente: {pending_data}")
-                    success = self.add_pending_product(pending_data)
-                    print(f"📝 COMPARE_PRICES: Résultat ajout en attente: {'✅ Succès' if success else '❌ Échec'}")
-                    
-                    comparison['products_details'].append({
-                        'product_name': product_name,
-                        'product_code': product_code,
-                        'unit_price_invoice': unit_price,
-                        'unit_price_reference': None,
-                        'status': 'new',
-                        'message': f'Nouveau produit à {unit_price:.2f}€/unité - En attente de validation',
-                        'restaurant': restaurant_name or 'Général'
+                    results['unmatched_products'] += 1
+                    results['missing_products'].append({
+                        'product': product_name,
+                        'supplier': supplier,
+                        'invoice_price': invoice_price,
+                        'status': 'missing'
                     })
-
-            except Exception as e:
-                print(f"❌ COMPARE_PRICES: Erreur traitement produit {i}: {e}")
-                continue
-
-        print(f"🏁 COMPARE_PRICES: Terminé - {comparison['new_products']} nouveaux produits ajoutés en attente")
-        return comparison
+            
+            return results
+            
+        except Exception as e:
+            print(f"❌ Erreur compare_prices Firestore: {e}")
+            return {
+                'total_products': len(products),
+                'matched_products': 0,
+                'unmatched_products': len(products),
+                'price_differences': [],
+                'missing_products': products,
+                'error': str(e)
+            }
     
     def add_pending_product_OLD(self, code: str, name: str, price: float, 
                            unit: str = 'unité', supplier: str = 'UNKNOWN', 
                            category: str = 'Non classé') -> int:
-        """[DEPRECATED] Ajouter un produit en attente de validation - Utiliser add_pending_product avec dict"""
-        # Appeler la nouvelle méthode
-        product_data = {
-            'code': code,
-            'produit': name,
-            'prix': price,
-            'unite': unit,
-            'fournisseur': supplier,
-            'categorie': category
-        }
-        success = self.add_pending_product(product_data)
-        return 1 if success else -1
+        """Méthode obsolète - utiliser add_pending_product avec dict"""
+        print("⚠️ add_pending_product_OLD obsolète - utiliser add_pending_product")
+        return 0
     
     def get_pending_products(self) -> List[Dict]:
-        """Récupérer tous les produits en attente de validation"""
-        pending_file = 'data/pending_products.csv'
-        if os.path.exists(pending_file):
-            pending_df = pd.read_csv(pending_file)
-            items = pending_df.to_dict('records')
-            # Remplacer NaN par None pour éviter les erreurs JSON
-            for item in items:
-                for key, value in item.items():
-                    if pd.isna(value):
-                        item[key] = None
-            return items
-        return []
+        """Récupérer tous les produits en attente depuis Firestore uniquement"""
+        try:
+            if not self._fs_enabled:
+                return []
+            
+            docs = list(self._fs.collection('pending_products').stream())
+            products = []
+            for doc in docs:
+                data = doc.to_dict()
+                data['id'] = doc.id
+                products.append(data)
+            
+            print(f"📊 Firestore pending products: {len(products)}")
+            return products
+            
+        except Exception as e:
+            print(f"❌ Erreur get_pending_products Firestore: {e}")
+            return []
     
     def validate_pending_product(self, pending_id: int) -> bool:
-        """Valider un produit en attente et l'ajouter aux prix de référence"""
+        """Valider un produit en attente (le déplacer vers les prix validés)"""
         try:
-            pending_file = 'data/pending_products.csv'
-            prices_file = 'data/prices.csv'
-            
-            if not os.path.exists(pending_file):
+            if not self._fs_enabled:
                 return False
-            
-            pending_df = pd.read_csv(pending_file)
             
             # Récupérer le produit en attente
-            pending_product = pending_df[pending_df['id'] == pending_id]
-            if pending_product.empty:
+            pending_docs = list(self._fs.collection('pending_products').where('id', '==', pending_id).stream())
+            if not pending_docs:
+                print(f"❌ Produit en attente {pending_id} non trouvé")
                 return False
             
-            # Préparer les données pour prices.csv avec la bonne structure
-            pending_data = pending_product.iloc[0].to_dict()
+            pending_doc = pending_docs[0]
+            pending_data = pending_doc.to_dict()
             
-            # Charger prices.csv existant
-            if os.path.exists(prices_file):
-                prices_df = pd.read_csv(prices_file)
-                # Ajouter colonne restaurant si manquante
-                if 'restaurant' not in prices_df.columns:
-                    prices_df['restaurant'] = 'Général'
-                    
-                # 🚨 VÉRIFICATION DOUBLONS AVANT VALIDATION
-                name_clean = pending_data.get('produit', '').strip().lower()
-                supplier_clean = pending_data.get('fournisseur', '').upper()
-                restaurant_check = pending_data.get('restaurant', 'Général')
-                
-                existing_validated = prices_df[
-                    (prices_df['produit'].str.strip().str.lower() == name_clean) & 
-                    (prices_df['fournisseur'].str.upper() == supplier_clean) &
-                    (prices_df['restaurant'] == restaurant_check)
-                ]
-                
-                if not existing_validated.empty:
-                    print(f"⚠️ VALIDATE_PENDING: DOUBLON DÉTECTÉ! Produit '{pending_data.get('produit')}' déjà validé pour {supplier_clean} - Restaurant: {restaurant_check}")
-                    # Supprimer de pending quand même car c'est un doublon
-                    pending_df = pending_df[pending_df['id'] != pending_id]
-                    pending_df.to_csv(pending_file, index=False)
-                    return True  # Retourner true car "techniquement" validé (déjà existe)
-                
-                # Générer un nouvel ID
-                if not prices_df.empty and 'id' in prices_df.columns:
-                    numeric_ids = pd.to_numeric(prices_df['id'], errors='coerce')
-                    max_id = numeric_ids.max()
-                    new_id = int(max_id + 1) if pd.notna(max_id) else 1
-                else:
-                    new_id = 1
-            else:
-                # Créer nouveau fichier avec en-têtes - STRUCTURE COHÉRENTE
-                prices_df = pd.DataFrame(columns=[
-                    'id', 'code', 'produit', 'fournisseur', 'prix', 'unite', 
-                    'categorie', 'restaurant', 'date_ajout', 'actif', 'source'
-                ])
-                new_id = 1
-            
-            # Mapper les colonnes de pending vers prices - CORRECTION STRUCTURE
-            product_data = {
-                'id': new_id,
+            # Préparer les données pour les prix validés
+            validated_data = {
                 'code': pending_data.get('code', ''),
                 'produit': pending_data.get('produit', ''),
                 'fournisseur': pending_data.get('fournisseur', ''),
-                'prix': float(pending_data.get('prix', 0)),  # ✅ CORRECTION: Garder 'prix' pour cohérence
-                'unite': pending_data.get('unite', 'pièce'),
+                'prix': pending_data.get('prix', 0),
+                'prix_unitaire': pending_data.get('prix', 0),
+                'unite': pending_data.get('unite', 'unité'),
                 'categorie': pending_data.get('categorie', 'Non classé'),
-                'restaurant': pending_data.get('restaurant', 'Général'),  # Ajout restaurant
-                'date_ajout': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'date_maj': datetime.now().isoformat(),
                 'actif': True,
-                'source': 'validated_pending'
+                'restaurant': pending_data.get('restaurant', 'Général')
             }
             
-            # Ajouter aux prix de référence
-            prices_df = pd.concat([prices_df, pd.DataFrame([product_data])], ignore_index=True)
-            prices_df.to_csv(prices_file, index=False)
+            # Ajouter aux prix validés
+            self._fs.collection('prices').add(validated_data)
             
-            # Recharger self.prices_db pour synchroniser
-            self.prices_db = self._load_prices()
+            # Supprimer des produits en attente
+            pending_doc.reference.delete()
             
-            # Supprimer de la liste d'attente
-            pending_df = pending_df[pending_df['id'] != pending_id]
-            pending_df.to_csv(pending_file, index=False)
-            
-            print(f"✅ Produit '{product_data['produit']}' validé et ajouté aux prix de référence (ID: {new_id})")
-            
-            # 🔥 Firestore push si activé
-            if self._fs_enabled:
-                try:
-                    doc_id = product_data.get('code') or str(product_data['id'])
-                    self._fs.collection('prices').document(doc_id).set(product_data)
-                except Exception as e:
-                    logger.warning(f"Firestore prices push KO: {e}")
-            
+            print(f"✅ Produit {pending_id} validé et déplacé vers les prix")
             return True
             
         except Exception as e:
-            logger.error(f"Erreur validation produit: {e}")
+            print(f"❌ Erreur validation produit Firestore: {e}")
             return False
     
     def reject_pending_product(self, pending_id: int) -> bool:
-        """Rejeter un produit en attente"""
+        """Rejeter un produit en attente (le supprimer)"""
         try:
-            pending_file = 'data/pending_products.csv'
-            if not os.path.exists(pending_file):
+            if not self._fs_enabled:
                 return False
             
-            pending_df = pd.read_csv(pending_file)
-            initial_len = len(pending_df)
+            # Récupérer le produit en attente
+            pending_docs = list(self._fs.collection('pending_products').where('id', '==', pending_id).stream())
+            if not pending_docs:
+                print(f"❌ Produit en attente {pending_id} non trouvé")
+                return False
             
             # Supprimer le produit
-            pending_df = pending_df[pending_df['id'] != pending_id]
+            pending_docs[0].reference.delete()
             
-            if len(pending_df) < initial_len:
-                pending_df.to_csv(pending_file, index=False)
-                return True
-            
-            return False
+            print(f"✅ Produit {pending_id} rejeté et supprimé")
+            return True
             
         except Exception as e:
-            logger.error(f"Erreur rejet produit: {e}")
+            print(f"❌ Erreur rejet produit Firestore: {e}")
             return False
     
     def update_pending_product(self, pending_id: int, updates: Dict) -> bool:
-        """Mettre à jour un produit en attente (prix, nom, etc.)"""
+        """Mettre à jour un produit en attente"""
         try:
-            pending_file = 'data/pending_products.csv'
-            if not os.path.exists(pending_file):
+            if not self._fs_enabled:
                 return False
             
-            pending_df = pd.read_csv(pending_file)
-            
-            # Vérifier que le produit existe
-            if pending_id not in pending_df['id'].values:
+            # Récupérer le produit en attente
+            pending_docs = list(self._fs.collection('pending_products').where('id', '==', pending_id).stream())
+            if not pending_docs:
+                print(f"❌ Produit en attente {pending_id} non trouvé")
                 return False
             
-            # Appliquer les modifications
-            idx = pending_df[pending_df['id'] == pending_id].index[0]
+            # Mettre à jour le produit
+            updates['date_maj'] = datetime.now().isoformat()
+            pending_docs[0].reference.update(updates)
             
-            # Mettre à jour uniquement les champs fournis
-            updateable_fields = ['produit', 'prix', 'unite', 'code', 'fournisseur', 'categorie']
-            for field in updateable_fields:
-                if field in updates:
-                    pending_df.loc[idx, field] = updates[field]
-            
-            # Mettre à jour la date de modification
-            pending_df.loc[idx, 'date_ajout'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            
-            # Sauvegarder
-            pending_df.to_csv(pending_file, index=False)
-            
+            print(f"✅ Produit {pending_id} mis à jour")
             return True
             
         except Exception as e:
-            logger.error(f"Erreur mise à jour produit en attente: {e}")
+            print(f"❌ Erreur mise à jour produit Firestore: {e}")
             return False
     
     def add_pending_product(self, product_data: Dict) -> bool:
-        """Ajouter un produit en attente depuis un dict (pour scanner batch)"""
+        """Ajouter un produit en attente dans Firestore uniquement"""
         try:
-            print(f"💾 ADD_PENDING: Démarrage ajout produit en attente")
-            print(f"💾 ADD_PENDING: Données reçues: {product_data}")
-            
-            code = product_data.get('code', '')
-            name = product_data.get('produit', product_data.get('name', ''))
-            price = float(product_data.get('prix', product_data.get('price', 0)))
-            unit = product_data.get('unite', product_data.get('unit', 'pièce'))
-            supplier = product_data.get('fournisseur', product_data.get('supplier', 'SCANNER'))
-            restaurant = product_data.get('restaurant', 'Général')  # Nouveau champ restaurant
-            
-            print(f"💾 ADD_PENDING: Valeurs extraites - nom:'{name}', prix:{price}, fournisseur:'{supplier}', restaurant:'{restaurant}'")
-            
-            if not name or price <= 0:
-                print(f"❌ ADD_PENDING: Validation échouée - nom vide ou prix invalide")
+            if not self._fs_enabled:
                 return False
             
-            # Charger les produits en attente
-            pending_file = 'data/pending_products.csv'
-            if os.path.exists(pending_file):
-                pending_df = pd.read_csv(pending_file)
-            else:
-                pending_df = pd.DataFrame(columns=[
-                    'id', 'code', 'produit', 'fournisseur', 'prix', 'unite', 
-                    'categorie', 'date_ajout', 'source', 'restaurant'  # Ajout colonne restaurant
-                ])
+            # Générer un ID unique
+            product_data['id'] = int(datetime.now().timestamp() * 1000)
+            product_data['date_ajout'] = datetime.now().isoformat()
+            product_data['status'] = 'pending'
             
-            # Ajouter la colonne restaurant si elle n'existe pas
-            if 'restaurant' not in pending_df.columns:
-                pending_df['restaurant'] = 'Général'
+            # Ajouter à Firestore
+            self._fs.collection('pending_products').add(product_data)
             
-            # Générer un code si manquant
-            if not code:
-                code = self._generate_pending_code(name, supplier)
-            
-            # 🔍 VÉRIFICATION STRICTE DES DOUBLONS (nom similaire + fournisseur + restaurant)
-            if not pending_df.empty:
-                # Nettoyer les noms pour comparaison (enlever espaces, casse)
-                pending_df['produit_clean'] = pending_df['produit'].str.strip().str.lower()
-                name_clean = name.strip().lower()
-                
-                existing = pending_df[
-                    (pending_df['produit_clean'] == name_clean) & 
-                    (pending_df['fournisseur'].str.upper() == supplier.upper()) &
-                    (pending_df['restaurant'] == restaurant)
-                ]
-                
-                if not existing.empty:
-                    print(f"⚠️ Produit '{name}' ({supplier}) déjà en attente pour {restaurant} - mise à jour du prix")
-                    # Mettre à jour le prix existant au lieu d'ajouter un doublon
-                    idx = existing.index[0]
-                    pending_df.loc[idx, 'prix'] = price
-                    pending_df.loc[idx, 'date_ajout'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    
-                    # Supprimer la colonne temporaire et sauvegarder
-                    pending_df = pending_df.drop('produit_clean', axis=1)
-                    pending_df.to_csv(pending_file, index=False)
-                    return True
-                
-                # Supprimer la colonne temporaire
-                pending_df = pending_df.drop('produit_clean', axis=1)
-            
-            # 🔍 VÉRIFIER AUSSI S'IL EXISTE DÉJÀ DANS LES PRIX VALIDÉS
-            prices_file = 'data/prices.csv'
-            if os.path.exists(prices_file):
-                prices_df = pd.read_csv(prices_file)
-                if not prices_df.empty:
-                    # Ajouter colonne restaurant si manquante
-                    if 'restaurant' not in prices_df.columns:
-                        prices_df['restaurant'] = 'Général'
-                    
-                    # 🚨 VÉRIFICATION STRICTE - nom + fournisseur + restaurant
-                    name_clean = name.strip().lower()
-                    existing_in_prices = prices_df[
-                        (prices_df['produit'].str.strip().str.lower() == name_clean) & 
-                        (prices_df['fournisseur'].str.upper() == supplier.upper()) &
-                        (prices_df['restaurant'] == restaurant)
-                    ]
-                    
-                    if not existing_in_prices.empty:
-                        print(f"ℹ️ DOUBLON DÉTECTÉ: Produit '{name}' ({supplier}) déjà validé pour restaurant {restaurant} - ignoré")
-                        return True  # Ne pas ajouter car déjà validé
-            
-            # Ajouter nouveau produit en attente
-            new_id = int(pending_df['id'].max()) + 1 if not pending_df.empty and 'id' in pending_df.columns else 1
-            new_product = {
-                'id': new_id,
-                'code': code,
-                'produit': name,
-                'fournisseur': supplier,
-                'prix': price,
-                'unite': unit,
-                'categorie': product_data.get('categorie', 'Auto'),
-                'date_ajout': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'source': product_data.get('source', 'scanner_auto'),
-                'restaurant': restaurant  # Ajouter le restaurant
-            }
-            
-            pending_df = pd.concat([pending_df, pd.DataFrame([new_product])], ignore_index=True)
-            
-            # Sauvegarder
-            print(f"💾 ADD_PENDING: Sauvegarde en cours dans {pending_file}")
-            os.makedirs('data', exist_ok=True)
-            pending_df.to_csv(pending_file, index=False)
-            
-            print(f"✅ ADD_PENDING: Nouveau produit en attente sauvegardé: '{name}' ({supplier}) - {price}€ - Restaurant: {restaurant}")
-            print(f"✅ ADD_PENDING: ID assigné: {new_id}")
-            
-            # 🔥 Firestore push si activé
-            if self._fs_enabled:
-                try:
-                    doc_id = new_product.get('code') or str(int(datetime.now().timestamp()))
-                    self._fs.collection('prices').document(doc_id).set(new_product)
-                except Exception as e:
-                    logger.warning(f"Firestore prices push KO: {e}")
-            
+            print(f"✅ Produit en attente ajouté: {product_data.get('produit', '')}")
             return True
             
         except Exception as e:
-            print(f"❌ ADD_PENDING: Erreur lors de l'ajout: {e}")
-            logger.error(f"Erreur ajout produit en attente (dict): {e}")
+            print(f"❌ Erreur ajout produit en attente Firestore: {e}")
             return False
     
     def _generate_pending_code(self, name: str, supplier: str) -> str:
@@ -745,18 +523,11 @@ class PriceManager:
     def _product_exists(self, name: str, supplier: str, restaurant: str = 'Général') -> bool:
         """Vérifier si un produit existe déjà dans la base confirmée (nom + fournisseur + restaurant)"""
         try:
-            if self.prices_db.empty:
+            if not self._fs_enabled:
                 return False
-            df = self.prices_db.copy()
-            if 'restaurant' not in df.columns:
-                df['restaurant'] = 'Général'
-            name_clean = str(name).strip().lower()
-            mask = (
-                (df['produit'].str.strip().str.lower() == name_clean) &
-                (df['fournisseur'].str.upper() == supplier.upper()) &
-                (df['restaurant'] == restaurant)
-            )
-            return mask.any()
+            query = self._fs.collection('prices').where('produit', '==', name).where('fournisseur', '==', supplier).where('restaurant', '==', restaurant)
+            docs = list(query.stream())
+            return bool(docs)
         except Exception:
             return False
     
@@ -769,432 +540,246 @@ class PriceManager:
         return False
 
     def add_price(self, price_data: Dict) -> bool:
-        """
-        Ajouter un nouveau prix de référence
-        AVEC SYNCHRONISATION AUTOMATIQUE si activée
-        """
+        """Ajouter un prix validé dans Firestore uniquement"""
         try:
-            # Valider les données
-            required_fields = ['produit', 'prix']
-            for field in required_fields:
-                if field not in price_data or not price_data[field]:
-                    logger.error(f"Champ requis manquant: {field}")
-                    return False
+            if not self._fs_enabled:
+                return False
             
-            # Préparer les données
-            new_price = {
-                'code': price_data.get('code', ''),
-                'produit': str(price_data['produit']).strip(),
-                'fournisseur': price_data.get('fournisseur', 'UNKNOWN'),
-                'prix': float(price_data['prix']),
-                'unite': price_data.get('unite', 'unité'),
-                'categorie': price_data.get('categorie', 'Non classé'),
-                'restaurant': price_data.get('restaurant', 'Général'),
-                'date_maj': datetime.now().strftime('%Y-%m-%d'),
-                'actif': True
-            }
+            # Ajouter les métadonnées
+            price_data['date_maj'] = datetime.now().isoformat()
+            price_data['actif'] = True
             
-            # Générer un code si manquant
-            if not new_price['code']:
-                temp_series = pd.Series(new_price)
-                new_price['code'] = self._generate_product_code(temp_series)
+            # Ajouter à Firestore
+            self._fs.collection('prices').add(price_data)
             
-            # Ajouter à la base de données
-            new_row = pd.DataFrame([new_price])
-            self.prices_db = pd.concat([self.prices_db, new_row], ignore_index=True)
-            
-            # Sauvegarder
-            self._save_prices()
-            
-            # 🔄 SYNCHRONISATION AUTOMATIQUE
-            restaurant_name = price_data.get('restaurant')
-            if restaurant_name and restaurant_name != 'Général':
-                try:
-                    from sync_manager import SyncManager
-                    sync_manager = SyncManager()
-                    
-                    # Synchroniser vers les autres restaurants du groupe
-                    sync_result = sync_manager.sync_prices_to_group(restaurant_name, price_data)
-                    if sync_result.get('synced_count', 0) > 0:
-                        logger.info(f"Prix synchronisé vers {sync_result['synced_count']} restaurant(s)")
-                except Exception as sync_error:
-                    logger.warning(f"Erreur synchronisation prix: {sync_error}")
-                    # Ne pas faire échouer l'ajout si la sync échoue
-            
-            # 🔥 Firestore push si activé
-            if self._fs_enabled:
-                try:
-                    doc_id = new_price.get('code') or str(int(datetime.now().timestamp()))
-                    self._fs.collection('prices').document(doc_id).set(new_price)
-                except Exception as e:
-                    logger.warning(f"Firestore prices push KO: {e}")
-            
-            logger.info(f"Prix ajouté: {new_price['produit']} - {new_price['prix']}€")
+            print(f"✅ Prix ajouté: {price_data.get('produit', '')}")
             return True
             
         except Exception as e:
-            logger.error(f"Erreur ajout prix: {e}")
+            print(f"❌ Erreur ajout prix Firestore: {e}")
             return False
     
-    def _generate_product_code(self, product_name: str, supplier: str) -> str:
-        """Générer un code produit automatique"""
-        try:
-            # Nettoyer le nom du produit
-            clean_name = ''.join(c for c in product_name.upper() if c.isalnum())[:8]
-            # Nettoyer le fournisseur
-            clean_supplier = ''.join(c for c in supplier.upper() if c.isalnum())[:4]
-            # Ajouter timestamp
-            timestamp = datetime.now().strftime('%m%d')
-            
-            return f"{clean_name}_{clean_supplier}_{timestamp}"
-        except:
-            return f"AUTO_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-    
     def update_price(self, code: str, updates: Dict) -> bool:
-        """Mettre à jour un prix existant"""
+        """Mettre à jour un prix dans Firestore uniquement"""
         try:
-            if code not in self.prices_db['code'].values:
-                raise ValueError(f"Code produit non trouvé: {code}")
+            if not self._fs_enabled:
+                return False
             
-            # Appliquer les mises à jour
-            idx = self.prices_db[self.prices_db['code'] == code].index[0]
-            for key, value in updates.items():
-                if key in self.prices_db.columns:
-                    self.prices_db.loc[idx, key] = value
+            # Chercher le prix par code
+            docs = list(self._fs.collection('prices').where('code', '==', code).stream())
+            if not docs:
+                print(f"❌ Prix avec code {code} non trouvé")
+                return False
             
-            # Mettre à jour la date
-            self.prices_db.loc[idx, 'date_maj'] = datetime.now().strftime('%Y-%m-%d')
+            # Mettre à jour
+            updates['date_maj'] = datetime.now().isoformat()
+            docs[0].reference.update(updates)
             
-            # Sauvegarder
-            self._save_prices()
-            
+            print(f"✅ Prix {code} mis à jour")
             return True
             
         except Exception as e:
-            logger.error(f"Erreur mise à jour prix: {e}")
+            print(f"❌ Erreur mise à jour prix Firestore: {e}")
             return False
     
     def update_price_by_id(self, price_id: int, updates: Dict) -> bool:
-        """Mettre à jour un prix existant par ID"""
+        """Mettre à jour un prix par ID dans Firestore uniquement"""
         try:
-            # Convertir l'ID en index (ID commence à 1, index à 0)
-            idx = price_id - 1
+            if not self._fs_enabled:
+                return False
             
-            if idx < 0 or idx >= len(self.prices_db):
-                raise ValueError(f"ID produit non trouvé: {price_id}")
+            # Chercher le prix par ID
+            docs = list(self._fs.collection('prices').where('id', '==', price_id).stream())
+            if not docs:
+                print(f"❌ Prix avec ID {price_id} non trouvé")
+                return False
             
-            # Appliquer les mises à jour
-            for key, value in updates.items():
-                # Mapper les clés du frontend vers les colonnes de la DB
-                if key == 'produit' and 'produit' in self.prices_db.columns:
-                    self.prices_db.loc[idx, 'produit'] = value
-                elif key == 'prix' and 'prix' in self.prices_db.columns:
-                    self.prices_db.loc[idx, 'prix'] = float(value)
-                elif key == 'unite' and 'unite' in self.prices_db.columns:
-                    self.prices_db.loc[idx, 'unite'] = value
-                elif key in self.prices_db.columns:
-                    self.prices_db.loc[idx, key] = value
+            # Mettre à jour
+            updates['date_maj'] = datetime.now().isoformat()
+            docs[0].reference.update(updates)
             
-            # Mettre à jour la date
-            self.prices_db.loc[idx, 'date_maj'] = datetime.now().strftime('%Y-%m-%d')
-            
-            # Sauvegarder
-            self._save_prices()
-            
+            print(f"✅ Prix {price_id} mis à jour")
             return True
             
         except Exception as e:
-            logger.error(f"Erreur mise à jour prix par ID: {e}")
+            print(f"❌ Erreur mise à jour prix Firestore: {e}")
             return False
     
     def delete_price(self, code: str) -> bool:
-        """Supprimer un prix (désactivation) par code"""
+        """Supprimer un prix par code dans Firestore uniquement"""
         try:
-            if code not in self.prices_db['code'].values:
-                raise ValueError(f"Code produit non trouvé: {code}")
+            if not self._fs_enabled:
+                return False
             
-            # Désactiver au lieu de supprimer
-            idx = self.prices_db[self.prices_db['code'] == code].index[0]
-            self.prices_db.loc[idx, 'actif'] = False
-            self.prices_db.loc[idx, 'date_maj'] = datetime.now().strftime('%Y-%m-%d')
+            # Chercher le prix par code
+            docs = list(self._fs.collection('prices').where('code', '==', code).stream())
+            if not docs:
+                print(f"❌ Prix avec code {code} non trouvé")
+                return False
             
-            # Sauvegarder
-            self._save_prices()
+            # Supprimer
+            docs[0].reference.delete()
             
+            print(f"✅ Prix {code} supprimé")
             return True
             
         except Exception as e:
-            logger.error(f"Erreur suppression prix: {e}")
+            print(f"❌ Erreur suppression prix Firestore: {e}")
             return False
     
     def delete_price_by_id(self, price_id: int) -> bool:
-        """Supprimer un prix (désactivation) par ID"""
+        """Supprimer un prix par ID dans Firestore uniquement"""
         try:
-            # Convertir l'ID en index (ID commence à 1, index à 0)
-            idx = price_id - 1
+            if not self._fs_enabled:
+                return False
             
-            if idx < 0 or idx >= len(self.prices_db):
-                raise ValueError(f"ID produit non trouvé: {price_id}")
+            # Chercher le prix par ID
+            docs = list(self._fs.collection('prices').where('id', '==', price_id).stream())
+            if not docs:
+                print(f"❌ Prix avec ID {price_id} non trouvé")
+                return False
             
-            # Désactiver au lieu de supprimer
-            self.prices_db.loc[idx, 'actif'] = False
-            self.prices_db.loc[idx, 'date_maj'] = datetime.now().strftime('%Y-%m-%d')
+            # Supprimer
+            docs[0].reference.delete()
             
-            # Sauvegarder
-            self._save_prices()
-            
+            print(f"✅ Prix {price_id} supprimé")
             return True
             
         except Exception as e:
-            logger.error(f"Erreur suppression prix par ID: {e}")
+            print(f"❌ Erreur suppression prix Firestore: {e}")
             return False
     
     def delete_price_cascade(self, price_id: int) -> Dict[str, Any]:
-        """Supprimer complètement un produit et toutes ses références (factures, prix en attente)"""
+        """Supprimer un prix et tous ses produits associés dans Firestore uniquement"""
         try:
-            # Récupérer le produit à supprimer
-            if price_id >= len(self.prices_db):
-                return {'success': False, 'error': 'Produit non trouvé'}
+            if not self._fs_enabled:
+                return {
+                    'success': False,
+                    'error': 'Firestore non disponible',
+                    'deleted_price': False,
+                    'deleted_products': 0
+                }
             
-            product_row = self.prices_db.iloc[price_id]
-            product_name = product_row['produit']
-            product_code = product_row.get('code', '')
+            # Chercher le prix par ID
+            docs = list(self._fs.collection('prices').where('id', '==', price_id).stream())
+            if not docs:
+                return {
+                    'success': False,
+                    'error': f'Prix avec ID {price_id} non trouvé',
+                    'deleted_price': False,
+                    'deleted_products': 0
+                }
             
-            # Statistiques de suppression
-            stats = {
-                'product_name': product_name,
-                'deleted_pending': 0,
-                'deleted_invoices': 0,
-                'deleted_references': 0
-            }
+            price_doc = docs[0]
+            price_data = price_doc.to_dict()
             
-            # 1. Supprimer de la base de prix de référence
-            self.prices_db = self.prices_db.drop(self.prices_db.index[price_id]).reset_index(drop=True)
-            self._save_prices()
-            stats['deleted_references'] = 1
+            # Supprimer le prix
+            price_doc.reference.delete()
             
-            # 2. Supprimer des produits en attente (même nom ou code)
-            pending_file = 'data/pending_products.csv'
-            if os.path.exists(pending_file):
-                pending_df = pd.read_csv(pending_file)
-                initial_pending_count = len(pending_df)
-                
-                # Supprimer par nom ou code
-                pending_df = pending_df[
-                    ~((pending_df['produit'].str.lower() == product_name.lower()) |
-                      (pending_df.get('code', '') == product_code))
-                ]
-                
-                stats['deleted_pending'] = initial_pending_count - len(pending_df)
-                pending_df.to_csv(pending_file, index=False)
+            # Supprimer les produits en attente associés
+            pending_docs = list(self._fs.collection('pending_products').where('produit', '==', price_data.get('produit', '')).stream())
+            for doc in pending_docs:
+                doc.reference.delete()
             
-            # 3. Supprimer des factures contenant ce produit
-            invoices_file = 'data/invoices.json'
-            if os.path.exists(invoices_file):
-                try:
-                    with open(invoices_file, 'r', encoding='utf-8') as f:
-                        invoices_data = json.load(f)
-                    
-                    if isinstance(invoices_data, dict) and 'invoices' in invoices_data:
-                        invoices = invoices_data['invoices']
-                        initial_invoice_count = len(invoices)
-                        
-                        # Filtrer les factures qui contiennent ce produit
-                        filtered_invoices = []
-                        for invoice in invoices:
-                            products = invoice.get('products', [])
-                            analysis_products = invoice.get('analysis', {}).get('products', [])
-                            
-                            # Vérifier si le produit est dans cette facture
-                            has_product = False
-                            
-                            for product in products + analysis_products:
-                                if (product.get('name', '').lower() == product_name.lower() or
-                                    product.get('produit', '').lower() == product_name.lower() or
-                                    product.get('code', '') == product_code):
-                                    has_product = True
-                                    break
-                            
-                            if not has_product:
-                                filtered_invoices.append(invoice)
-                        
-                        stats['deleted_invoices'] = initial_invoice_count - len(filtered_invoices)
-                        
-                        # Sauvegarder les factures filtrées
-                        invoices_data['invoices'] = filtered_invoices
-                        invoices_data['last_updated'] = datetime.now().isoformat()
-                        
-                        with open(invoices_file, 'w', encoding='utf-8') as f:
-                            json.dump(invoices_data, f, ensure_ascii=False, indent=2)
-                            
-                except Exception as e:
-                    logger.error(f"Erreur suppression factures: {e}")
-            
-            return {
+            result = {
                 'success': True,
-                'stats': stats,
-                'message': f"Produit '{product_name}' supprimé avec toutes ses références"
+                'deleted_price': True,
+                'deleted_products': len(pending_docs),
+                'price_id': price_id
             }
+            
+            print(f"✅ Prix {price_id} et {len(pending_docs)} produits associés supprimés")
+            return result
             
         except Exception as e:
-            logger.error(f"Erreur suppression cascade: {e}")
-            return {'success': False, 'error': str(e)}
+            print(f"❌ Erreur suppression prix cascade Firestore: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'deleted_price': False,
+                'deleted_products': 0
+            }
     
     def get_suppliers(self) -> List[str]:
-        """Récupérer la liste des fournisseurs disponibles"""
+        """Récupérer la liste des fournisseurs depuis Firestore uniquement"""
         try:
-            # Fournisseurs des prix de référence
-            ref_suppliers = set()
-            if not self.prices_db.empty and 'fournisseur' in self.prices_db.columns:
-                ref_suppliers = set(self.prices_db['fournisseur'].dropna().unique())
+            if not self._fs_enabled:
+                return []
             
-            # Fournisseurs des produits en attente
-            pending_suppliers = set()
-            pending_file = 'data/pending_products.csv'
-            if os.path.exists(pending_file):
-                pending_df = pd.read_csv(pending_file)
-                if not pending_df.empty and 'fournisseur' in pending_df.columns:
-                    pending_suppliers = set(pending_df['fournisseur'].dropna().unique())
+            # Récupérer tous les prix
+            docs = list(self._fs.collection('prices').stream())
+            suppliers = set()
             
-            # Combiner et trier
-            all_suppliers = sorted(list(ref_suppliers.union(pending_suppliers)))
+            for doc in docs:
+                data = doc.to_dict()
+                if data.get('fournisseur'):
+                    suppliers.add(data['fournisseur'])
             
-            # Filtrer les valeurs vides
-            all_suppliers = [s for s in all_suppliers if s and str(s).strip()]
+            suppliers_list = list(suppliers)
+            suppliers_list.sort()
             
-            # 🔥 NOUVEAU: Exclure les fournisseurs supprimés
-            try:
-                from modules.supplier_manager import SupplierManager
-                supplier_manager = SupplierManager()
-                deleted_suppliers = supplier_manager._get_deleted_suppliers()
-                
-                # Filtrer les fournisseurs supprimés
-                all_suppliers = [s for s in all_suppliers if s not in deleted_suppliers]
-                
-                logger.info(f"Fournisseurs filtrés: {len(deleted_suppliers)} supprimés exclus")
-            except Exception as e:
-                logger.warning(f"Impossible de filtrer les fournisseurs supprimés: {e}")
-            
-            return all_suppliers
+            print(f"📊 Firestore suppliers: {len(suppliers_list)}")
+            return suppliers_list
             
         except Exception as e:
-            logger.error(f"Erreur récupération fournisseurs: {e}")
+            print(f"❌ Erreur get_suppliers Firestore: {e}")
             return []
     
     def get_prices_by_suppliers(self, supplier_names: List[str]) -> List[Dict[str, Any]]:
-        """Récupérer les prix pour une liste de fournisseurs spécifiques"""
+        """Récupérer les prix par fournisseurs depuis Firestore uniquement"""
         try:
-            if not supplier_names:
+            if not self._fs_enabled:
                 return []
             
-            # Filtrer les prix par fournisseurs
-            filtered_df = self.prices_db[
-                self.prices_db['fournisseur'].isin(supplier_names)
-            ]
+            all_prices = []
             
-            # Convertir en dictionnaire
-            prices = filtered_df.to_dict('records')
+            for supplier in supplier_names:
+                docs = list(self._fs.collection('prices').where('fournisseur', '==', supplier).stream())
+                for doc in docs:
+                    data = doc.to_dict()
+                    data['id'] = doc.id
+                    all_prices.append(data)
             
-            # Nettoyer les valeurs NaN
-            for price in prices:
-                for key, value in price.items():
-                    if pd.isna(value):
-                        price[key] = None
-            
-            return prices
+            print(f"📊 Firestore prices by suppliers: {len(all_prices)}")
+            return all_prices
             
         except Exception as e:
-            logger.error(f"Erreur récupération prix par fournisseurs: {e}")
+            print(f"❌ Erreur get_prices_by_suppliers Firestore: {e}")
             return []
     
     def find_product_price(self, product_name: str, supplier: str = '', restaurant: str = 'Général') -> Optional[Dict]:
-        """
-        Rechercher le prix d'un produit dans le catalogue
-        
-        Args:
-            product_name: Nom du produit à rechercher
-            supplier: Fournisseur (optionnel)
-            restaurant: Restaurant (défaut: Général)
-            
-        Returns:
-            Dict avec les infos du produit ou None si non trouvé
-        """
+        """Trouver un prix de produit dans Firestore uniquement"""
         try:
-            # Charger les prix validés
-            prices_file = 'data/prices.csv'
-            if not os.path.exists(prices_file):
+            if not self._fs_enabled:
                 return None
             
-            df = pd.read_csv(prices_file)
+            # Construire la requête
+            query = self._fs.collection('prices').where('produit', '==', product_name)
             
-            if df.empty:
+            if supplier:
+                query = query.where('fournisseur', '==', supplier)
+            
+            docs = list(query.stream())
+            
+            if not docs:
                 return None
             
-            # Standardiser les noms pour la recherche
-            product_name_clean = product_name.strip().lower()
+            # Si plusieurs résultats, filtrer par restaurant
+            if len(docs) > 1 and restaurant:
+                filtered_docs = []
+                for doc in docs:
+                    data = doc.to_dict()
+                    if data.get('restaurant') == restaurant or data.get('restaurant') == 'Général':
+                        filtered_docs.append(doc)
+                docs = filtered_docs
             
-            # Recherche exacte d'abord
-            mask = df['produit'].str.lower() == product_name_clean
-            
-            # Filtre fournisseur si spécifié
-            if supplier:
-                mask = mask & (df['fournisseur'] == supplier)
-            
-            # Filtre restaurant si colonne existe
-            if 'restaurant' in df.columns:
-                mask = mask & (
-                    (df['restaurant'] == restaurant) |
-                    (df['restaurant'] == 'Général') |
-                    (df['restaurant'].isna())
-                )
-            
-            matches = df[mask]
-            
-            if not matches.empty:
-                # Prendre le premier match
-                match = matches.iloc[0]
-                return {
-                    'code': match.get('code', ''),
-                    'produit': match.get('produit', ''),
-                    'prix_unitaire': float(match.get('prix', 0)),
-                    'fournisseur': match.get('fournisseur', ''),
-                    'restaurant': match.get('restaurant', 'Général'),
-                    'unite': match.get('unite', 'unité'),
-                    'categorie': match.get('categorie', '')
-                }
-            
-            # Si pas de match exact, essayer une recherche partielle
-            mask_partial = df['produit'].str.lower().str.contains(product_name_clean, na=False)
-            
-            # Filtre fournisseur si spécifié
-            if supplier:
-                mask_partial = mask_partial & (df['fournisseur'] == supplier)
-            
-            # Filtre restaurant si colonne existe
-            if 'restaurant' in df.columns:
-                mask_partial = mask_partial & (
-                    (df['restaurant'] == restaurant) |
-                    (df['restaurant'] == 'Général') |
-                    (df['restaurant'].isna())
-                )
-            
-            partial_matches = df[mask_partial]
-            
-            if not partial_matches.empty:
-                # Prendre le premier match partiel
-                match = partial_matches.iloc[0]
-                return {
-                    'code': match.get('code', ''),
-                    'produit': match.get('produit', ''),
-                    'prix_unitaire': float(match.get('prix', 0)),
-                    'fournisseur': match.get('fournisseur', ''),
-                    'restaurant': match.get('restaurant', 'Général'),
-                    'unite': match.get('unite', 'unité'),
-                    'categorie': match.get('categorie', '')
-                }
+            if docs:
+                data = docs[0].to_dict()
+                data['id'] = docs[0].id
+                return data
             
             return None
             
         except Exception as e:
-            logger.error(f"Erreur recherche produit {product_name}: {e}")
+            print(f"❌ Erreur find_product_price Firestore: {e}")
             return None 
