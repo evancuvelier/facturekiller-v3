@@ -1426,7 +1426,7 @@ class ScannerPro {
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Type d'anomalie</label>
-                            <select class="form-select" id="anomalyType">
+                            <select class="form-select" id="anomalyType" onchange="updateAnomalyFields()">
                                 <option value="missing_item">Article manquant</option>
                                 <option value="wrong_quantity">Quantité incorrecte</option>
                                 <option value="damaged_item">Article endommagé</option>
@@ -1435,10 +1435,51 @@ class ScannerPro {
                                 <option value="other">Autre</option>
                             </select>
                         </div>
+                        
+                        <!-- Champs spécifiques selon le type -->
+                        <div id="anomalySpecificFields">
+                            <!-- Quantité manquante -->
+                            <div id="missingQuantityFields" style="display: none;">
+                                <div class="row">
+                                    <div class="col-6">
+                                        <label class="form-label">Quantité attendue</label>
+                                        <input type="number" class="form-control" id="expectedQuantity" min="1" step="1">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label">Quantité reçue</label>
+                                        <input type="number" class="form-control" id="receivedQuantity" min="0" step="1">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Prix incorrect -->
+                            <div id="wrongPriceFields" style="display: none;">
+                                <div class="row">
+                                    <div class="col-6">
+                                        <label class="form-label">Prix attendu (€)</label>
+                                        <input type="number" class="form-control" id="expectedPrice" min="0" step="0.01">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label">Prix reçu (€)</label>
+                                        <input type="number" class="form-control" id="receivedPrice" min="0" step="0.01">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <div class="mb-3">
-                            <label class="form-label">Description</label>
+                            <label class="form-label">Description détaillée</label>
                             <textarea class="form-control" id="anomalyDescription" rows="3" 
                                       placeholder="Décrivez l'anomalie détectée..."></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="sendEmailToSupplier" checked>
+                                <label class="form-check-label" for="sendEmailToSupplier">
+                                    <i class="bi bi-envelope me-2"></i>Envoyer un email au fournisseur
+                                </label>
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Sévérité</label>
@@ -1476,10 +1517,35 @@ class ScannerPro {
         const type = document.getElementById('anomalyType').value;
         const description = document.getElementById('anomalyDescription').value;
         const severity = document.getElementById('anomalySeverity').value;
+        const sendEmail = document.getElementById('sendEmailToSupplier').checked;
         
         if (!description.trim()) {
             alert('Veuillez décrire l\'anomalie');
             return;
+        }
+        
+        // Récupérer les données spécifiques selon le type
+        let specificData = {};
+        if (type === 'wrong_quantity') {
+            const expectedQty = document.getElementById('expectedQuantity').value;
+            const receivedQty = document.getElementById('receivedQuantity').value;
+            if (expectedQty && receivedQty) {
+                specificData = {
+                    expected_quantity: parseInt(expectedQty),
+                    received_quantity: parseInt(receivedQty),
+                    difference: parseInt(expectedQty) - parseInt(receivedQty)
+                };
+            }
+        } else if (type === 'wrong_price') {
+            const expectedPrice = document.getElementById('expectedPrice').value;
+            const receivedPrice = document.getElementById('receivedPrice').value;
+            if (expectedPrice && receivedPrice) {
+                specificData = {
+                    expected_price: parseFloat(expectedPrice),
+                    received_price: parseFloat(receivedPrice),
+                    difference: parseFloat(expectedPrice) - parseFloat(receivedPrice)
+                };
+            }
         }
         
         // Créer l'anomalie
@@ -1490,6 +1556,8 @@ class ScannerPro {
             type: type,
             description: description,
             severity: severity,
+            specific_data: specificData,
+            send_email: sendEmail,
             timestamp: new Date().toISOString()
         };
         
@@ -1527,6 +1595,36 @@ class ScannerPro {
         }
         
         const anomaliesList = anomaliesSection.querySelector('.anomalies-list');
+        // Construire les détails spécifiques
+        let specificDetails = '';
+        if (anomaly.specific_data) {
+            if (anomaly.type === 'wrong_quantity' && anomaly.specific_data.difference) {
+                specificDetails = `
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            <i class="bi bi-arrow-right me-1"></i>
+                            Quantité attendue: ${anomaly.specific_data.expected_quantity} | 
+                            Quantité reçue: ${anomaly.specific_data.received_quantity} | 
+                            <span class="text-danger">Différence: ${anomaly.specific_data.difference}</span>
+                        </small>
+                    </div>
+                `;
+            } else if (anomaly.type === 'wrong_price' && anomaly.specific_data.difference) {
+                specificDetails = `
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            <i class="bi bi-arrow-right me-1"></i>
+                            Prix attendu: ${anomaly.specific_data.expected_price}€ | 
+                            Prix reçu: ${anomaly.specific_data.received_price}€ | 
+                            <span class="text-danger">Différence: ${anomaly.specific_data.difference}€</span>
+                        </small>
+                    </div>
+                `;
+            }
+        }
+        
+        const emailIcon = anomaly.send_email ? '<i class="bi bi-envelope text-primary me-1"></i>' : '';
+        
         const anomalyHTML = `
             <div class="alert alert-warning d-flex align-items-start" data-anomaly-id="${anomaly.id}">
                 <i class="bi bi-exclamation-triangle me-2 mt-1"></i>
@@ -1535,12 +1633,14 @@ class ScannerPro {
                         <div>
                             <strong>${anomaly.product_name}</strong>
                             <span class="badge bg-${this.getAnomalySeverityColor(anomaly.severity)} ms-2">${this.getAnomalyTypeLabel(anomaly.type)}</span>
+                            ${emailIcon}
                         </div>
                         <button class="btn btn-sm btn-outline-danger" onclick="removeAnomaly(${anomaly.id})">
                             <i class="bi bi-x"></i>
                         </button>
                     </div>
                     <p class="mb-0 mt-1">${anomaly.description}</p>
+                    ${specificDetails}
                 </div>
             </div>
         `;
@@ -1567,6 +1667,24 @@ class ScannerPro {
             case 'expired_item': return 'Périmé';
             case 'other': return 'Autre';
             default: return 'Anomalie';
+        }
+    }
+    
+    // Fonction pour gérer les champs dynamiques selon le type d'anomalie
+    updateAnomalyFields() {
+        const type = document.getElementById('anomalyType').value;
+        const missingFields = document.getElementById('missingQuantityFields');
+        const priceFields = document.getElementById('wrongPriceFields');
+        
+        // Masquer tous les champs spécifiques
+        missingFields.style.display = 'none';
+        priceFields.style.display = 'none';
+        
+        // Afficher les champs appropriés
+        if (type === 'wrong_quantity') {
+            missingFields.style.display = 'block';
+        } else if (type === 'wrong_price') {
+            priceFields.style.display = 'block';
         }
     }
     
@@ -4164,5 +4282,11 @@ function saveAnomaly(productIndex) {
 function removeAnomaly(anomalyId) {
     if (window.scanner) {
         window.scanner.removeAnomaly(anomalyId);
+    }
+}
+
+function updateAnomalyFields() {
+    if (window.scanner) {
+        window.scanner.updateAnomalyFields();
     }
 }

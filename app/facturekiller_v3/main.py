@@ -8,6 +8,7 @@ from flask import Flask, render_template, request, jsonify, send_file, send_from
 from flask_cors import CORS
 import os
 import json
+import requests
 from datetime import datetime, timedelta, date
 import uuid
 from werkzeug.utils import secure_filename
@@ -2024,13 +2025,124 @@ def save_invoice_simple():
             invoice_data['analysis']['restaurant_id'] = current_restaurant.get('id', '')
             invoice_data['analysis']['restaurant_context'] = current_restaurant.get('name', '')
         
-        # 💾 SAUVEGARDER
+        # 💾 SAUVEGARDER LA FACTURE
         invoice_id = invoice_manager.save_invoice(invoice_data)
         
         if not invoice_id:
             raise Exception("Erreur lors de la sauvegarde")
         
-        # 🎉 RETOUR SUCCÈS
+        # 🎯 CRÉER LE FOURNISSEUR SI NÉCESSAIRE
+        supplier_created = False
+        if supplier and supplier not in ['Inconnu', 'UNKNOWN', ''] and current_restaurant:
+            try:
+                from modules.supplier_manager import SupplierManager
+                supplier_manager = SupplierManager()
+                suppliers = supplier_manager.get_all_suppliers()
+                
+                existing_supplier = next((s for s in suppliers if s['name'].lower() == supplier.lower()), None)
+                
+                if not existing_supplier:
+                    # Créer le fournisseur
+                    new_supplier_data = {
+                        'name': supplier,
+                        'contact': '',
+                        'phone': '',
+                        'email': '',
+                        'notes': f'Créé automatiquement lors du scan de facture - Restaurant: {current_restaurant.get("name")}',
+                        'created_at': now.isoformat()
+                    }
+                    supplier_manager.save_supplier(new_supplier_data)
+                    supplier_created = True
+                    
+                    # Associer au restaurant
+                    restaurant_suppliers = current_restaurant.get('suppliers', [])
+                    if supplier not in restaurant_suppliers:
+                        restaurant_suppliers.append(supplier)
+                        restaurants = auth_manager._load_restaurants()
+                        for rest in restaurants:
+                            if rest['id'] == current_restaurant['id']:
+                                rest['suppliers'] = restaurant_suppliers
+                                break
+                        auth_manager._save_restaurants(restaurants)
+                    
+                    print(f"✅ Fournisseur '{supplier}' créé automatiquement")
+            except Exception as e:
+                logger.warning(f"Erreur création fournisseur: {e}")
+        
+        # 🎯 CRÉER LES PRODUITS EN ATTENTE
+        products_created = 0
+        if data.get('products') and isinstance(data['products'], list):
+            try:
+                from modules.price_manager import PriceManager
+                price_manager = PriceManager()
+                
+                for product in data['products']:
+                    if product.get('name') and product.get('unit_price'):
+                        # Vérifier si le produit existe déjà
+                        existing_products = price_manager.get_all_prices()
+                        product_exists = any(
+                            p.get('name', '').lower() == product['name'].lower() and 
+                            p.get('supplier', '').lower() == supplier.lower()
+                            for p in existing_products
+                        )
+                        
+                        if not product_exists:
+                            # Créer le produit en attente
+                            pending_product = {
+                                'name': product['name'],
+                                'supplier': supplier,
+                                'unit_price': float(product['unit_price']),
+                                'quantity': int(product.get('quantity', 1)),
+                                'status': 'pending',
+                                'created_at': now.isoformat(),
+                                'restaurant_id': current_restaurant.get('id') if current_restaurant else None,
+                                'restaurant_name': current_restaurant.get('name') if current_restaurant else None,
+                                'source_invoice': invoice_code
+                            }
+                            
+                            success = price_manager.add_pending_product(pending_product)
+                            if success:
+                                products_created += 1
+                                
+                print(f"✅ {products_created} produit(s) créé(s) en attente")
+            except Exception as e:
+                logger.warning(f"Erreur création produits: {e}")
+        
+        # 🎯 ENVOYER LES EMAILS D'ANOMALIES SI DEMANDÉ
+        emails_sent = 0
+        if anomalies:
+            try:
+                for anomaly in anomalies:
+                    if anomaly.get('send_email', False):
+                        # Envoyer l'email d'anomalie
+                        email_data = {
+                            'supplier': supplier,
+                            'product_name': anomaly.get('product_name', ''),
+                            'anomaly_type': anomaly.get('type', ''),
+                            'description': anomaly.get('description', ''),
+                            'specific_data': anomaly.get('specific_data', {}),
+                            'severity': anomaly.get('severity', 'medium'),
+                            'invoice_code': invoice_code,
+                            'restaurant': current_restaurant.get('name') if current_restaurant else 'Restaurant'
+                        }
+                        
+                        # Appeler la route d'envoi d'email
+                        try:
+                            email_response = requests.post(
+                                f"{request.host_url}api/anomalies/send-notification/{invoice_id}",
+                                json=email_data,
+                                headers={'Content-Type': 'application/json'}
+                            )
+                            if email_response.status_code == 200:
+                                emails_sent += 1
+                                print(f"📧 Email d'anomalie envoyé pour: {anomaly.get('product_name')}")
+                        except Exception as email_error:
+                            logger.warning(f"Erreur envoi email: {email_error}")
+                            
+            except Exception as e:
+                logger.warning(f"Erreur envoi emails: {e}")
+        
+        # 🎉 RETOUR SUCCÈS AVEC DÉTAILS
         return jsonify({
             'success': True,
             'invoice_id': invoice_id,
@@ -2041,7 +2153,13 @@ def save_invoice_simple():
             'anomalies_detected': len(anomalies),
             'anomaly_status': invoice_data['anomaly_status'],
             'validation_required': invoice_data['validation_required'],
-            'message': f'✅ Facture {invoice_code} sauvegardée avec succès' + (f' - {len(anomalies)} anomalie(s) détectée(s)' if anomalies else '')
+            'supplier_created': supplier_created,
+            'products_created': products_created,
+            'emails_sent': emails_sent,
+            'message': f'✅ Facture {invoice_code} sauvegardée avec succès' + 
+                      (f' - Fournisseur créé' if supplier_created else '') +
+                      (f' - {products_created} produit(s) en attente' if products_created > 0 else '') +
+                      (f' - {len(anomalies)} anomalie(s) détectée(s)' if anomalies else '')
         })
         
     except Exception as e:
