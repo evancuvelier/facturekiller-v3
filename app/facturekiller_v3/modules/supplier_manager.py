@@ -177,46 +177,6 @@ class SupplierManager:
         
         print(f"🎯 Total: {len(suppliers)} fournisseurs retournés")
         return suppliers
-
-        try:
-            # Charger les fournisseurs de base
-            with open(self.suppliers_file, 'r', encoding='utf-8') as f:
-                suppliers = json.load(f)
-            
-            # Ajouter les statistiques de produits
-            for supplier in suppliers:
-                supplier_stats = self._get_supplier_stats(supplier['name'])
-                supplier.update(supplier_stats)
-            
-            # Récupérer les fournisseurs supprimés pour les exclure
-            deleted_suppliers = self._get_deleted_suppliers()
-            
-            # Ajouter les fournisseurs qui ont des produits mais pas de fiche
-            # SAUF ceux qui ont été explicitement supprimés
-            all_supplier_names = self._get_all_supplier_names_from_products()
-            existing_names = {s['name'] for s in suppliers}
-            
-            for name in all_supplier_names:
-                if name not in existing_names and name not in deleted_suppliers:
-                    supplier_stats = self._get_supplier_stats(name)
-                    suppliers.append({
-                        'name': name,
-                        'email': '',
-                        'delivery_days': [],
-                        'notes': 'Fournisseur créé automatiquement',
-                        'created_at': datetime.now().isoformat(),
-                        **supplier_stats
-                    })
-            
-            # Sauvegarder la liste des fournisseurs
-            with open(self.suppliers_file, 'w', encoding='utf-8') as f:
-                json.dump(suppliers, f, ensure_ascii=False, indent=2)
-
-            return suppliers
-            
-        except Exception as e:
-            print(f"Erreur lors du chargement des fournisseurs: {e}")
-            return []
     
     def _get_all_supplier_names_from_products(self) -> set:
         """Récupérer tous les noms de fournisseurs depuis les produits"""
@@ -224,24 +184,29 @@ class SupplierManager:
         
         # Depuis les prix validés
         try:
-            with open(self.prices_file, 'r', encoding='utf-8') as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    if row.get('fournisseur'):
-                        names.add(row['fournisseur'])
-        except:
-            pass
+            if os.path.exists(self.prices_file):
+                with open(self.prices_file, 'r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        if row.get('fournisseur'):
+                            names.add(row['fournisseur'])
+                print(f"🔍 Prix validés: {len(names)} fournisseurs trouvés")
+        except Exception as e:
+            print(f"❌ Erreur lecture prix validés: {e}")
         
         # Depuis les produits en attente
         try:
-            with open(self.pending_file, 'r', encoding='utf-8') as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    if row.get('fournisseur'):
-                        names.add(row['fournisseur'])
-        except:
-            pass
+            if os.path.exists(self.pending_file):
+                with open(self.pending_file, 'r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        if row.get('fournisseur'):
+                            names.add(row['fournisseur'])
+                print(f"🔍 Produits en attente: {len(names)} fournisseurs trouvés")
+        except Exception as e:
+            print(f"❌ Erreur lecture produits en attente: {e}")
         
+        print(f"🎯 Fournisseurs trouvés dans les produits: {list(names)}")
         return names
     
     def _get_supplier_stats(self, supplier_name: str) -> Dict:
