@@ -2051,7 +2051,17 @@ def save_invoice_simple():
                         'notes': f'Créé automatiquement lors du scan de facture - Restaurant: {current_restaurant.get("name")}',
                         'created_at': now.isoformat()
                     }
+                    # 🔥 FORCER LA CRÉATION DANS FIRESTORE
                     supplier_manager.save_supplier(new_supplier_data)
+                    
+                    # 🔥 CRÉATION DIRECTE DANS FIRESTORE SI DISPONIBLE
+                    if supplier_manager._fs_enabled and supplier_manager._fs:
+                        try:
+                            supplier_manager._fs.collection('suppliers').document(supplier).set(new_supplier_data)
+                            print(f"🔥 Firestore: Fournisseur '{supplier}' créé directement")
+                        except Exception as e:
+                            print(f"❌ Erreur création Firestore: {e}")
+                    
                     supplier_created = True
                     
                     # Associer au restaurant
@@ -2065,7 +2075,7 @@ def save_invoice_simple():
                                 break
                         auth_manager._save_restaurants(restaurants)
                     
-                    print(f"✅ Fournisseur '{supplier}' créé automatiquement")
+                    print(f"✅ Fournisseur '{supplier}' créé automatiquement (local + Firestore)")
             except Exception as e:
                 logger.warning(f"Erreur création fournisseur: {e}")
         
