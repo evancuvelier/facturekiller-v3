@@ -92,21 +92,91 @@ class SupplierManager:
 
     def get_all_suppliers(self) -> List[Dict]:
         """Récupérer tous les fournisseurs avec leurs statistiques"""
-        # 1️⃣ Firestore d'abord
+        # 🔥 NOUVELLE LOGIQUE : Combiner Firestore ET fichiers locaux
+        suppliers = []
+        
+        # 1️⃣ Récupérer depuis Firestore si disponible
         if getattr(self, '_fs_enabled', False):
             try:
                 docs = list(self._fs.collection('suppliers').stream())
-                suppliers_fs = []
                 for doc in docs:
                     data = doc.to_dict()
                     stats = self._get_supplier_stats(data['name'])
                     data.update(stats)
-                    suppliers_fs.append(data)
-
-                # Même si la collection est vide on renvoie la liste (pour ne pas tomber sur le legacy)
-                return suppliers_fs
+                    suppliers.append(data)
+                print(f"📊 Firestore: {len(suppliers)} fournisseurs récupérés")
             except Exception as e:
                 print(f"Firestore get_all_suppliers KO: {e}")
+        
+        # 2️⃣ Compléter avec les fichiers locaux
+        try:
+            # Charger les fournisseurs de base
+            if os.path.exists(self.suppliers_file):
+                with open(self.suppliers_file, 'r', encoding='utf-8') as f:
+                    local_suppliers = json.load(f)
+                
+                # Ajouter les statistiques de produits
+                for supplier in local_suppliers:
+                    supplier_stats = self._get_supplier_stats(supplier['name'])
+                    supplier.update(supplier_stats)
+                
+                # Récupérer les fournisseurs supprimés pour les exclure
+                deleted_suppliers = self._get_deleted_suppliers()
+                
+                # Ajouter les fournisseurs qui ont des produits mais pas de fiche
+                # SAUF ceux qui ont été explicitement supprimés
+                all_supplier_names = self._get_all_supplier_names_from_products()
+                existing_names = {s['name'] for s in suppliers + local_suppliers}
+                
+                for name in all_supplier_names:
+                    if name not in existing_names and name not in deleted_suppliers:
+                        supplier_stats = self._get_supplier_stats(name)
+                        new_supplier = {
+                            'name': name,
+                            'email': '',
+                            'delivery_days': [],
+                            'notes': 'Fournisseur créé automatiquement',
+                            'created_at': datetime.now().isoformat(),
+                            **supplier_stats
+                        }
+                        suppliers.append(new_supplier)
+                        local_suppliers.append(new_supplier)
+                
+                # Sauvegarder la liste mise à jour
+                with open(self.suppliers_file, 'w', encoding='utf-8') as f:
+                    json.dump(local_suppliers, f, ensure_ascii=False, indent=2)
+                
+                print(f"📊 Local: {len(local_suppliers)} fournisseurs récupérés")
+                
+                # Combiner les listes en évitant les doublons
+                suppliers_dict = {}
+                for supplier in suppliers + local_suppliers:
+                    suppliers_dict[supplier['name']] = supplier
+                
+                suppliers = list(suppliers_dict.values())
+                
+            else:
+                # Si pas de fichier local, créer les fournisseurs depuis les produits
+                deleted_suppliers = self._get_deleted_suppliers()
+                all_supplier_names = self._get_all_supplier_names_from_products()
+                
+                for name in all_supplier_names:
+                    if name not in deleted_suppliers:
+                        supplier_stats = self._get_supplier_stats(name)
+                        suppliers.append({
+                            'name': name,
+                            'email': '',
+                            'delivery_days': [],
+                            'notes': 'Fournisseur créé automatiquement',
+                            'created_at': datetime.now().isoformat(),
+                            **supplier_stats
+                        })
+            
+        except Exception as e:
+            print(f"Erreur lors du chargement des fournisseurs: {e}")
+        
+        print(f"🎯 Total: {len(suppliers)} fournisseurs retournés")
+        return suppliers
 
         try:
             # Charger les fournisseurs de base
@@ -320,9 +390,11 @@ class SupplierManager:
             if getattr(self, '_fs_enabled', False):
                 try:
                     self._fs.collection('suppliers').document(supplier_name).set(supplier_record)
+                    print(f"✅ Firestore: Fournisseur '{supplier_name}' synchronisé")
                 except Exception as e:
                     print(f"Firestore save_supplier KO: {e}")
             
+            print(f"✅ Fournisseur '{supplier_name}' sauvegardé (local + Firestore)")
             return True
             
         except Exception as e:
