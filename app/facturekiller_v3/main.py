@@ -5385,4 +5385,4 @@ if __name__ == '__main__':
     print("   • Factures: http://localhost:5003/factures")
     
     # Démarrer le serveur
-    app.run(debug=True, port=5003, host='0.0.0.0') 
+   app.run(debug=False, port=int(os.environ.get('PORT', 8000)), host='0.0.0.0')
