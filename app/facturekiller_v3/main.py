@@ -4188,9 +4188,9 @@ def manage_restaurant_supplier_products(supplier_name):
                 'created_by': user_context['user']['username']
             }
             
-            # 🎯 CORRECTION: Ajouter le produit DIRECTEMENT en confirmé (pas en attente)
+            # 🎯 CORRECTION: Ajouter le produit en attente (pas directement confirmé)
             # pour les créations manuelles par les restaurants
-            success = price_manager.add_confirmed_product_directly(product_record)
+            success = price_manager.add_pending_product(product_record)
             
             if success:
                 logger.info(f"✅ Produit {product_data['name']} ajouté pour {supplier_name} - Restaurant: {current_restaurant['name']}")
