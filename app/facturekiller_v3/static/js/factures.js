@@ -67,12 +67,14 @@ function initializeEventListeners() {
 // Charger les factures (version simplifiée)
 async function loadInvoices() {
     try {
+        window.showGlobalProgress('Chargement des factures...');
         console.log('📄 Chargement des factures...');
         
         const tableBody = document.querySelector('#invoicesTable tbody');
         if (tableBody) {
             showLoader();
         }
+        window.hideGlobalProgress();
         
         const params = {
             page: currentPage,
@@ -142,6 +144,7 @@ async function loadInvoices() {
             }
         }
     } catch (error) {
+        window.hideGlobalProgress();
         console.error('❌ Erreur chargement factures:', error);
         displayInvoices([]);
     }

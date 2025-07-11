@@ -277,6 +277,41 @@ function showNotification(message, type = 'info') {
 // Export global
 window.showNotification = showNotification;
 
+// === BARRE DE CHARGEMENT GLOBALE ===
+window.showGlobalProgress = function(text = 'Chargement en cours...') {
+    let overlay = document.getElementById('globalProcessingStatus');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'globalProcessingStatus';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:6px;background:#e9ecef;z-index:99999;';
+        overlay.innerHTML = `
+            <div id="globalProcessingProgress" style="width:0%;height:100%;background:#0d6efd;transition:width 0.3s;"></div>
+        `;
+        document.body.appendChild(overlay);
+        // Détails textuels facultatifs
+        const details = document.createElement('div');
+        details.id = 'globalProcessingDetails';
+        details.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);background:#0d6efd;color:white;padding:4px 16px;border-radius:4px;font-size:15px;z-index:10000;box-shadow:0 2px 8px rgba(0,0,0,0.1);';
+        document.body.appendChild(details);
+    }
+    const processingStatus = overlay;
+    const processingDetails = document.getElementById('globalProcessingDetails');
+    if (processingStatus) processingStatus.style.display = 'block';
+    if (processingDetails) processingDetails.textContent = text;
+    // Animation
+    const progressBar = document.getElementById('globalProcessingProgress');
+    if (progressBar) {
+        progressBar.style.width = '10%';
+        setTimeout(() => progressBar.style.width = '80%', 300);
+    }
+};
+window.hideGlobalProgress = function() {
+    const processingStatus = document.getElementById('globalProcessingStatus');
+    if (processingStatus) processingStatus.remove();
+    const processingDetails = document.getElementById('globalProcessingDetails');
+    if (processingDetails) processingDetails.remove();
+};
+
 // ===== APPLICATION PRINCIPALE =====
 
 // Variables globales

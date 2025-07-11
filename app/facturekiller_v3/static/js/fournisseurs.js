@@ -25,6 +25,7 @@ function setupEventListeners() {
 // Charger les fournisseurs du restaurant
 async function loadSuppliers() {
     try {
+        window.showGlobalProgress('Chargement des fournisseurs...');
         console.log('🔄 Chargement des fournisseurs...');
         
         // Utiliser l'API filtrée par restaurant
@@ -116,6 +117,8 @@ async function loadSuppliers() {
     } catch (error) {
         console.error('❌ Erreur réseau:', error);
         showNotification('Erreur de connexion', 'error');
+    } finally {
+        window.hideGlobalProgress();
     }
 }
 

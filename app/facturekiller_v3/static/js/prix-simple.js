@@ -36,6 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Charger les prix
 async function loadPrices() {
     try {
+        window.showGlobalProgress('Chargement des prix...');
         console.log('📊 Chargement des prix...');
         
         // Construire les paramètres avec les filtres
@@ -70,11 +71,11 @@ async function loadPrices() {
         if (data && data.success) {
             displayPrices(data.data || []);
         } else {
-            console.error('❌ Erreur données prix:', data);
             displayPrices([]);
         }
+        window.hideGlobalProgress();
     } catch (error) {
-        console.error('❌ Erreur chargement prix:', error);
+        window.hideGlobalProgress();
         displayPrices([]);
     }
 }
