@@ -1767,7 +1767,6 @@ class ScannerPro {
                     this.showNewProductsNotification(newProductsInfo);
                 } else {
                     this.showNotification('✅ Facture sauvegardée avec succès!', 'success');
-                    // PAS DE REDIRECTION - L'utilisateur reste sur la page pour voir les résultats détaillés
                 }
                 
                 // Marquer la sauvegarde comme effectuée visuellement
@@ -1777,6 +1776,11 @@ class ScannerPro {
                 if (navigator.vibrate) {
                     navigator.vibrate([100, 50, 100]);
                 }
+                
+                // 🎯 RETOUR AU SCANNER DE BASE APRÈS VALIDATION/ANNULATION
+                setTimeout(() => {
+                    this.resetScanner();
+                }, 2000);
                 
             } else {
                 throw new Error(result.error || 'Erreur lors de la sauvegarde');
