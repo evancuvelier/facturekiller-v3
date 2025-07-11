@@ -815,7 +815,7 @@ def process_invoice_analysis(analysis_data, filepath):
         scan_mode = request.form.get('mode', 'libre')
         order_id = request.form.get('order_id')
         
-        # Étape 1: Vérifier et créer automatiquement le fournisseur si nécessaire
+        # Étape 1: Vérifier le fournisseur sans le créer automatiquement
         supplier_name = analysis_data.get('supplier')
         if supplier_name and supplier_name not in ['Inconnu', 'UNKNOWN', '']:
             user_context = auth_manager.get_user_context()
@@ -829,71 +829,14 @@ def process_invoice_analysis(analysis_data, filepath):
                 
                 existing_supplier = next((s for s in suppliers if s['name'].lower() == supplier_name.lower()), None)
                 
-                # Ne pas recréer si le fournisseur a été explicitement supprimé
-                deleted_suppliers = supplier_manager._get_deleted_suppliers() if hasattr(supplier_manager, '_get_deleted_suppliers') else set()
-                
-                if not existing_supplier and supplier_name not in deleted_suppliers:
-                    # 🎯 CRÉER AUTOMATIQUEMENT LE FOURNISSEUR
-                    new_supplier_data = {
-                        'name': supplier_name,
-                        'contact': '',
-                        'phone': '',
-                        'email': '',
-                        'notes': f'Créé automatiquement lors du scan de facture - Restaurant: {current_restaurant.get("name")}',
-                        'created_at': datetime.now().isoformat()
-                    }
-                    supplier_manager.save_supplier(new_supplier_data)
-                    created_now = True
+                # Ne pas créer automatiquement - juste vérifier l'existence
+                if existing_supplier:
+                    print(f"✅ Fournisseur '{supplier_name}' existe déjà")
+                    analysis_data['supplier_exists'] = True
                 else:
-                    # Fournisseur existant mais peut-être pas encore lié au restaurant
-                    created_now = False
-
-                # ➕ Associer le fournisseur au restaurant si absent
-                restaurant_suppliers = current_restaurant.get('suppliers', [])
-                if supplier_name not in restaurant_suppliers:
-                    restaurant_suppliers.append(supplier_name)
-
-                    # Mettre à jour dans le fichier restaurants.json
-                    restaurants = auth_manager._load_restaurants()
-                    for rest in restaurants:
-                        if rest['id'] == current_restaurant['id']:
-                            rest['suppliers'] = restaurant_suppliers
-                            break
-                    auth_manager._save_restaurants(restaurants)
-
-                    print(f"✅ Fournisseur '{supplier_name}' associé au restaurant '{current_restaurant.get('name')}'")
-
-                if created_now:
-                    # Ajouter le fournisseur au restaurant actuel
-                    restaurant_suppliers = current_restaurant.get('suppliers', [])
-                    if supplier_name not in restaurant_suppliers:
-                        restaurant_suppliers.append(supplier_name)
-                        
-                        # Mettre à jour le restaurant avec le nouveau fournisseur
-                        restaurants = auth_manager._load_restaurants()
-                        for rest in restaurants:
-                            if rest['id'] == current_restaurant['id']:
-                                rest['suppliers'] = restaurant_suppliers
-                                break
-                        auth_manager._save_restaurants(restaurants)
-                    
-                    print(f"✅ Fournisseur '{supplier_name}' créé automatiquement pour le restaurant '{current_restaurant.get('name')}'")
-                    analysis_data['new_supplier_created'] = True
-                    analysis_data['supplier_message'] = f"Nouveau fournisseur '{supplier_name}' créé automatiquement"
-                    
-                    # 🔄 SYNCHRONISER LE NOUVEAU FOURNISSEUR VERS LES AUTRES RESTAURANTS DU GROUPE
-                    try:
-                        from modules.sync_manager import SyncManager
-                        sync_manager = SyncManager()
-                        sync_result = sync_manager.sync_suppliers_to_group(current_restaurant['id'], supplier_name)
-                        if sync_result.get('synced_count', 0) > 0:
-                            print(f"✅ Fournisseur '{supplier_name}' synchronisé vers {sync_result['synced_count']} restaurant(s) : {sync_result.get('synced_restaurants', [])}")
-                            analysis_data['supplier_synced'] = True
-                            analysis_data['sync_count'] = sync_result['synced_count']
-                            analysis_data['sync_restaurants'] = sync_result.get('synced_restaurants', [])
-                    except Exception as sync_error:
-                        logger.warning(f"Erreur synchronisation nouveau fournisseur: {sync_error}")
-                        # Ne pas faire échouer l'analyse si la sync échoue
+                    print(f"⚠️ Fournisseur '{supplier_name}' non trouvé - sera créé lors de la validation")
+                    analysis_data['supplier_exists'] = False
+                    analysis_data['supplier_message'] = f"Fournisseur '{supplier_name}' sera créé lors de la validation"
         
         # Étape 2: Comparaison des prix avec filtrage par restaurant
         if analysis_data.get('products'):

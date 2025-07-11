@@ -2012,7 +2012,12 @@ class ScannerPro {
         document.getElementById('uploadZone').style.display = 'block';
         document.getElementById('imagePreview').style.display = 'none';
         document.getElementById('actionButtons').style.display = 'none';
-        document.getElementById('scanResults').style.display = 'none';
+        
+        // Masquer les résultats d'analyse
+        const analysisResults = document.getElementById('analysisResults');
+        if (analysisResults) {
+            analysisResults.style.display = 'none';
+        }
         
         // Nettoyer l'input file
         const fileInput = document.getElementById('fileInput');
